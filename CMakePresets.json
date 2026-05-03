@@ -1,0 +1,107 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 23,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        },
+        {
+            "name": "debug-ninja",
+            "displayName": "Debug (Ninja)",
+            "inherits": [
+                "base"
+            ],
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/debug-ninja",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "release-ninja",
+            "displayName": "Release (Ninja)",
+            "inherits": [
+                "base"
+            ],
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/release-ninja",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "vs2022-x64",
+            "displayName": "Visual Studio 2022 x64",
+            "inherits": [
+                "base"
+            ],
+            "generator": "Visual Studio 17 2022",
+            "binaryDir": "${sourceDir}/out/build/vs2022-x64",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "build-debug-ninja",
+            "configurePreset": "debug-ninja"
+        },
+        {
+            "name": "build-release-ninja",
+            "configurePreset": "release-ninja"
+        },
+        {
+            "name": "build-vs2022-debug",
+            "configurePreset": "vs2022-x64",
+            "configuration": "Debug"
+        },
+        {
+            "name": "build-vs2022-release",
+            "configurePreset": "vs2022-x64",
+            "configuration": "Release"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "test-debug-ninja",
+            "configurePreset": "debug-ninja",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error"
+            }
+        },
+        {
+            "name": "test-release-ninja",
+            "configurePreset": "release-ninja",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error"
+            }
+        },
+        {
+            "name": "test-vs2022-debug",
+            "configurePreset": "vs2022-x64",
+            "configuration": "Debug",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error"
+            }
+        }
+    ]
+}

@@ -1,0 +1,116 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "cmake: configure (debug-ninja)",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "--preset",
+                "debug-ninja"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "cmake: build (debug-ninja)",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "--preset",
+                "build-debug-ninja"
+            ],
+            "dependsOn": "cmake: configure (debug-ninja)",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "ctest: all (debug-ninja)",
+            "type": "process",
+            "command": "ctest",
+            "args": [
+                "--preset",
+                "test-debug-ninja",
+                "--output-on-failure"
+            ],
+            "dependsOn": "cmake: build (debug-ninja)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "ctest: single (debug-ninja)",
+            "type": "process",
+            "command": "ctest",
+            "args": [
+                "--preset",
+                "test-debug-ninja",
+                "--output-on-failure",
+                "-R",
+                "${input:testName}"
+            ],
+            "dependsOn": "cmake: build (debug-ninja)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "cmake: configure (vs2022-x64)",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "--preset",
+                "vs2022-x64"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "cmake: build (vs2022-x64 Debug)",
+            "type": "process",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "--preset",
+                "build-vs2022-debug"
+            ],
+            "dependsOn": "cmake: configure (vs2022-x64)",
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        },
+        {
+            "label": "ctest: all (vs2022-x64 Debug)",
+            "type": "process",
+            "command": "ctest",
+            "args": [
+                "--preset",
+                "test-vs2022-debug",
+                "--output-on-failure"
+            ],
+            "dependsOn": "cmake: build (vs2022-x64 Debug)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "run: EngineStarter (debug-ninja)",
+            "type": "process",
+            "command": "${workspaceFolder}/out/build/debug-ninja/bin/EngineStarter.exe",
+            "dependsOn": "cmake: build (debug-ninja)",
+            "options": {
+                "cwd": "${workspaceFolder}/out/build/debug-ninja/bin"
+            },
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "testName",
+            "type": "promptString",
+            "description": "CTest regex to run",
+            "default": "shader_assets_exist"
+        }
+    ]
+}

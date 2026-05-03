@@ -1,0 +1,13 @@
+build/
+build-vs/
+out/
+.vs/
+.idea/
+*.user
+*.vcxproj.user
+*.sln.docstates
+cmake-build-*/
+external/_gladgen/
+run_stdout.log
+run_stderr.log
+CMakeUserPresets.json
