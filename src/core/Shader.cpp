@@ -1,5 +1,6 @@
 #include "core/Shader.h"
 
+#include "core/Log.h"
 #include "math/Transform.h"
 
 #include <glad/glad.h>
@@ -13,6 +14,18 @@ namespace engine
 {
 Shader::Shader(const std::filesystem::path& vertexShaderPath, const std::filesystem::path& fragmentShaderPath)
 {
+    {
+        std::ostringstream stream;
+        stream << "Loading vertex shader: " << vertexShaderPath.string();
+        Log::info("Shader", stream.str());
+    }
+
+    {
+        std::ostringstream stream;
+        stream << "Loading fragment shader: " << fragmentShaderPath.string();
+        Log::info("Shader", stream.str());
+    }
+
     const std::string vertexSource = readTextFile(vertexShaderPath);
     const std::string fragmentSource = readTextFile(fragmentShaderPath);
 
@@ -46,6 +59,12 @@ Shader::Shader(const std::filesystem::path& vertexShaderPath, const std::filesys
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
+
+    {
+        std::ostringstream stream;
+        stream << "Shader program linked successfully. Program ID: " << m_programId;
+        Log::info("Shader", stream.str());
+    }
 }
 
 Shader::~Shader()
@@ -134,6 +153,13 @@ unsigned int Shader::compileStage(unsigned int stage, const std::string& source,
 
         glDeleteShader(shaderId);
         throw std::runtime_error("Shader compilation failed for '" + path.string() + "':\n" + infoLog);
+    }
+
+    {
+        const char* stageName = stage == GL_VERTEX_SHADER ? "vertex" : "fragment";
+        std::ostringstream stream;
+        stream << "Compiled " << stageName << " shader: " << path.string();
+        Log::info("Shader", stream.str());
     }
 
     return shaderId;

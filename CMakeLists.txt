@@ -49,6 +49,7 @@ find_package(OpenGL REQUIRED)
 set(ENGINE_SOURCES
     src/main.cpp
     src/Application.cpp
+    src/core/Log.cpp
     src/core/Renderer.cpp
     src/core/Shader.cpp
     src/geometry/Geometry.cpp
@@ -75,6 +76,7 @@ set(ENGINE_SOURCES
 
 set(ENGINE_HEADERS
     src/Application.h
+    src/core/Log.h
     src/core/Renderer.h
     src/core/Shader.h
     src/geometry/Geometry.h

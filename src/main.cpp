@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include "core/Log.h"
 #include "core/Renderer.h"
 #include "core/Shader.h"
 #include "math/Transform.h"
@@ -18,12 +19,14 @@
 #include <cmath>
 #include <cstdlib>
 #include <exception>
-#include <iostream>
+#include <sstream>
+#include <string_view>
 
 namespace
 {
 struct RenderObject final
 {
+    std::string_view label;
     const engine::Mesh* mesh = nullptr;
     engine::Transform transform{};
     engine::Vec3 basePosition{};
@@ -60,8 +63,11 @@ int main()
         engine::Capsule capsule;
         engine::Torus torus;
 
+        engine::Log::info("Main", "Building primitive gallery scene.");
+
         std::array<RenderObject, 10> sceneObjects = {};
 
+        sceneObjects[0].label = "Triangle";
         sceneObjects[0].mesh = &triangle.mesh();
         sceneObjects[0].basePosition = engine::Vec3{-5.0f, 2.4f, 0.0f};
         sceneObjects[0].baseRotation = engine::Vec3{0.0f, 0.0f, -0.18f};
@@ -71,6 +77,7 @@ int main()
         sceneObjects[0].bobSpeed = 1.2f;
         sceneObjects[0].phaseOffset = 0.0f;
 
+        sceneObjects[1].label = "Quad";
         sceneObjects[1].mesh = &quad.mesh();
         sceneObjects[1].basePosition = engine::Vec3{-1.7f, 2.4f, 0.0f};
         sceneObjects[1].baseRotation = engine::Vec3{0.0f, 0.0f, 0.35f};
@@ -80,6 +87,7 @@ int main()
         sceneObjects[1].scaleSpeed = 1.4f;
         sceneObjects[1].phaseOffset = 0.5f;
 
+        sceneObjects[2].label = "Plane";
         sceneObjects[2].mesh = &plane.mesh();
         sceneObjects[2].basePosition = engine::Vec3{1.7f, 2.4f, 0.0f};
         sceneObjects[2].baseRotation = engine::Vec3{-0.42f * kPi, 0.28f, 0.0f};
@@ -89,6 +97,7 @@ int main()
         sceneObjects[2].bobSpeed = 0.9f;
         sceneObjects[2].phaseOffset = 1.0f;
 
+        sceneObjects[3].label = "Cube";
         sceneObjects[3].mesh = &cube.mesh();
         sceneObjects[3].basePosition = engine::Vec3{5.0f, 2.4f, 0.0f};
         sceneObjects[3].baseRotation = engine::Vec3{0.45f, 0.65f, 0.0f};
@@ -96,6 +105,7 @@ int main()
         sceneObjects[3].rotationSpeed = 1.1f;
         sceneObjects[3].phaseOffset = 1.6f;
 
+        sceneObjects[4].label = "Pyramid";
         sceneObjects[4].mesh = &pyramid.mesh();
         sceneObjects[4].basePosition = engine::Vec3{-5.0f, -0.6f, 0.0f};
         sceneObjects[4].baseRotation = engine::Vec3{0.0f, -0.45f, 0.0f};
@@ -105,6 +115,7 @@ int main()
         sceneObjects[4].bobSpeed = 1.5f;
         sceneObjects[4].phaseOffset = 2.0f;
 
+        sceneObjects[5].label = "Sphere";
         sceneObjects[5].mesh = &sphere.mesh();
         sceneObjects[5].basePosition = engine::Vec3{-1.7f, -0.6f, 0.0f};
         sceneObjects[5].baseScale = engine::Vec3{0.95f, 0.95f, 0.95f};
@@ -112,6 +123,7 @@ int main()
         sceneObjects[5].scaleSpeed = 1.9f;
         sceneObjects[5].phaseOffset = 2.4f;
 
+        sceneObjects[6].label = "Cylinder";
         sceneObjects[6].mesh = &cylinder.mesh();
         sceneObjects[6].basePosition = engine::Vec3{1.7f, -0.6f, 0.0f};
         sceneObjects[6].baseRotation = engine::Vec3{0.0f, 0.35f, 0.0f};
@@ -119,6 +131,7 @@ int main()
         sceneObjects[6].rotationSpeed = 0.7f;
         sceneObjects[6].phaseOffset = 2.9f;
 
+        sceneObjects[7].label = "Cone";
         sceneObjects[7].mesh = &cone.mesh();
         sceneObjects[7].basePosition = engine::Vec3{5.0f, -0.6f, 0.0f};
         sceneObjects[7].baseRotation = engine::Vec3{0.0f, -0.35f, 0.0f};
@@ -128,6 +141,7 @@ int main()
         sceneObjects[7].bobSpeed = 1.1f;
         sceneObjects[7].phaseOffset = 3.3f;
 
+        sceneObjects[8].label = "Capsule";
         sceneObjects[8].mesh = &capsule.mesh();
         sceneObjects[8].basePosition = engine::Vec3{-2.6f, -3.6f, 0.0f};
         sceneObjects[8].baseRotation = engine::Vec3{0.35f, 0.45f, 0.0f};
@@ -135,6 +149,7 @@ int main()
         sceneObjects[8].rotationSpeed = 0.85f;
         sceneObjects[8].phaseOffset = 3.9f;
 
+        sceneObjects[9].label = "Torus";
         sceneObjects[9].mesh = &torus.mesh();
         sceneObjects[9].basePosition = engine::Vec3{2.6f, -3.6f, 0.0f};
         sceneObjects[9].baseRotation = engine::Vec3{1.1f, 0.35f, 0.25f};
@@ -144,10 +159,39 @@ int main()
         sceneObjects[9].scaleSpeed = 1.6f;
         sceneObjects[9].phaseOffset = 4.4f;
 
+        {
+            std::ostringstream stream;
+            stream << "Scene objects configured: " << sceneObjects.size();
+            engine::Log::info("Main", stream.str());
+        }
+
+        for (const RenderObject& object : sceneObjects)
+        {
+            std::ostringstream stream;
+            stream
+                << object.label
+                << " pos=("
+                << object.basePosition.x
+                << ", "
+                << object.basePosition.y
+                << ", "
+                << object.basePosition.z
+                << ") rotYSpeed="
+                << object.rotationSpeed
+                << " bobAmp="
+                << object.bobAmplitude
+                << " scaleAmp="
+                << object.scaleAmplitude;
+            engine::Log::info("Main", stream.str());
+        }
+
+        engine::Log::info("Main", "Entering main loop.");
+
         while (application.isRunning())
         {
             application.processInput();
             const float timeSeconds = application.timeSeconds();
+            application.updateWindowTitle(timeSeconds);
 
             renderer.setViewport(application.framebufferWidth(), application.framebufferHeight());
             renderer.beginFrame();
@@ -171,7 +215,9 @@ int main()
     }
     catch (const std::exception& exception)
     {
-        std::cerr << "Fatal error: " << exception.what() << '\n';
+        std::ostringstream stream;
+        stream << "Fatal error: " << exception.what();
+        engine::Log::error("Main", stream.str());
         return EXIT_FAILURE;
     }
 

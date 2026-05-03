@@ -22,6 +22,7 @@ class Application final
     void pollEvents() const;
     void present() const;
     float timeSeconds() const;
+    void updateWindowTitle(float timeSeconds);
 
     int framebufferWidth() const noexcept;
     int framebufferHeight() const noexcept;
@@ -40,6 +41,8 @@ class Application final
     int m_windowHeight = 1080;
     int m_framebufferWidth = 1920;
     int m_framebufferHeight = 1080;
+    float m_lastFpsSampleTime = 0.0f;
+    int m_framesSinceLastSample = 0;
     bool m_glfwInitialized = false;
 };
 } // namespace engine

@@ -54,6 +54,8 @@ int engineSourceLayoutExists()
         root / "src" / "main.cpp",
         root / "src" / "Application.h",
         root / "src" / "Application.cpp",
+        root / "src" / "core" / "Log.h",
+        root / "src" / "core" / "Log.cpp",
         root / "src" / "core" / "Renderer.h",
         root / "src" / "core" / "Renderer.cpp",
         root / "src" / "core" / "Shader.h",

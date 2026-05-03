@@ -1,9 +1,12 @@
 #include "core/Renderer.h"
 
+#include "core/Log.h"
 #include "core/Shader.h"
 #include "graphics/Mesh.h"
 
 #include <glad/glad.h>
+
+#include <sstream>
 
 namespace
 {
@@ -20,6 +23,20 @@ Renderer::Renderer()
 {
     glEnable(GL_DEPTH_TEST);
     updateProjectionMatrix();
+
+    Log::info("Renderer", "Renderer initialized.");
+
+    std::ostringstream stream;
+    stream
+        << "Camera position: ("
+        << m_viewPosition.x
+        << ", "
+        << m_viewPosition.y
+        << ", "
+        << m_viewPosition.z
+        << ')';
+    Log::info("Renderer", stream.str());
+    Log::info("Renderer", "Depth testing enabled.");
 }
 
 void Renderer::setViewport(int width, int height)
