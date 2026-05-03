@@ -17,9 +17,14 @@
 ## Repository Layout
 
 - `src/main.cpp` only boots the application and handles fatal errors.
-- `src/Application.*` owns GLFW startup, the window, input, and the main loop.
-- `src/Renderer.*` owns VAO/VBO setup and render-time draw submission.
-- `src/Shader.*` owns file loading, shader compilation, link validation, and uniforms.
+- `src/Application.*` owns GLFW startup, the window, input, buffer swaps, and event polling.
+- `src/core/Renderer.*` owns frame setup, projection/view state, and draw submission.
+- `src/core/Shader.*` owns file loading, shader compilation, link validation, and uniforms.
+- `src/geometry/` owns CPU-side geometry data, procedural 2D generators, and geometry operations.
+- `src/graphics/` contains thin OpenGL wrappers and the `Mesh` class.
+- `src/primitives/` contains reusable geometry sources such as `Triangle`, `Quad`, `Plane`, `Cube`, `Pyramid`, `Sphere`, `Cylinder`, `Cone`, `Capsule`, and `Torus`.
+- `src/math/Types.*` contains foundational vector, color, and matrix helpers.
+- `src/math/Transform.*` contains transform composition helpers.
 - `shaders/` contains runtime GLSL assets and must stay file-based.
 - `tests/` contains lightweight smoke tests registered through CTest.
 - `external/glfw/` is vendored GLFW source.
@@ -88,9 +93,13 @@
 ## Architecture Expectations
 
 - Keep `main.cpp` tiny.
-- Keep windowing and loop code inside `Application`.
-- Keep OpenGL object lifetime and draw submission inside `Renderer`.
+- Keep high-level object wiring in `main.cpp`, not low-level GL setup.
+- Keep windowing and platform interactions inside `Application`.
+- Keep frame setup and draw submission inside `Renderer`.
 - Keep shader file I/O and program creation inside `Shader`.
+- Keep CPU-side shape generation and topology operations inside `geometry/`.
+- Keep raw buffer and vertex-array ownership inside `graphics/` wrappers and `Mesh`.
+- Keep reusable primitive data inside `primitives/`, not in `main.cpp`.
 - Add new systems as focused classes or subsystems, not by bloating existing files.
 - Favor seams that will scale to textures, camera, ECS, batching, and particles.
 
@@ -147,6 +156,7 @@
 - Keep shader sources in external files, never inline strings.
 - Load GLAD only after the GLFW context is current.
 - Keep render setup and per-frame rendering separated.
+- Prefer GPU-driven animation through uniforms and shaders over CPU-side vertex mutation.
 - Be explicit about buffer ownership and deletion.
 
 ## Shader Rules

@@ -1,28 +1,33 @@
 #version 330 core
 
-in vec2 vLocalPosition;
+in vec3 vWorldPosition;
+in vec3 vWorldNormal;
+in vec2 vTexCoord;
+in vec4 vColor;
 
 out vec4 FragColor;
 
-uniform float uTime;
-uniform vec2 uResolution;
+uniform vec3 uViewPosition;
 
 void main()
 {
-    vec2 uv = vLocalPosition * 0.5 + 0.5;
-    float pulse = 0.5 + 0.5 * sin(uTime * 1.6);
-    float ribbon = 0.5 + 0.5 * sin((uv.x + uv.y + uTime * 0.35) * 8.0);
-    float glowCenter = smoothstep(0.62, 0.14, length(vLocalPosition - vec2(0.0, -0.08)));
-    float aspect = uResolution.x / max(uResolution.y, 1.0);
+    vec3 normal = normalize(vWorldNormal);
+    vec3 baseColor = mix(vColor.rgb, 0.35 + 0.45 * abs(normal), 0.45);
+    baseColor = mix(baseColor, vec3(0.98, 0.72, 0.22), 0.20 * (vWorldPosition.y + 0.5));
+    baseColor *= 0.92 + 0.08 * vec3(vTexCoord, 1.0);
 
-    vec3 sunrise = vec3(0.98, 0.47, 0.16);
-    vec3 horizon = vec3(0.13, 0.54, 0.94);
-    vec3 greetingGlow = vec3(1.00, 0.90, 0.42);
+    vec3 lightDirection = normalize(vec3(0.6, 1.1, 0.75));
+    vec3 viewDirection = normalize(uViewPosition - vWorldPosition);
+    vec3 halfVector = normalize(lightDirection + viewDirection);
 
-    vec3 color = mix(sunrise, horizon, uv.y);
-    color = mix(color, greetingGlow, ribbon * 0.30 + glowCenter * 0.45 * pulse);
-    color += vec3(uv.x * 0.06, 0.02 * pulse, (1.0 - uv.x) * 0.10);
-    color *= mix(0.92, 1.05, clamp(aspect / 1.3333, 0.0, 1.5));
+    float ambient = 0.22;
+    float diffuse = max(dot(normal, lightDirection), 0.0);
+    float specular = pow(max(dot(normal, halfVector), 0.0), 48.0);
+    float rim = pow(1.0 - max(dot(normal, viewDirection), 0.0), 3.5);
+
+    vec3 color = baseColor * (ambient + diffuse * 0.90);
+    color += vec3(0.95, 0.98, 1.0) * specular * 0.55;
+    color += vec3(0.28, 0.55, 1.0) * rim * 0.18;
 
     FragColor = vec4(color, 1.0);
 }

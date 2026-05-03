@@ -49,14 +49,54 @@ find_package(OpenGL REQUIRED)
 set(ENGINE_SOURCES
     src/main.cpp
     src/Application.cpp
-    src/Renderer.cpp
-    src/Shader.cpp
+    src/core/Renderer.cpp
+    src/core/Shader.cpp
+    src/geometry/Geometry.cpp
+    src/geometry/Generators.cpp
+    src/geometry/Operations.cpp
+    src/graphics/VertexBuffer.cpp
+    src/graphics/IndexBuffer.cpp
+    src/graphics/VertexArray.cpp
+    src/graphics/Mesh.cpp
+    src/primitives/PrimitiveBuilders.cpp
+    src/primitives/Cube.cpp
+    src/primitives/Quad.cpp
+    src/primitives/Plane.cpp
+    src/primitives/Triangle.cpp
+    src/primitives/Pyramid.cpp
+    src/primitives/Sphere.cpp
+    src/primitives/Cylinder.cpp
+    src/primitives/Cone.cpp
+    src/primitives/Capsule.cpp
+    src/primitives/Torus.cpp
+    src/math/Types.cpp
+    src/math/Transform.cpp
 )
 
 set(ENGINE_HEADERS
     src/Application.h
-    src/Renderer.h
-    src/Shader.h
+    src/core/Renderer.h
+    src/core/Shader.h
+    src/geometry/Geometry.h
+    src/geometry/Generators.h
+    src/geometry/Operations.h
+    src/graphics/VertexBuffer.h
+    src/graphics/IndexBuffer.h
+    src/graphics/VertexArray.h
+    src/graphics/Mesh.h
+    src/primitives/PrimitiveBuilders.h
+    src/primitives/Cube.h
+    src/primitives/Quad.h
+    src/primitives/Plane.h
+    src/primitives/Triangle.h
+    src/primitives/Pyramid.h
+    src/primitives/Sphere.h
+    src/primitives/Cylinder.h
+    src/primitives/Cone.h
+    src/primitives/Capsule.h
+    src/primitives/Torus.h
+    src/math/Types.h
+    src/math/Transform.h
 )
 
 set(ENGINE_SHADERS

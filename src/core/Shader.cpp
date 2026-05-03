@@ -1,4 +1,6 @@
-#include "Shader.h"
+#include "core/Shader.h"
+
+#include "math/Transform.h"
 
 #include <glad/glad.h>
 
@@ -61,7 +63,7 @@ void Shader::use() const
 
 void Shader::setFloat(const std::string& name, float value) const
 {
-    const int location = glGetUniformLocation(m_programId, name.c_str());
+    const int location = uniformLocation(name);
     if (location != -1)
     {
         glUniform1f(location, value);
@@ -70,10 +72,28 @@ void Shader::setFloat(const std::string& name, float value) const
 
 void Shader::setVec2(const std::string& name, float x, float y) const
 {
-    const int location = glGetUniformLocation(m_programId, name.c_str());
+    const int location = uniformLocation(name);
     if (location != -1)
     {
         glUniform2f(location, x, y);
+    }
+}
+
+void Shader::setVec3(const std::string& name, float x, float y, float z) const
+{
+    const int location = uniformLocation(name);
+    if (location != -1)
+    {
+        glUniform3f(location, x, y, z);
+    }
+}
+
+void Shader::setMat4(const std::string& name, const Mat4& value) const
+{
+    const int location = uniformLocation(name);
+    if (location != -1)
+    {
+        glUniformMatrix4fv(location, 1, GL_FALSE, value.data());
     }
 }
 
@@ -133,5 +153,10 @@ void Shader::validateProgramLink(unsigned int programId)
 
         throw std::runtime_error("Shader program linking failed:\n" + infoLog);
     }
+}
+
+int Shader::uniformLocation(const std::string& name) const
+{
+    return glGetUniformLocation(m_programId, name.c_str());
 }
 } // namespace engine

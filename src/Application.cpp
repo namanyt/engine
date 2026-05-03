@@ -1,7 +1,5 @@
 #include "Application.h"
 
-#include "Renderer.h"
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -25,7 +23,7 @@ Application::Application()
     try
     {
         initializeWindow();
-        initializeRenderer();
+        m_shaderDirectory = resolveShaderDirectory();
     }
     catch (...)
     {
@@ -39,21 +37,9 @@ Application::~Application()
     shutdown();
 }
 
-void Application::run()
+bool Application::isRunning() const
 {
-    while (m_window != nullptr && !glfwWindowShouldClose(m_window))
-    {
-        processInput();
-
-        int framebufferWidth = 0;
-        int framebufferHeight = 0;
-        glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
-
-        m_renderer->render(static_cast<float>(glfwGetTime()), framebufferWidth, framebufferHeight);
-
-        glfwSwapBuffers(m_window);
-        glfwPollEvents();
-    }
+    return m_window != nullptr && !glfwWindowShouldClose(m_window);
 }
 
 void Application::initializeWindow()
@@ -85,7 +71,8 @@ void Application::initializeWindow()
         throw std::runtime_error("Failed to load OpenGL functions with GLAD.");
     }
 
-    glViewport(0, 0, m_windowWidth, m_windowHeight);
+    glfwGetFramebufferSize(m_window, &m_framebufferWidth, &m_framebufferHeight);
+    glViewport(0, 0, m_framebufferWidth, m_framebufferHeight);
 
     const auto* vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
     const auto* renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
@@ -96,23 +83,46 @@ void Application::initializeWindow()
     std::cout << "OpenGL version  : " << (version != nullptr ? version : "unknown") << '\n';
 }
 
-void Application::initializeRenderer()
-{
-    m_renderer = std::make_unique<Renderer>(resolveShaderDirectory());
-}
-
 void Application::processInput()
 {
-    if (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    if (m_window != nullptr && glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     {
         glfwSetWindowShouldClose(m_window, GLFW_TRUE);
     }
 }
 
+void Application::pollEvents() const
+{
+    glfwPollEvents();
+}
+
+void Application::present() const
+{
+    glfwSwapBuffers(m_window);
+}
+
+float Application::timeSeconds() const
+{
+    return static_cast<float>(glfwGetTime());
+}
+
+int Application::framebufferWidth() const noexcept
+{
+    return m_framebufferWidth;
+}
+
+int Application::framebufferHeight() const noexcept
+{
+    return m_framebufferHeight;
+}
+
+const std::filesystem::path& Application::shaderDirectory() const noexcept
+{
+    return m_shaderDirectory;
+}
+
 void Application::shutdown() noexcept
 {
-    m_renderer.reset();
-
     if (m_window != nullptr)
     {
         glfwDestroyWindow(m_window);
@@ -133,8 +143,8 @@ void Application::framebufferSizeCallback(GLFWwindow* window, int width, int hei
     auto* application = static_cast<Application*>(glfwGetWindowUserPointer(window));
     if (application != nullptr)
     {
-        application->m_windowWidth = width;
-        application->m_windowHeight = height;
+        application->m_framebufferWidth = width;
+        application->m_framebufferHeight = height;
     }
 }
 
