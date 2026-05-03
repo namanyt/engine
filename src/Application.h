@@ -8,7 +8,7 @@ namespace engine
 {
 class Application final
 {
-public:
+  public:
     Application();
     ~Application();
 
@@ -27,7 +27,7 @@ public:
     int framebufferHeight() const noexcept;
     const std::filesystem::path& shaderDirectory() const noexcept;
 
-private:
+  private:
     void initializeWindow();
     void shutdown() noexcept;
 
@@ -36,10 +36,10 @@ private:
 
     GLFWwindow* m_window = nullptr;
     std::filesystem::path m_shaderDirectory;
-    int m_windowWidth = 1270;
-    int m_windowHeight = 720;
-    int m_framebufferWidth = 1270;
-    int m_framebufferHeight = 720;
+    int m_windowWidth = 1920;
+    int m_windowHeight = 1080;
+    int m_framebufferWidth = 1920;
+    int m_framebufferHeight = 1080;
     bool m_glfwInitialized = false;
 };
 } // namespace engine

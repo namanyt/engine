@@ -20,20 +20,14 @@ public:
 
     void setViewport(int width, int height);
     void beginFrame() const;
-    void draw(
-        const Mesh& mesh,
-        const Shader& shader,
-        const Transform& transform,
-        float timeSeconds,
-        float animationType,
-        float timeOffset) const;
+    void draw(const Mesh& mesh, const Shader& shader, const Transform& transform) const;
 
 private:
     void updateProjectionMatrix();
 
     int m_framebufferWidth = 800;
     int m_framebufferHeight = 600;
-    Vec3 m_viewPosition{0.0f, 0.0f, 4.0f};
+    Vec3 m_viewPosition{0.0f, 0.0f, 13.5f};
     Mat4 m_viewMatrix;
     Mat4 m_projectionMatrix;
 };

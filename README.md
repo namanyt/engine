@@ -72,8 +72,9 @@ ctest --preset test-debug-ninja -R shader_assets_exist --output-on-failure
 - Opens a `1270x720` window
 - Creates an OpenGL 3.3 Core context
 - Loads GLAD after the context is current
-- Renders multiple objects through reusable mesh primitives and the renderer abstraction
-- Uses GPU-driven animation in the vertex shader via shared `u_Time` and per-object offsets
+- Renders a gallery of primitive meshes through the reusable mesh and renderer abstraction
+- Uses core transform math only in the vertex shader: model, view, projection, and normal transforms
+- Animates the demo with basic CPU-side transform updates only: rotation, bobbing, and uniform scaling
 - Closes when `Escape` is pressed
 
 ## Tests

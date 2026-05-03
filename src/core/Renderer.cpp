@@ -37,13 +37,7 @@ void Renderer::beginFrame() const
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Renderer::draw(
-    const Mesh& mesh,
-    const Shader& shader,
-    const Transform& transform,
-    float timeSeconds,
-    float animationType,
-    float timeOffset) const
+void Renderer::draw(const Mesh& mesh, const Shader& shader, const Transform& transform) const
 {
     const Mat4 modelMatrix = transform.modelMatrix();
 
@@ -51,9 +45,6 @@ void Renderer::draw(
     shader.setMat4("uModel", modelMatrix);
     shader.setMat4("uView", m_viewMatrix);
     shader.setMat4("uProjection", m_projectionMatrix);
-    shader.setFloat("u_Time", timeSeconds);
-    shader.setFloat("u_AnimationType", animationType);
-    shader.setFloat("u_TimeOffset", timeOffset);
     shader.setVec3("uViewPosition", m_viewPosition.x, m_viewPosition.y, m_viewPosition.z);
 
     mesh.draw();
