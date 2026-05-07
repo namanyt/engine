@@ -306,6 +306,7 @@ void Application::updateKeyboardState(InputState& inputState) const
     m_previousJumpPressed = jumpPressed;
     inputState.moveDown = glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
                           glfwGetKey(m_window, GLFW_KEY_C) == GLFW_PRESS;
+    inputState.crouch = inputState.moveDown;
     inputState.sprint = glfwGetKey(m_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
 
     const bool debugFreeCameraPressed = glfwGetKey(m_window, GLFW_KEY_F2) == GLFW_PRESS;

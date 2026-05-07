@@ -81,8 +81,11 @@ class Renderer final
     void endFrame(const PostProcessSettings& postProcessSettings,
                   const FrameUniforms& frameUniforms, float timeSeconds) const;
     void beginShadowPass(const FrameUniforms& frameUniforms) const;
+    void drawShadow(const Mesh& mesh, const Mat4& modelMatrix) const;
     void drawShadow(const Mesh& mesh, const Transform& transform) const;
     void endShadowPass() const;
+    void draw(const Mesh& mesh, const Material& material, const Mat4& modelMatrix,
+              const FrameUniforms& frameUniforms) const;
     void draw(const Mesh& mesh, const Material& material, const Transform& transform,
               const FrameUniforms& frameUniforms) const;
     ShaderLibrary& shaderLibrary() noexcept;

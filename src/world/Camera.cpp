@@ -58,6 +58,11 @@ float Camera::pitchDegrees() const noexcept
     return m_pitchDegrees;
 }
 
+float Camera::rollDegrees() const noexcept
+{
+    return m_rollDegrees;
+}
+
 float Camera::fieldOfViewRadians() const noexcept
 {
     return m_fieldOfViewRadians;
@@ -86,16 +91,27 @@ void Camera::moveRelative(float forwardAmount, float rightAmount, float upAmount
 
 void Camera::setYawPitch(float yawDegrees, float pitchDegrees) noexcept
 {
+    setYawPitchRoll(yawDegrees, pitchDegrees, m_rollDegrees);
+}
+
+void Camera::setYawPitchRoll(float yawDegrees, float pitchDegrees, float rollDegrees) noexcept
+{
     constexpr float kPitchLimitDegrees = 89.0f;
 
     m_yawDegrees = yawDegrees;
     m_pitchDegrees = std::clamp(pitchDegrees, -kPitchLimitDegrees, kPitchLimitDegrees);
+    m_rollDegrees = rollDegrees;
     updateBasis();
 }
 
 void Camera::rotate(float yawOffsetDegrees, float pitchOffsetDegrees) noexcept
 {
     setYawPitch(m_yawDegrees + yawOffsetDegrees, m_pitchDegrees + pitchOffsetDegrees);
+}
+
+void Camera::setRollDegrees(float rollDegrees) noexcept
+{
+    setYawPitchRoll(m_yawDegrees, m_pitchDegrees, rollDegrees);
 }
 
 void Camera::setPerspective(float fieldOfViewRadians, float nearPlane, float farPlane) noexcept
@@ -127,7 +143,13 @@ void Camera::updateBasis() noexcept
         std::sin(pitchRadians),
         std::sin(yawRadians) * cosPitch,
     });
-    m_right = normalize(cross(m_front, m_worldUp));
+    const Vec3 baseRight = normalize(cross(m_front, m_worldUp));
+    const Vec3 baseUp = normalize(cross(baseRight, m_front));
+    const float rollRadians = radians(m_rollDegrees);
+    const float cosine = std::cos(rollRadians);
+    const float sine = std::sin(rollRadians);
+
+    m_right = normalize(baseRight * cosine + baseUp * sine);
     m_up = normalize(cross(m_right, m_front));
 }
 } // namespace engine

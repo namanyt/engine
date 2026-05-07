@@ -24,6 +24,7 @@ class ShadowMapPass final
 
     void resize(int size);
     void begin(const Mat4& lightViewProjection) const;
+    void draw(const Mesh& mesh, const Mat4& modelMatrix) const;
     void draw(const Mesh& mesh, const Transform& transform) const;
     void end(int viewportWidth, int viewportHeight) const;
 

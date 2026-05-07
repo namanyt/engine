@@ -48,7 +48,12 @@ void ShadowMapPass::begin(const Mat4& lightViewProjection) const
 
 void ShadowMapPass::draw(const Mesh& mesh, const Transform& transform) const
 {
-    m_shadowShader->setMat4("uModel", transform.modelMatrix());
+    draw(mesh, transform.modelMatrix());
+}
+
+void ShadowMapPass::draw(const Mesh& mesh, const Mat4& modelMatrix) const
+{
+    m_shadowShader->setMat4("uModel", modelMatrix);
     mesh.draw();
 }
 

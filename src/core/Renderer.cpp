@@ -113,13 +113,18 @@ void Renderer::beginShadowPass(const FrameUniforms& frameUniforms) const
 
 void Renderer::drawShadow(const Mesh& mesh, const Transform& transform) const
 {
+    drawShadow(mesh, transform.modelMatrix());
+}
+
+void Renderer::drawShadow(const Mesh& mesh, const Mat4& modelMatrix) const
+{
     if (m_shadowMapPass == nullptr)
     {
         return;
     }
 
     m_profiler.addDrawCall();
-    m_shadowMapPass->draw(mesh, transform);
+    m_shadowMapPass->draw(mesh, modelMatrix);
 }
 
 void Renderer::endShadowPass() const
@@ -135,12 +140,17 @@ void Renderer::endShadowPass() const
 void Renderer::draw(const Mesh& mesh, const Material& material, const Transform& transform,
                     const FrameUniforms& frameUniforms) const
 {
+    draw(mesh, material, transform.modelMatrix(), frameUniforms);
+}
+
+void Renderer::draw(const Mesh& mesh, const Material& material, const Mat4& modelMatrix,
+                    const FrameUniforms& frameUniforms) const
+{
     if (material.shader == nullptr)
     {
         return;
     }
 
-    const Mat4 modelMatrix = transform.modelMatrix();
     const Shader& shader = *material.shader;
 
     shader.use();

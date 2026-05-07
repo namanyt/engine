@@ -53,20 +53,39 @@
     ],
     "buildPresets": [
         {
+            "name": "build-base",
+            "hidden": true,
+            "environment": {
+                "CMAKE_BUILD_PARALLEL_LEVEL": "$penv{NUMBER_OF_PROCESSORS}"
+            }
+        },
+        {
             "name": "build-debug-ninja",
+            "inherits": [
+                "build-base"
+            ],
             "configurePreset": "debug-ninja"
         },
         {
             "name": "build-release-ninja",
+            "inherits": [
+                "build-base"
+            ],
             "configurePreset": "release-ninja"
         },
         {
             "name": "build-vs2022-debug",
+            "inherits": [
+                "build-base"
+            ],
             "configurePreset": "vs2022-x64",
             "configuration": "Debug"
         },
         {
             "name": "build-vs2022-release",
+            "inherits": [
+                "build-base"
+            ],
             "configurePreset": "vs2022-x64",
             "configuration": "Release"
         }

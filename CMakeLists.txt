@@ -80,6 +80,7 @@ set(ENGINE_SOURCES
     src/core/ShaderLibrary.cpp
     src/core/FullScreenPass.cpp
     src/core/PostProcessor.cpp
+    src/core/RenderPipeline.cpp
     src/core/RayEvaluationPass.cpp
     src/core/ShadowMapPass.cpp
     src/geometry/Geometry.cpp
@@ -89,6 +90,8 @@ set(ENGINE_SOURCES
     src/graphics/IndexBuffer.cpp
     src/graphics/VertexArray.cpp
     src/graphics/Mesh.cpp
+    src/systems/TransformSystem.cpp
+    src/systems/RenderSystem.cpp
     src/systems/WorldEcsSystems.cpp
     src/primitives/PrimitiveBuilders.cpp
     src/primitives/Cube.cpp
@@ -122,6 +125,7 @@ set(ENGINE_HEADERS
     src/core/ShaderLibrary.h
     src/core/FullScreenPass.h
     src/core/PostProcessor.h
+    src/core/RenderPipeline.h
     src/core/RayEvaluationPass.h
     src/core/ShadowMapPass.h
     src/geometry/Geometry.h
@@ -147,6 +151,8 @@ set(ENGINE_HEADERS
     src/ecs/Entity.h
     src/ecs/Registry.h
     src/components/WorldComponents.h
+    src/systems/TransformSystem.h
+    src/systems/RenderSystem.h
     src/systems/WorldEcsSystems.h
     src/world/Camera.h
     src/world/FreeCameraController.h

@@ -1,6 +1,8 @@
 #include "systems/WorldEcsSystems.h"
 
 #include "components/WorldComponents.h"
+#include "systems/RenderSystem.h"
+#include "systems/TransformSystem.h"
 #include "world/Camera.h"
 #include "world/Player.h"
 #include "world/Scene.h"
@@ -21,15 +23,6 @@ Component& emplaceOrReplace(engine::ecs::Registry& registry, engine::ecs::Entity
 
     return registry.emplace<Component>(entity, std::forward<Args>(args)...);
 }
-
-engine::Transform buildLegacyTransform(const engine::components::TransformComponent& component)
-{
-    engine::Transform transform{};
-    transform.position = component.position;
-    transform.rotation = component.rotation;
-    transform.scale = component.scale;
-    return transform;
-}
 } // namespace
 
 namespace engine::systems
@@ -47,6 +40,11 @@ ecs::Entity spawnWorldObjectEntity(Scene& scene, std::string_view debugName, Wor
     registry.emplace<components::RenderMeshComponent>(entity, mesh);
     registry.emplace<components::MaterialComponent>(entity, material);
     registry.emplace<components::WorldObjectComponent>(entity, id, kind, semantics, castsShadows);
+    if (kind == WorldObjectKind::Terrain)
+    {
+        registry.emplace<components::TerrainComponent>(entity);
+    }
+
     if (rayOccluderRadius > 0.0f)
     {
         registry.emplace<components::RayOccluderComponent>(entity, rayOccluderOffset,
@@ -99,50 +97,8 @@ ecs::Entity findWorldObjectEntity(const Scene& scene, WorldObjectId id)
 
 void syncLegacySceneFromEcs(Scene& scene)
 {
-    scene.clearRuntimeViews();
-
-    scene.registry()
-        .forEach<components::TransformComponent, components::RenderMeshComponent,
-                 components::MaterialComponent, components::WorldObjectComponent>(
-            [&](ecs::Entity entity, const components::TransformComponent& transformComponent,
-                const components::RenderMeshComponent& renderMesh,
-                const components::MaterialComponent& materialComponent,
-                const components::WorldObjectComponent& worldObjectComponent)
-            {
-                WorldObject object{};
-                if (const components::NameComponent* name =
-                        scene.registry().tryGet<components::NameComponent>(entity);
-                    name != nullptr)
-                {
-                    object.debugName = name->value;
-                }
-
-                object.id = worldObjectComponent.id;
-                object.kind = worldObjectComponent.kind;
-                object.semantics = worldObjectComponent.semantics;
-                object.mesh = renderMesh.mesh;
-                object.transform = buildLegacyTransform(transformComponent);
-                object.material = materialComponent.material;
-                object.castsShadows = worldObjectComponent.castsShadows;
-                scene.addObject(std::move(object));
-            });
-
-    scene.registry().forEach<components::TransformComponent, components::LocalLightComponent>(
-        [&](ecs::Entity, const components::TransformComponent& transformComponent,
-            const components::LocalLightComponent& lightComponent)
-        {
-            LocalLight light = lightComponent.light;
-            light.position = transformComponent.position;
-            scene.localLights.push_back(light);
-        });
-
-    scene.registry().forEach<components::TransformComponent, components::RayOccluderComponent>(
-        [&](ecs::Entity, const components::TransformComponent& transformComponent,
-            const components::RayOccluderComponent& rayOccluder)
-        {
-            scene.rayTracingScene.bounds.push_back(BoundingSphere{
-                transformComponent.position + rayOccluder.centerOffset, rayOccluder.radius});
-        });
+    TransformSystem::updateWorldTransforms(scene);
+    syncLegacySceneFromRenderView(scene, buildRenderSceneView(scene));
 }
 
 void syncPlayerEntity(Scene& scene, ecs::Entity entity, const Player& player, bool activeCamera)
@@ -153,18 +109,71 @@ void syncPlayerEntity(Scene& scene, ecs::Entity entity, const Player& player, bo
         return;
     }
 
-    emplaceOrReplace<components::NameComponent>(registry, entity, std::string{"Player"});
-    emplaceOrReplace<components::TransformComponent>(registry, entity, player.position(),
-                                                     Vec3{0.0f, player.camera().yawDegrees(), 0.0f},
-                                                     Vec3{1.0f, 1.0f, 1.0f});
-    emplaceOrReplace<components::VelocityComponent>(registry, entity, player.velocity());
-    emplaceOrReplace<components::ColliderComponent>(registry, entity, player.collisionRadius(),
-                                                    player.collisionHeight());
-    emplaceOrReplace<components::PlayerComponent>(registry, entity, true);
-    emplaceOrReplace<components::CameraComponent>(
-        registry, entity, player.eyeHeight(), activeCamera, false, player.camera().yawDegrees(),
-        player.camera().pitchDegrees(), player.camera().fieldOfViewRadians(),
-        player.camera().nearPlane());
+    if (!registry.has<components::NameComponent>(entity))
+    {
+        registry.emplace<components::NameComponent>(entity, std::string{"Player"});
+    }
+
+    if (!registry.has<components::TransformComponent>(entity))
+    {
+        registry.emplace<components::TransformComponent>(
+            entity, player.position(), Vec3{0.0f, player.camera().yawDegrees(), 0.0f},
+            Vec3{1.0f, 1.0f, 1.0f});
+    }
+
+    if (!registry.has<components::VelocityComponent>(entity))
+    {
+        registry.emplace<components::VelocityComponent>(entity, player.velocity());
+    }
+
+    if (!registry.has<components::ColliderComponent>(entity))
+    {
+        registry.emplace<components::ColliderComponent>(entity, player.collisionRadius(),
+                                                        player.collisionHeight());
+    }
+
+    if (!registry.has<components::PlayerComponent>(entity))
+    {
+        registry.emplace<components::PlayerComponent>(entity, true);
+    }
+    else
+    {
+        registry.get<components::PlayerComponent>(entity).active = true;
+    }
+
+    if (!registry.has<components::PlayerInputComponent>(entity))
+    {
+        registry.emplace<components::PlayerInputComponent>(entity);
+    }
+
+    if (!registry.has<components::GroundingComponent>(entity))
+    {
+        registry.emplace<components::GroundingComponent>(entity);
+    }
+
+    if (!registry.has<components::CameraPresentationComponent>(entity))
+    {
+        registry.emplace<components::CameraPresentationComponent>(entity);
+    }
+
+    if (!registry.has<components::PlayerControllerComponent>(entity))
+    {
+        registry.emplace<components::PlayerControllerComponent>(entity);
+    }
+
+    if (!registry.has<components::CameraComponent>(entity))
+    {
+        registry.emplace<components::CameraComponent>(
+            entity, player.eyeHeight(), activeCamera, false, player.camera().yawDegrees(),
+            player.camera().pitchDegrees(), player.camera().rollDegrees(),
+            player.camera().fieldOfViewRadians(), player.camera().nearPlane());
+    }
+    else
+    {
+        components::CameraComponent& camera = registry.get<components::CameraComponent>(entity);
+        camera.active = activeCamera;
+        camera.debugFreeCamera = false;
+    }
 }
 
 void syncCameraEntity(Scene& scene, ecs::Entity entity, const Camera& camera, bool activeCamera,

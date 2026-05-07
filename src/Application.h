@@ -16,6 +16,7 @@ struct InputState final
     bool moveRight = false;
     bool moveUp = false;
     bool moveDown = false;
+    bool crouch = false;
     bool jump = false;
     bool sprint = false;
     bool toggleDebugFreeCamera = false;

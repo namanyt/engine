@@ -16,6 +16,7 @@ class Camera final
     const Vec3& up() const noexcept;
     float yawDegrees() const noexcept;
     float pitchDegrees() const noexcept;
+    float rollDegrees() const noexcept;
     float fieldOfViewRadians() const noexcept;
     float nearPlane() const noexcept;
 
@@ -23,7 +24,9 @@ class Camera final
     void translate(const Vec3& offset) noexcept;
     void moveRelative(float forwardAmount, float rightAmount, float upAmount) noexcept;
     void setYawPitch(float yawDegrees, float pitchDegrees) noexcept;
+    void setYawPitchRoll(float yawDegrees, float pitchDegrees, float rollDegrees) noexcept;
     void rotate(float yawOffsetDegrees, float pitchOffsetDegrees) noexcept;
+    void setRollDegrees(float rollDegrees) noexcept;
     void setPerspective(float fieldOfViewRadians, float nearPlane, float farPlane) noexcept;
 
     Mat4 viewMatrix() const;
@@ -39,6 +42,7 @@ class Camera final
     Vec3 m_up{0.0f, 1.0f, 0.0f};
     float m_yawDegrees = -90.0f;
     float m_pitchDegrees = 0.0f;
+    float m_rollDegrees = 0.0f;
     float m_fieldOfViewRadians = 0.78539816339f;
     float m_nearPlane = 0.1f;
     float m_farPlane = 160.0f;

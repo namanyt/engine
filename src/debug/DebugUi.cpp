@@ -396,6 +396,8 @@ void DebugUi::draw(Scene& scene, Player& player, PlayerController& playerControl
 
     ImGui::TextUnformatted("Exploration");
     ImGui::Separator();
+    ImGui::TextUnformatted("F1 toggles menu visibility. Esc toggles cursor capture.");
+    ImGui::Text("Cursor Captured: %s", scene.movementDebug.cursorCaptured ? "yes" : "no");
 
     ImGui::Checkbox("Debug Freecam", &debugFreeCameraEnabled);
     ImGui::Text("Player Mode: %s", debugFreeCameraEnabled ? "Debug Freecam" : "Grounded FPS");
@@ -404,6 +406,65 @@ void DebugUi::draw(Scene& scene, Player& player, PlayerController& playerControl
                 player.position().z);
     ImGui::Text("Player Velocity: %.2f %.2f %.2f", player.velocity().x, player.velocity().y,
                 player.velocity().z);
+    ImGui::Text("Frame Delta: %.3f ms", scene.movementDebug.deltaSeconds * 1000.0f);
+    ImGui::Text("Fixed Step / Steps / Accumulator: %.3f ms / %d / %.3f ms",
+                scene.movementDebug.simulationStepSeconds * 1000.0f, scene.movementDebug.fixedSteps,
+                scene.movementDebug.accumulatorSeconds * 1000.0f);
+    ImGui::Text("Dropped Sim / Present Alpha / Clamped: %.3f ms / %.2f / %s",
+                scene.movementDebug.droppedSimulationSeconds * 1000.0f,
+                scene.movementDebug.presentationAlpha,
+                scene.movementDebug.simulationClamped ? "yes" : "no");
+    ImGui::Text("Terrain Height / Support Height: %.2f / %.2f", scene.movementDebug.terrainHeight,
+                scene.movementDebug.supportHeight);
+    ImGui::Text("Slope Angle / Support Distance: %.2f deg / %.3f",
+                scene.movementDebug.slopeAngleDegrees, scene.movementDebug.supportDistance);
+    ImGui::Text("Support Persist / Retained: %.3f / %s",
+                scene.movementDebug.supportPersistenceRemaining,
+                scene.movementDebug.supportRetained ? "yes" : "no");
+    ImGui::Text("Input Direction: %.2f %.2f %.2f", scene.movementDebug.inputDirection.x,
+                scene.movementDebug.inputDirection.y, scene.movementDebug.inputDirection.z);
+    ImGui::Text("Desired Velocity: %.2f %.2f %.2f", scene.movementDebug.desiredVelocity.x,
+                scene.movementDebug.desiredVelocity.y, scene.movementDebug.desiredVelocity.z);
+    ImGui::Text("Projected Velocity: %.2f %.2f %.2f", scene.movementDebug.projectedVelocity.x,
+                scene.movementDebug.projectedVelocity.y, scene.movementDebug.projectedVelocity.z);
+    ImGui::Text("Collision Count / Sweep Iterations: %d / %d", scene.movementDebug.collisionCount,
+                scene.movementDebug.sweepIterations);
+    ImGui::Text("Collision Triangles / Penetration Recoveries: %d / %d",
+                scene.movementDebug.collisionTriangleCount,
+                scene.movementDebug.penetrationRecoveries);
+    ImGui::Text("Cache Rebuilt / Stale Collider Change: %s / %s",
+                scene.movementDebug.collisionCacheRebuilt ? "yes" : "no",
+                scene.movementDebug.staleColliderDetected ? "yes" : "no");
+    ImGui::Text("Last Collision Normal: %.2f %.2f %.2f", scene.movementDebug.lastCollisionNormal.x,
+                scene.movementDebug.lastCollisionNormal.y,
+                scene.movementDebug.lastCollisionNormal.z);
+    ImGui::Text("Last Surface Motion: %.3f %.3f %.3f", scene.movementDebug.lastSurfaceMotion.x,
+                scene.movementDebug.lastSurfaceMotion.y, scene.movementDebug.lastSurfaceMotion.z);
+    ImGui::Text("Support Normal: %.2f %.2f %.2f", scene.movementDebug.supportNormal.x,
+                scene.movementDebug.supportNormal.y, scene.movementDebug.supportNormal.z);
+    ImGui::Text("Support Point: %.2f %.2f %.2f", scene.movementDebug.supportPoint.x,
+                scene.movementDebug.supportPoint.y, scene.movementDebug.supportPoint.z);
+    ImGui::Text("Camera Offset / Landing Dip: %.3f %.3f %.3f / %.3f",
+                scene.movementDebug.cameraOffset.x, scene.movementDebug.cameraOffset.y,
+                scene.movementDebug.cameraOffset.z, scene.movementDebug.landingDip);
+    ImGui::Text("Capsule Radius / Height: %.2f / %.2f", scene.movementDebug.capsuleRadius,
+                scene.movementDebug.capsuleHeight);
+    ImGui::Text("Traversal: crouch=%s step-up=%s support=%s",
+                scene.movementDebug.crouching ? "yes" : "no",
+                scene.movementDebug.stepUpApplied ? "yes" : "no",
+                scene.movementDebug.supportHit ? "yes" : "no");
+    ImGui::Text("Grounded Duration / Coyote / Jump Buffer: %.3f / %.3f / %.3f",
+                scene.movementDebug.groundedDuration, scene.movementDebug.coyoteTimeRemaining,
+                scene.movementDebug.jumpBufferRemaining);
+    ImGui::Text("Support Acquisitions / Ground->Air / Air->Ground: %d / %d / %d",
+                scene.movementDebug.supportAcquisitionCount,
+                scene.movementDebug.airborneTransitionCount,
+                scene.movementDebug.groundedTransitionCount);
+    ImGui::Text("Friction Impulse / Horizontal Momentum: %.3f / %.3f",
+                scene.movementDebug.frictionImpulse, scene.movementDebug.horizontalMomentumRatio);
+    ImGui::Text("Residual Motion / Sweep Failure: %.4f / %s",
+                scene.movementDebug.residualMotionLength,
+                scene.movementDebug.sweepFailureDetected ? "yes" : "no");
     float walkSpeed = playerController.walkSpeed();
     if (ImGui::SliderFloat("Walk Speed", &walkSpeed, 2.0f, 12.0f))
     {
@@ -424,14 +485,109 @@ void DebugUi::draw(Scene& scene, Player& player, PlayerController& playerControl
     {
         playerController.setGravity(gravity);
     }
+    float groundAcceleration = playerController.groundAcceleration();
+    if (ImGui::SliderFloat("Ground Accel", &groundAcceleration, 4.0f, 80.0f))
+    {
+        playerController.setGroundAcceleration(groundAcceleration);
+    }
+    float airAcceleration = playerController.airAcceleration();
+    if (ImGui::SliderFloat("Air Accel", &airAcceleration, 1.0f, 30.0f))
+    {
+        playerController.setAirAcceleration(airAcceleration);
+    }
+    float groundFriction = playerController.groundFriction();
+    if (ImGui::SliderFloat("Ground Friction", &groundFriction, 0.0f, 30.0f))
+    {
+        playerController.setGroundFriction(groundFriction);
+    }
+    float airControl = playerController.airControl();
+    if (ImGui::SliderFloat("Air Control", &airControl, 0.0f, 1.0f))
+    {
+        playerController.setAirControl(airControl);
+    }
+    float simulationHz = playerController.simulationHz();
+    if (ImGui::SliderFloat("Simulation Hz", &simulationHz, 30.0f, 240.0f))
+    {
+        playerController.setSimulationHz(simulationHz);
+    }
     float mouseSensitivity = playerController.mouseSensitivity();
     if (ImGui::SliderFloat("Look Sensitivity", &mouseSensitivity, 0.03f, 0.18f))
     {
         playerController.setMouseSensitivity(mouseSensitivity);
     }
+    float crouchSpeedMultiplier = playerController.crouchSpeedMultiplier();
+    if (ImGui::SliderFloat("Crouch Speed Mult", &crouchSpeedMultiplier, 0.1f, 1.0f))
+    {
+        playerController.setCrouchSpeedMultiplier(crouchSpeedMultiplier);
+    }
+    float stopSpeed = playerController.stopSpeed();
+    if (ImGui::SliderFloat("Stop Speed", &stopSpeed, 0.1f, 24.0f))
+    {
+        playerController.setStopSpeed(stopSpeed);
+    }
+    float capsuleRadius = playerController.capsuleRadius();
+    if (ImGui::SliderFloat("Capsule Radius", &capsuleRadius, 0.1f, 0.8f))
+    {
+        playerController.setCapsuleRadius(capsuleRadius);
+    }
+    float standingHeight = playerController.standingHeight();
+    if (ImGui::SliderFloat("Standing Height", &standingHeight, 0.8f, 2.6f))
+    {
+        playerController.setStandingHeight(standingHeight);
+    }
+    float crouchingHeight = playerController.crouchingHeight();
+    if (ImGui::SliderFloat("Crouching Height", &crouchingHeight, 0.6f, 2.2f))
+    {
+        playerController.setCrouchingHeight(crouchingHeight);
+    }
+    float standingEyeHeight = playerController.standingEyeHeight();
+    if (ImGui::SliderFloat("Standing Eye Height", &standingEyeHeight, 0.2f, 2.4f))
+    {
+        playerController.setStandingEyeHeight(standingEyeHeight);
+    }
+    float crouchedEyeHeight = playerController.crouchedEyeHeight();
+    if (ImGui::SliderFloat("Crouched Eye Height", &crouchedEyeHeight, 0.2f, 2.0f))
+    {
+        playerController.setCrouchedEyeHeight(crouchedEyeHeight);
+    }
+    float stepHeight = playerController.stepHeight();
+    if (ImGui::SliderFloat("Step Height", &stepHeight, 0.0f, 1.2f))
+    {
+        playerController.setStepHeight(stepHeight);
+    }
+    float supportProbeDistance = playerController.supportProbeDistance();
+    if (ImGui::SliderFloat("Support Probe", &supportProbeDistance, 0.01f, 0.5f))
+    {
+        playerController.setSupportProbeDistance(supportProbeDistance);
+    }
+    float maxSlopeAngle = playerController.maxSlopeAngleDegrees();
+    if (ImGui::SliderFloat("Max Slope", &maxSlopeAngle, 0.0f, 89.0f))
+    {
+        playerController.setMaxSlopeAngleDegrees(maxSlopeAngle);
+    }
+    float sweepSkinWidth = playerController.sweepSkinWidth();
+    if (ImGui::SliderFloat("Sweep Skin", &sweepSkinWidth, 0.001f, 0.1f, "%.3f"))
+    {
+        playerController.setSweepSkinWidth(sweepSkinWidth);
+    }
+    float coyoteTimeSeconds = playerController.coyoteTimeSeconds();
+    if (ImGui::SliderFloat("Coyote Time", &coyoteTimeSeconds, 0.0f, 0.5f, "%.3f"))
+    {
+        playerController.setCoyoteTimeSeconds(coyoteTimeSeconds);
+    }
+    float jumpBufferSeconds = playerController.jumpBufferSeconds();
+    if (ImGui::SliderFloat("Jump Buffer", &jumpBufferSeconds, 0.0f, 0.5f, "%.3f"))
+    {
+        playerController.setJumpBufferSeconds(jumpBufferSeconds);
+    }
+    int maxCollisionIterations = playerController.maxCollisionIterations();
+    if (ImGui::SliderInt("Max Collision Iterations", &maxCollisionIterations, 1, 12))
+    {
+        playerController.setMaxCollisionIterations(maxCollisionIterations);
+    }
     ImGui::Separator();
 
-    if (ImGui::Button("Recapture Mouse"))
+    if (ImGui::Button("Capture Mouse"))
     {
         m_shouldResumeCamera = true;
     }

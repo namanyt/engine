@@ -1,6 +1,7 @@
 #include "Application.h"
 
 #include "core/Log.h"
+#include "core/RenderPipeline.h"
 #include "core/RenderDebug.h"
 #include "core/Renderer.h"
 #include "core/Shader.h"
@@ -13,6 +14,8 @@
 #include "primitives/Sphere.h"
 #include "primitives/Cylinder.h"
 #include "systems/WorldEcsSystems.h"
+#include "systems/RenderSystem.h"
+#include "systems/TransformSystem.h"
 #include "world/Camera.h"
 #include "world/FreeCameraController.h"
 #include "world/Player.h"
@@ -31,26 +34,6 @@
 
 namespace
 {
-engine::Mat4 makeDirectionalLightViewProjection(const engine::Scene& scene)
-{
-    const engine::Vec3 lightDirection = engine::normalize(scene.sunLight.direction);
-    const engine::Vec3 focusPoint = scene.shadow.focusPoint;
-    const engine::Vec3 eye = focusPoint - lightDirection * (scene.shadow.projectionRadius * 0.8f);
-    const engine::Mat4 lightView =
-        engine::makeLookAt(eye, focusPoint, engine::Vec3{0.0f, 1.0f, 0.0f});
-    const float radius = scene.shadow.projectionRadius;
-    const engine::Mat4 lightProjection = engine::makeOrthographic(
-        -radius, radius, -radius, radius, scene.shadow.nearPlane, scene.shadow.farPlane);
-    return lightProjection * lightView;
-}
-
-engine::Mat4 makeCameraProjectionMatrix(const engine::Camera& camera, float aspectRatio)
-{
-    const float safeAspectRatio = aspectRatio > 0.01f ? aspectRatio : 0.01f;
-    return engine::makeInfinitePerspective(camera.fieldOfViewRadians(), safeAspectRatio,
-                                           camera.nearPlane());
-}
-
 void copyCameraPose(const engine::Camera& source, engine::Camera& destination)
 {
     destination.setPosition(source.position());
@@ -64,6 +47,7 @@ int main()
     {
         engine::Application application;
         engine::Renderer renderer(application.shaderDirectory());
+        engine::RenderPipeline renderPipeline(renderer);
 #if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
         auto debugUi = std::make_unique<engine::DebugUi>(application.nativeWindow());
 #endif
@@ -128,13 +112,7 @@ int main()
         application.primeFrameState();
         engine::Log::info("Main", "Entering world loop.");
 
-        engine::Mat4 previousViewProjectionMatrix = engine::Mat4::identity();
-        engine::Mat4 previousInverseProjectionMatrix = engine::Mat4::identity();
-        engine::Vec3 previousViewPosition{};
-        engine::Vec3 previousViewForward{0.0f, 0.0f, -1.0f};
-        engine::Vec3 previousLightDirection = scene.sunLight.direction;
-        bool hasPreviousViewProjection = false;
-        int frameIndex = 0;
+        engine::systems::FrameHistory frameHistory{};
 
         while (application.isRunning())
         {
@@ -167,7 +145,7 @@ int main()
             }
             else
             {
-                playerController.update(player, scene, inputState, deltaSeconds);
+                playerController.update(player, scene, playerEntity, inputState, deltaSeconds);
             }
 
             {
@@ -181,16 +159,12 @@ int main()
 #if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
             if (inputState.toggleDebugUi)
             {
-                const bool debugUiEnabled = !debugUi->isEnabled();
-                debugUi->setEnabled(debugUiEnabled);
-                application.setCursorCaptured(!debugUiEnabled);
+                debugUi->setEnabled(!debugUi->isEnabled());
             }
 
-            if (inputState.toggleCursorCapture && debugUi->isEnabled() &&
-                !application.isCursorCaptured())
+            if (inputState.toggleCursorCapture)
             {
-                application.setCursorCaptured(true);
-                debugUi->setEnabled(false);
+                application.setCursorCaptured(!application.isCursorCaptured());
             }
 #endif
 
@@ -251,131 +225,32 @@ int main()
             engine::syncAtmosphericMoonVisual(scene, activeCamera.position());
 
             renderer.setViewport(application.framebufferWidth(), application.framebufferHeight());
+            engine::systems::TransformSystem::updateWorldTransforms(scene);
+            const engine::systems::RenderSceneView renderSceneView =
+                engine::systems::buildRenderSceneView(scene);
+            engine::systems::syncLegacySceneFromRenderView(scene, renderSceneView);
+            const engine::FrameUniforms frameUniforms = engine::systems::buildFrameUniforms(
+                scene, activeCamera, application.framebufferWidth(),
+                application.framebufferHeight(), timeSeconds, frameHistory, renderSceneView);
 
-            const float aspectRatio = static_cast<float>(application.framebufferWidth()) /
-                                      static_cast<float>(application.framebufferHeight() > 0
-                                                             ? application.framebufferHeight()
-                                                             : 1);
-            const engine::Mat4 viewMatrix = activeCamera.viewMatrix();
-            const engine::Mat4 projectionMatrix =
-                makeCameraProjectionMatrix(activeCamera, aspectRatio);
-            const engine::Mat4 viewProjectionMatrix = projectionMatrix * viewMatrix;
-            engine::FrameUniforms frameUniforms{};
-            frameUniforms.viewMatrix = viewMatrix;
-            frameUniforms.projectionMatrix = projectionMatrix;
-            frameUniforms.inverseViewMatrix = engine::inverse(viewMatrix);
-            frameUniforms.inverseProjectionMatrix = engine::inverse(projectionMatrix);
-            frameUniforms.previousInverseProjectionMatrix =
-                hasPreviousViewProjection ? previousInverseProjectionMatrix
-                                          : frameUniforms.inverseProjectionMatrix;
-            frameUniforms.viewProjectionMatrix = viewProjectionMatrix;
-            frameUniforms.previousViewProjectionMatrix =
-                hasPreviousViewProjection ? previousViewProjectionMatrix : viewProjectionMatrix;
-            frameUniforms.viewPosition = activeCamera.position();
-            frameUniforms.previousViewPosition =
-                hasPreviousViewProjection ? previousViewPosition : activeCamera.position();
-            frameUniforms.viewForward = activeCamera.front();
-            frameUniforms.previousViewForward =
-                hasPreviousViewProjection ? previousViewForward : activeCamera.front();
-            frameUniforms.viewRight = activeCamera.right();
-            frameUniforms.viewUp = activeCamera.up();
-            frameUniforms.timeSeconds = timeSeconds;
-            frameUniforms.frameIndex = frameIndex;
-            frameUniforms.aspectRatio = aspectRatio;
-            frameUniforms.verticalFieldOfViewRadians = activeCamera.fieldOfViewRadians();
-            frameUniforms.nearPlane = activeCamera.nearPlane();
-            frameUniforms.fogColor = scene.fog.color;
-            frameUniforms.fogDensity = scene.fog.density;
-            frameUniforms.fogBaseHeight = scene.fog.baseHeight;
-            frameUniforms.fogHeightFalloff = scene.fog.heightFalloff;
-            frameUniforms.fogMaxHeight = scene.fog.maxHeight;
-            frameUniforms.directionalLight = scene.sunLight;
-            frameUniforms.previousLightDirection =
-                hasPreviousViewProjection ? previousLightDirection : scene.sunLight.direction;
-            frameUniforms.localLights = scene.localLights;
-            frameUniforms.shadowSettings = scene.shadow;
-            frameUniforms.skyLight = scene.skyLight;
-            frameUniforms.rayEvaluation = scene.rayEvaluation;
-            frameUniforms.debugView = scene.debugView;
-            frameUniforms.rayTracingScene = scene.rayTracingScene;
-            frameUniforms.exposure = scene.postProcess.exposure;
-            frameUniforms.bloomThreshold = scene.postProcess.bloomThreshold;
-            frameUniforms.lightViewProjectionMatrix = makeDirectionalLightViewProjection(scene);
-
-            {
-                const auto frameGpuScope = renderer.profiler().makeGpuScope("Frame");
-
-                {
-                    const auto shadowCpuScope =
-                        renderer.profiler().makeCpuScope("Shadow Rendering");
-                    const auto shadowGpuScope = renderer.profiler().makeGpuScope("Shadow Pass");
-                    renderer.beginShadowPass(frameUniforms);
-
-                    for (const engine::WorldObject& object : scene.objects())
-                    {
-                        if (object.mesh == nullptr || !object.castsShadows)
-                        {
-                            continue;
-                        }
-
-                        renderer.drawShadow(*object.mesh, object.transform);
-                    }
-
-                    renderer.endShadowPass();
-                }
-
-                renderer.beginFrame(scene.clearColor);
-
-                {
-                    engine::ScopedRenderDebugGroup terrainGroup("Terrain Pass");
-                    const auto terrainGpuScope = renderer.profiler().makeGpuScope("Terrain Pass");
-                    for (const engine::WorldObject& object : scene.objects())
-                    {
-                        if (object.kind != engine::WorldObjectKind::Terrain ||
-                            object.mesh == nullptr || object.material.shader == nullptr)
-                        {
-                            continue;
-                        }
-
-                        renderer.draw(*object.mesh, object.material, object.transform,
-                                      frameUniforms);
-                    }
-                }
-
-                {
-                    engine::ScopedRenderDebugGroup geometryGroup("Geometry Pass");
-                    const auto geometryGpuScope = renderer.profiler().makeGpuScope("Geometry Pass");
-                    for (const engine::WorldObject& object : scene.objects())
-                    {
-                        if (object.kind == engine::WorldObjectKind::Terrain ||
-                            object.mesh == nullptr || object.material.shader == nullptr)
-                        {
-                            continue;
-                        }
-
-                        renderer.draw(*object.mesh, object.material, object.transform,
-                                      frameUniforms);
-                    }
-                }
-
-                renderer.endFrame(scene.postProcess, frameUniforms, timeSeconds);
+            renderPipeline.renderFrame(renderSceneView, scene.clearColor, scene.postProcess,
+                                       frameUniforms, timeSeconds);
 
 #if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+            {
+                engine::ScopedRenderDebugGroup uiGroup("UI Pass");
+                const auto uiGpuScope = renderer.profiler().makeGpuScope("UI Pass");
+                debugUi->beginFrame();
+                const bool previousDebugFreeCameraEnabled = debugFreeCameraEnabled;
+                debugUi->draw(scene, player, playerController, debugFreeCameraEnabled,
+                              renderer.profiler().stats(), renderer.debugTextures());
+                if (debugFreeCameraEnabled && !previousDebugFreeCameraEnabled)
                 {
-                    engine::ScopedRenderDebugGroup uiGroup("UI Pass");
-                    const auto uiGpuScope = renderer.profiler().makeGpuScope("UI Pass");
-                    debugUi->beginFrame();
-                    const bool previousDebugFreeCameraEnabled = debugFreeCameraEnabled;
-                    debugUi->draw(scene, player, playerController, debugFreeCameraEnabled,
-                                  renderer.profiler().stats(), renderer.debugTextures());
-                    if (debugFreeCameraEnabled && !previousDebugFreeCameraEnabled)
-                    {
-                        copyCameraPose(player.camera(), debugCamera);
-                    }
-                    debugUi->endFrame();
+                    copyCameraPose(player.camera(), debugCamera);
                 }
-#endif
+                debugUi->endFrame();
             }
+#endif
 
 #if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
             if (debugUi->shouldQuit())
@@ -386,19 +261,12 @@ int main()
             if (debugUi->consumeResumeCameraRequest())
             {
                 application.setCursorCaptured(true);
-                debugUi->setEnabled(false);
             }
 #endif
 
             renderer.profiler().endFrame();
 
-            previousViewProjectionMatrix = viewProjectionMatrix;
-            previousInverseProjectionMatrix = frameUniforms.inverseProjectionMatrix;
-            previousViewPosition = frameUniforms.viewPosition;
-            previousViewForward = frameUniforms.viewForward;
-            previousLightDirection = frameUniforms.directionalLight.direction;
-            hasPreviousViewProjection = true;
-            ++frameIndex;
+            engine::systems::advanceFrameHistory(frameUniforms, frameHistory);
 
             application.present();
         }

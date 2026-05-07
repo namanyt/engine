@@ -86,6 +86,64 @@ struct WorldObject final
     }
 };
 
+struct MovementDebugState final
+{
+    float deltaSeconds = 0.0f;
+    float simulationStepSeconds = 0.0f;
+    float accumulatorSeconds = 0.0f;
+    float droppedSimulationSeconds = 0.0f;
+    float presentationAlpha = 0.0f;
+    bool cursorCaptured = false;
+    bool grounded = false;
+    bool supportHit = false;
+    bool supportRetained = false;
+    bool simulationClamped = false;
+    bool collisionCacheRebuilt = false;
+    bool staleColliderDetected = false;
+    bool sweepFailureDetected = false;
+    bool crouching = false;
+    bool stepUpApplied = false;
+    Vec3 inputDirection{};
+    Vec3 desiredVelocity{};
+    Vec3 projectedVelocity{};
+    Vec3 supportNormal{0.0f, 1.0f, 0.0f};
+    Vec3 terrainNormal{0.0f, 1.0f, 0.0f};
+    Vec3 lastCollisionNormal{};
+    Vec3 lastSurfaceMotion{};
+    Vec3 acceleration{};
+    Vec3 sweepStart{};
+    Vec3 sweepEnd{};
+    Vec3 postCollisionPosition{};
+    Vec3 velocity{};
+    Vec3 cameraOffset{};
+    Vec3 supportPoint{};
+    float terrainHeight = 0.0f;
+    float supportHeight = 0.0f;
+    float supportDistance = 0.0f;
+    float slopeAngleDegrees = 0.0f;
+    float friction = 0.0f;
+    float airControl = 0.0f;
+    float capsuleRadius = 0.0f;
+    float capsuleHeight = 0.0f;
+    float headBobAmount = 0.0f;
+    float landingDip = 0.0f;
+    float groundedDuration = 0.0f;
+    float coyoteTimeRemaining = 0.0f;
+    float jumpBufferRemaining = 0.0f;
+    float supportPersistenceRemaining = 0.0f;
+    float frictionImpulse = 0.0f;
+    float horizontalMomentumRatio = 1.0f;
+    float residualMotionLength = 0.0f;
+    int collisionCount = 0;
+    int penetrationRecoveries = 0;
+    int supportAcquisitionCount = 0;
+    int collisionTriangleCount = 0;
+    int sweepIterations = 0;
+    int fixedSteps = 0;
+    int groundedTransitionCount = 0;
+    int airborneTransitionCount = 0;
+};
+
 class Scene final
 {
   public:
@@ -162,6 +220,7 @@ class Scene final
     RayEvaluationSettings rayEvaluation{};
     DebugViewSettings debugView{};
     RayTracingScene rayTracingScene{};
+    MovementDebugState movementDebug{};
     Color clearColor{0.05f, 0.08f, 0.11f, 1.0f};
     bool moonLightEnabled = true;
     bool sphereLightsEnabled = true;
