@@ -1,5 +1,7 @@
 #include "graphics/VertexBuffer.h"
 
+#include "core/RenderDebug.h"
+
 #include <glad/glad.h>
 
 #include <stdexcept>
@@ -13,6 +15,8 @@ VertexBuffer::VertexBuffer(const void* data, std::size_t sizeBytes)
     {
         throw std::runtime_error("Failed to create an OpenGL vertex buffer.");
     }
+
+    labelGlObject(GL_BUFFER, m_bufferId, "Geometry.VertexBuffer");
 
     bind();
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeBytes), data, GL_STATIC_DRAW);

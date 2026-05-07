@@ -70,6 +70,7 @@ Vec2 normalize(const Vec2& value);
 Vec3 normalize(const Vec3& value);
 
 Mat4 operator*(const Mat4& left, const Mat4& right);
+Mat4 inverse(const Mat4& matrix);
 
 Mat4 makeTranslation(const Vec3& translation);
 Mat4 makeScale(const Vec3& scale);
@@ -78,6 +79,7 @@ Mat4 makeRotationY(float angleRadians);
 Mat4 makeRotationZ(float angleRadians);
 Mat4 makePerspective(float fieldOfViewRadians, float aspectRatio, float nearPlane, float farPlane);
 Mat4 makeInfinitePerspective(float fieldOfViewRadians, float aspectRatio, float nearPlane);
-Mat4 makeOrthographic(float left, float right, float bottom, float top, float nearPlane, float farPlane);
+Mat4 makeOrthographic(float left, float right, float bottom, float top, float nearPlane,
+                      float farPlane);
 Mat4 makeLookAt(const Vec3& eye, const Vec3& target, const Vec3& upDirection);
 } // namespace engine

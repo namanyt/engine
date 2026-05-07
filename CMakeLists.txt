@@ -73,6 +73,8 @@ set(ENGINE_SOURCES
     src/main.cpp
     src/Application.cpp
     src/core/Log.cpp
+    src/core/RenderDebug.cpp
+    src/core/RenderProfiler.cpp
     src/core/Renderer.cpp
     src/core/Shader.cpp
     src/core/ShaderLibrary.cpp
@@ -87,6 +89,7 @@ set(ENGINE_SOURCES
     src/graphics/IndexBuffer.cpp
     src/graphics/VertexArray.cpp
     src/graphics/Mesh.cpp
+    src/systems/WorldEcsSystems.cpp
     src/primitives/PrimitiveBuilders.cpp
     src/primitives/Cube.cpp
     src/primitives/Quad.cpp
@@ -102,12 +105,18 @@ set(ENGINE_SOURCES
     src/math/Transform.cpp
     src/world/Camera.cpp
     src/world/FreeCameraController.cpp
+    src/world/Player.cpp
+    src/world/PlayerController.cpp
+    src/world/Scene.cpp
     src/world/TestWorld.cpp
+    src/world/WorldNavigation.cpp
 )
 
 set(ENGINE_HEADERS
     src/Application.h
     src/core/Log.h
+    src/core/RenderDebug.h
+    src/core/RenderProfiler.h
     src/core/Renderer.h
     src/core/Shader.h
     src/core/ShaderLibrary.h
@@ -135,13 +144,20 @@ set(ENGINE_HEADERS
     src/primitives/Torus.h
     src/math/Types.h
     src/math/Transform.h
+    src/ecs/Entity.h
+    src/ecs/Registry.h
+    src/components/WorldComponents.h
+    src/systems/WorldEcsSystems.h
     src/world/Camera.h
     src/world/FreeCameraController.h
     src/world/Lighting.h
     src/world/Material.h
+    src/world/Player.h
+    src/world/PlayerController.h
     src/world/RayTracing.h
     src/world/Scene.h
     src/world/TestWorld.h
+    src/world/WorldNavigation.h
 )
 
 set(ENGINE_SHADERS
@@ -156,6 +172,7 @@ set(ENGINE_SHADERS
     shaders/post_compose.frag
     shaders/shadow_depth.vert
     shaders/shadow_depth.frag
+    shaders/volumetric_upscale.frag
 )
 
 set(ENGINE_DEBUG_UI_SOURCES)

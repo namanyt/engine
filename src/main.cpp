@@ -1,18 +1,24 @@
 #include "Application.h"
 
 #include "core/Log.h"
+#include "core/RenderDebug.h"
 #include "core/Renderer.h"
 #include "core/Shader.h"
 #include "core/ShaderLibrary.h"
+#include "ecs/Entity.h"
 #include "primitives/Cone.h"
 #include "primitives/Cube.h"
 #include "primitives/Plane.h"
 #include "primitives/Pyramid.h"
 #include "primitives/Sphere.h"
 #include "primitives/Cylinder.h"
+#include "systems/WorldEcsSystems.h"
 #include "world/Camera.h"
 #include "world/FreeCameraController.h"
+#include "world/Player.h"
+#include "world/PlayerController.h"
 #include "world/TestWorld.h"
+#include "world/WorldNavigation.h"
 
 #include <cstdlib>
 #include <exception>
@@ -44,6 +50,12 @@ engine::Mat4 makeCameraProjectionMatrix(const engine::Camera& camera, float aspe
     return engine::makeInfinitePerspective(camera.fieldOfViewRadians(), safeAspectRatio,
                                            camera.nearPlane());
 }
+
+void copyCameraPose(const engine::Camera& source, engine::Camera& destination)
+{
+    destination.setPosition(source.position());
+    destination.setYawPitch(source.yawDegrees(), source.pitchDegrees());
+}
 } // namespace
 
 int main()
@@ -55,8 +67,13 @@ int main()
 #if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
         auto debugUi = std::make_unique<engine::DebugUi>(application.nativeWindow());
 #endif
-        engine::Camera camera(engine::Vec3{0.0f, 1.8f, 12.0f});
-        engine::FreeCameraController cameraController;
+        engine::Camera debugCamera(engine::Vec3{0.0f, 1.8f, 12.0f});
+        engine::FreeCameraController debugCameraController;
+        engine::Player player;
+        engine::PlayerController playerController;
+        bool debugFreeCameraEnabled = false;
+        engine::ecs::Entity playerEntity = engine::ecs::kInvalidEntity;
+        engine::ecs::Entity debugCameraEntity = engine::ecs::kInvalidEntity;
         const engine::Shader& shader = renderer.shaderLibrary().loadGraphicsProgram(
             "surface.forward", "vertex.glsl", "fragment.glsl");
         engine::Plane plane;
@@ -65,19 +82,39 @@ int main()
         engine::Sphere sphere;
         engine::Cylinder cylinder;
         engine::Cone cone;
-        engine::Scene scene = engine::createAtmosphericTestWorld(engine::TestWorldAssets{
-            &plane.mesh(),
-            &cube.mesh(),
-            &cylinder.mesh(),
-            &pyramid.mesh(),
-            &sphere.mesh(),
-            &cone.mesh(),
-            &shader,
-        });
+        const engine::TestWorldAssets worldAssets{
+            &plane.mesh(),  &cube.mesh(), &cylinder.mesh(), &pyramid.mesh(),
+            &sphere.mesh(), &cone.mesh(), &shader,
+        };
+        engine::Scene scene = engine::createAtmosphericTestWorld(worldAssets);
 
-        camera.setYawPitch(-90.0f, -4.5f);
-        cameraController.setMoveSpeed(10.5f);
-        cameraController.setSprintMultiplier(2.1f);
+        const engine::Vec3 playerSpawn{
+            0.0f,
+            engine::sampleAtmosphericTerrainHeight(scene, 0.0f, 18.0f),
+            18.0f,
+        };
+        player.setPosition(playerSpawn);
+        player.setYawPitch(-90.0f, -4.5f);
+        copyCameraPose(player.camera(), debugCamera);
+        debugCameraController.setMoveSpeed(10.5f);
+        debugCameraController.setSprintMultiplier(2.1f);
+
+        auto ensureRuntimeEntities = [&]()
+        {
+            if (!scene.registry().isAlive(playerEntity))
+            {
+                playerEntity = scene.registry().createEntity();
+            }
+
+            if (!scene.registry().isAlive(debugCameraEntity))
+            {
+                debugCameraEntity = scene.registry().createEntity();
+            }
+        };
+
+        ensureRuntimeEntities();
+        engine::systems::syncPlayerEntity(scene, playerEntity, player, true);
+        engine::systems::syncCameraEntity(scene, debugCameraEntity, debugCamera, false, true);
 
         {
             std::ostringstream stream;
@@ -91,14 +128,55 @@ int main()
         application.primeFrameState();
         engine::Log::info("Main", "Entering world loop.");
 
+        engine::Mat4 previousViewProjectionMatrix = engine::Mat4::identity();
+        engine::Mat4 previousInverseProjectionMatrix = engine::Mat4::identity();
+        engine::Vec3 previousViewPosition{};
+        engine::Vec3 previousViewForward{0.0f, 0.0f, -1.0f};
+        engine::Vec3 previousLightDirection = scene.sunLight.direction;
+        bool hasPreviousViewProjection = false;
+        int frameIndex = 0;
+
         while (application.isRunning())
         {
+            renderer.profiler().beginFrame();
             application.pollEvents();
             application.processInput();
             const engine::InputState inputState = application.consumeInputState();
             const float deltaSeconds = application.deltaSeconds();
             const float timeSeconds = application.timeSeconds();
-            cameraController.update(camera, inputState, deltaSeconds);
+
+            {
+                const auto terrainGenerationCpu =
+                    renderer.profiler().makeCpuScope("Terrain Generation");
+                engine::syncAtmosphericTestWorld(scene, worldAssets);
+            }
+            ensureRuntimeEntities();
+
+            if (inputState.toggleDebugFreeCamera)
+            {
+                debugFreeCameraEnabled = !debugFreeCameraEnabled;
+                if (debugFreeCameraEnabled)
+                {
+                    copyCameraPose(player.camera(), debugCamera);
+                }
+            }
+
+            if (debugFreeCameraEnabled)
+            {
+                debugCameraController.update(debugCamera, inputState, deltaSeconds);
+            }
+            else
+            {
+                playerController.update(player, scene, inputState, deltaSeconds);
+            }
+
+            {
+                const auto ecsUpdateCpu = renderer.profiler().makeCpuScope("ECS Update");
+                engine::systems::syncPlayerEntity(scene, playerEntity, player,
+                                                  !debugFreeCameraEnabled);
+                engine::systems::syncCameraEntity(scene, debugCameraEntity, debugCamera,
+                                                  debugFreeCameraEnabled, true);
+            }
 
 #if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
             if (inputState.toggleDebugUi)
@@ -161,8 +239,16 @@ int main()
                 engine::setMoonMotionEnabled(scene, !engine::isMoonMotionEnabled(scene));
             }
 
-            engine::updateAtmosphericWorldLighting(scene, timeSeconds);
+            {
+                const auto atmosphereUpdateCpu =
+                    renderer.profiler().makeCpuScope("Atmosphere Update");
+                engine::updateAtmosphericWorldLighting(scene, timeSeconds);
+            }
             application.updateWindowTitle(timeSeconds);
+
+            const engine::Camera& activeCamera =
+                debugFreeCameraEnabled ? debugCamera : player.camera();
+            engine::syncAtmosphericMoonVisual(scene, activeCamera.position());
 
             renderer.setViewport(application.framebufferWidth(), application.framebufferHeight());
 
@@ -170,22 +256,42 @@ int main()
                                       static_cast<float>(application.framebufferHeight() > 0
                                                              ? application.framebufferHeight()
                                                              : 1);
+            const engine::Mat4 viewMatrix = activeCamera.viewMatrix();
+            const engine::Mat4 projectionMatrix =
+                makeCameraProjectionMatrix(activeCamera, aspectRatio);
+            const engine::Mat4 viewProjectionMatrix = projectionMatrix * viewMatrix;
             engine::FrameUniforms frameUniforms{};
-            frameUniforms.viewMatrix = camera.viewMatrix();
-            frameUniforms.projectionMatrix = makeCameraProjectionMatrix(camera, aspectRatio);
-            frameUniforms.viewPosition = camera.position();
-            frameUniforms.viewForward = camera.front();
-            frameUniforms.viewRight = camera.right();
-            frameUniforms.viewUp = camera.up();
+            frameUniforms.viewMatrix = viewMatrix;
+            frameUniforms.projectionMatrix = projectionMatrix;
+            frameUniforms.inverseViewMatrix = engine::inverse(viewMatrix);
+            frameUniforms.inverseProjectionMatrix = engine::inverse(projectionMatrix);
+            frameUniforms.previousInverseProjectionMatrix =
+                hasPreviousViewProjection ? previousInverseProjectionMatrix
+                                          : frameUniforms.inverseProjectionMatrix;
+            frameUniforms.viewProjectionMatrix = viewProjectionMatrix;
+            frameUniforms.previousViewProjectionMatrix =
+                hasPreviousViewProjection ? previousViewProjectionMatrix : viewProjectionMatrix;
+            frameUniforms.viewPosition = activeCamera.position();
+            frameUniforms.previousViewPosition =
+                hasPreviousViewProjection ? previousViewPosition : activeCamera.position();
+            frameUniforms.viewForward = activeCamera.front();
+            frameUniforms.previousViewForward =
+                hasPreviousViewProjection ? previousViewForward : activeCamera.front();
+            frameUniforms.viewRight = activeCamera.right();
+            frameUniforms.viewUp = activeCamera.up();
             frameUniforms.timeSeconds = timeSeconds;
+            frameUniforms.frameIndex = frameIndex;
             frameUniforms.aspectRatio = aspectRatio;
-            frameUniforms.verticalFieldOfViewRadians = camera.fieldOfViewRadians();
-            frameUniforms.nearPlane = camera.nearPlane();
+            frameUniforms.verticalFieldOfViewRadians = activeCamera.fieldOfViewRadians();
+            frameUniforms.nearPlane = activeCamera.nearPlane();
             frameUniforms.fogColor = scene.fog.color;
             frameUniforms.fogDensity = scene.fog.density;
             frameUniforms.fogBaseHeight = scene.fog.baseHeight;
             frameUniforms.fogHeightFalloff = scene.fog.heightFalloff;
+            frameUniforms.fogMaxHeight = scene.fog.maxHeight;
             frameUniforms.directionalLight = scene.sunLight;
+            frameUniforms.previousLightDirection =
+                hasPreviousViewProjection ? previousLightDirection : scene.sunLight.direction;
             frameUniforms.localLights = scene.localLights;
             frameUniforms.shadowSettings = scene.shadow;
             frameUniforms.skyLight = scene.skyLight;
@@ -196,38 +302,82 @@ int main()
             frameUniforms.bloomThreshold = scene.postProcess.bloomThreshold;
             frameUniforms.lightViewProjectionMatrix = makeDirectionalLightViewProjection(scene);
 
-            renderer.beginShadowPass(frameUniforms);
-
-            for (const engine::WorldObject& object : scene.objects())
             {
-                if (object.mesh == nullptr || !object.castsShadows)
+                const auto frameGpuScope = renderer.profiler().makeGpuScope("Frame");
+
                 {
-                    continue;
+                    const auto shadowCpuScope =
+                        renderer.profiler().makeCpuScope("Shadow Rendering");
+                    const auto shadowGpuScope = renderer.profiler().makeGpuScope("Shadow Pass");
+                    renderer.beginShadowPass(frameUniforms);
+
+                    for (const engine::WorldObject& object : scene.objects())
+                    {
+                        if (object.mesh == nullptr || !object.castsShadows)
+                        {
+                            continue;
+                        }
+
+                        renderer.drawShadow(*object.mesh, object.transform);
+                    }
+
+                    renderer.endShadowPass();
                 }
 
-                renderer.drawShadow(*object.mesh, object.transform);
-            }
+                renderer.beginFrame(scene.clearColor);
 
-            renderer.endShadowPass();
-            renderer.beginFrame(scene.clearColor);
-
-            for (const engine::WorldObject& object : scene.objects())
-            {
-                if (object.mesh == nullptr || object.material.shader == nullptr)
                 {
-                    continue;
+                    engine::ScopedRenderDebugGroup terrainGroup("Terrain Pass");
+                    const auto terrainGpuScope = renderer.profiler().makeGpuScope("Terrain Pass");
+                    for (const engine::WorldObject& object : scene.objects())
+                    {
+                        if (object.kind != engine::WorldObjectKind::Terrain ||
+                            object.mesh == nullptr || object.material.shader == nullptr)
+                        {
+                            continue;
+                        }
+
+                        renderer.draw(*object.mesh, object.material, object.transform,
+                                      frameUniforms);
+                    }
                 }
 
-                renderer.draw(*object.mesh, object.material, object.transform, frameUniforms);
-            }
+                {
+                    engine::ScopedRenderDebugGroup geometryGroup("Geometry Pass");
+                    const auto geometryGpuScope = renderer.profiler().makeGpuScope("Geometry Pass");
+                    for (const engine::WorldObject& object : scene.objects())
+                    {
+                        if (object.kind == engine::WorldObjectKind::Terrain ||
+                            object.mesh == nullptr || object.material.shader == nullptr)
+                        {
+                            continue;
+                        }
 
-            renderer.endFrame(scene.postProcess, frameUniforms, timeSeconds);
+                        renderer.draw(*object.mesh, object.material, object.transform,
+                                      frameUniforms);
+                    }
+                }
+
+                renderer.endFrame(scene.postProcess, frameUniforms, timeSeconds);
 
 #if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
-            debugUi->beginFrame();
-            debugUi->draw(scene);
-            debugUi->endFrame();
+                {
+                    engine::ScopedRenderDebugGroup uiGroup("UI Pass");
+                    const auto uiGpuScope = renderer.profiler().makeGpuScope("UI Pass");
+                    debugUi->beginFrame();
+                    const bool previousDebugFreeCameraEnabled = debugFreeCameraEnabled;
+                    debugUi->draw(scene, player, playerController, debugFreeCameraEnabled,
+                                  renderer.profiler().stats(), renderer.debugTextures());
+                    if (debugFreeCameraEnabled && !previousDebugFreeCameraEnabled)
+                    {
+                        copyCameraPose(player.camera(), debugCamera);
+                    }
+                    debugUi->endFrame();
+                }
+#endif
+            }
 
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
             if (debugUi->shouldQuit())
             {
                 application.requestQuit();
@@ -239,6 +389,16 @@ int main()
                 debugUi->setEnabled(false);
             }
 #endif
+
+            renderer.profiler().endFrame();
+
+            previousViewProjectionMatrix = viewProjectionMatrix;
+            previousInverseProjectionMatrix = frameUniforms.inverseProjectionMatrix;
+            previousViewPosition = frameUniforms.viewPosition;
+            previousViewForward = frameUniforms.viewForward;
+            previousLightDirection = frameUniforms.directionalLight.direction;
+            hasPreviousViewProjection = true;
+            ++frameIndex;
 
             application.present();
         }

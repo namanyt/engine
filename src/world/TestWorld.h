@@ -26,7 +26,9 @@ Material makeWorldMaterial(const Shader* shader, MaterialCategory category, cons
                            float atmosphericResponse = 1.0f);
 
 Scene createAtmosphericTestWorld(const TestWorldAssets& assets);
+void syncAtmosphericTestWorld(Scene& scene, const TestWorldAssets& assets);
 void updateAtmosphericWorldLighting(Scene& scene, float timeSeconds);
+void syncAtmosphericMoonVisual(Scene& scene, const Vec3& cameraPosition);
 void setMoonLightEnabled(Scene& scene, bool enabled);
 void setSphereLightsEnabled(Scene& scene, bool enabled);
 void setConeLightsEnabled(Scene& scene, bool enabled);

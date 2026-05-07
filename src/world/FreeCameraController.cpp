@@ -7,16 +7,18 @@ namespace engine
 void FreeCameraController::update(Camera& camera, const InputState& inputState,
                                   float deltaSeconds) const
 {
-    if (inputState.cursorCaptured)
-    {
-        camera.rotate(inputState.mouseDelta.x * m_mouseSensitivity,
-                      inputState.mouseDelta.y * m_mouseSensitivity);
-    }
-
     if (deltaSeconds <= 0.0f)
     {
         return;
     }
+
+    if (!inputState.cursorCaptured)
+    {
+        return;
+    }
+
+    camera.rotate(inputState.mouseDelta.x * m_mouseSensitivity,
+                  inputState.mouseDelta.y * m_mouseSensitivity);
 
     Vec3 movement{};
     const Vec3 forward = normalize(Vec3{camera.front().x, 0.0f, camera.front().z});

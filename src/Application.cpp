@@ -300,10 +300,17 @@ void Application::updateKeyboardState(InputState& inputState) const
     inputState.moveBackward = glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS;
     inputState.moveLeft = glfwGetKey(m_window, GLFW_KEY_A) == GLFW_PRESS;
     inputState.moveRight = glfwGetKey(m_window, GLFW_KEY_D) == GLFW_PRESS;
-    inputState.moveUp = glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS;
+    const bool jumpPressed = glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS;
+    inputState.moveUp = jumpPressed;
+    inputState.jump = jumpPressed && !m_previousJumpPressed;
+    m_previousJumpPressed = jumpPressed;
     inputState.moveDown = glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
                           glfwGetKey(m_window, GLFW_KEY_C) == GLFW_PRESS;
     inputState.sprint = glfwGetKey(m_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
+
+    const bool debugFreeCameraPressed = glfwGetKey(m_window, GLFW_KEY_F2) == GLFW_PRESS;
+    inputState.toggleDebugFreeCamera = debugFreeCameraPressed && !m_previousDebugFreeCameraPressed;
+    m_previousDebugFreeCameraPressed = debugFreeCameraPressed;
 
     const bool moonTogglePressed = glfwGetKey(m_window, GLFW_KEY_1) == GLFW_PRESS;
     inputState.toggleMoonLight = moonTogglePressed && !m_previousMoonTogglePressed;

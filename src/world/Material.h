@@ -14,6 +14,7 @@ enum class MaterialCategory
     EmissiveBeacon = 4,
     DenseAbsorptive = 5,
     FogReactive = 6,
+    CelestialBody = 7,
 };
 
 struct Material final

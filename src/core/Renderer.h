@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 
+#include "core/RenderProfiler.h"
 #include "world/RayTracing.h"
 #include "world/Lighting.h"
 #include "world/Material.h"
@@ -23,12 +24,21 @@ struct FrameUniforms final
 {
     Mat4 viewMatrix = Mat4::identity();
     Mat4 projectionMatrix = Mat4::identity();
+    Mat4 inverseViewMatrix = Mat4::identity();
+    Mat4 inverseProjectionMatrix = Mat4::identity();
+    Mat4 previousInverseProjectionMatrix = Mat4::identity();
+    Mat4 viewProjectionMatrix = Mat4::identity();
+    Mat4 previousViewProjectionMatrix = Mat4::identity();
     Mat4 lightViewProjectionMatrix = Mat4::identity();
     Vec3 viewPosition{};
+    Vec3 previousViewPosition{};
     Vec3 viewForward{0.0f, 0.0f, -1.0f};
+    Vec3 previousViewForward{0.0f, 0.0f, -1.0f};
     Vec3 viewRight{1.0f, 0.0f, 0.0f};
     Vec3 viewUp{0.0f, 1.0f, 0.0f};
+    Vec3 previousLightDirection{0.0f, -1.0f, 0.0f};
     float timeSeconds = 0.0f;
+    int frameIndex = 0;
     float aspectRatio = 1.0f;
     float verticalFieldOfViewRadians = 0.78539816339f;
     float nearPlane = 0.1f;
@@ -36,6 +46,7 @@ struct FrameUniforms final
     float fogDensity = 0.02f;
     float fogBaseHeight = 3.0f;
     float fogHeightFalloff = 0.08f;
+    float fogMaxHeight = 96.0f;
     DirectionalLight directionalLight{};
     std::vector<LocalLight> localLights{};
     ShadowSettings shadowSettings{};
@@ -45,6 +56,13 @@ struct FrameUniforms final
     RayTracingScene rayTracingScene{};
     float exposure = 1.10f;
     float bloomThreshold = 1.05f;
+};
+
+struct RendererDebugTextures final
+{
+    unsigned int shadowMapTextureId = 0;
+    unsigned int sceneDepthTextureId = 0;
+    unsigned int volumetricTextureId = 0;
 };
 
 class Renderer final
@@ -69,6 +87,9 @@ class Renderer final
               const FrameUniforms& frameUniforms) const;
     ShaderLibrary& shaderLibrary() noexcept;
     const ShaderLibrary& shaderLibrary() const noexcept;
+    RenderProfiler& profiler() noexcept;
+    const RenderProfiler& profiler() const noexcept;
+    RendererDebugTextures debugTextures() const noexcept;
 
   private:
     void applyFrameState(const Shader& shader, const FrameUniforms& frameUniforms) const;
@@ -81,5 +102,6 @@ class Renderer final
     std::unique_ptr<PostProcessor> m_postProcessor;
     std::unique_ptr<RayEvaluationPass> m_rayEvaluationPass;
     std::unique_ptr<ShadowMapPass> m_shadowMapPass;
+    mutable RenderProfiler m_profiler;
 };
 } // namespace engine

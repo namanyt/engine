@@ -1,5 +1,6 @@
 #include "core/PostProcessor.h"
 
+#include "core/RenderDebug.h"
 #include "core/Shader.h"
 
 #include <glad/glad.h>
@@ -75,6 +76,7 @@ void PostProcessor::beginScene() const
 
 void PostProcessor::composeLighting(unsigned int atmosphereTextureId, float bloomThreshold) const
 {
+    ScopedRenderDebugGroup lightingScope("Lighting Pass");
     glBindFramebuffer(GL_FRAMEBUFFER, m_compositeFramebufferId);
     glViewport(0, 0, m_width, m_height);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -96,10 +98,12 @@ void PostProcessor::composeLighting(unsigned int atmosphereTextureId, float bloo
 void PostProcessor::endScene(const PostProcessSettings& settings,
                              const DebugViewSettings& debugView) const
 {
+    ScopedRenderDebugGroup postScope("Post Processing Pass");
     unsigned int activeBloomTextureId = m_compositeBrightTextureId;
 
     if (debugView.postProcessingEnabled)
     {
+        ScopedRenderDebugGroup bloomScope("Bloom Pass");
         bool horizontal = true;
         bool firstPass = true;
         constexpr int kBlurPassCount = 6;
@@ -132,6 +136,7 @@ void PostProcessor::endScene(const PostProcessSettings& settings,
             return;
         }
 
+        ScopedRenderDebugGroup toneMapScope("Tone Mapping Pass");
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, m_width, m_height);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -172,11 +177,6 @@ unsigned int PostProcessor::sceneDepthTextureId() const noexcept
     return m_sceneDepthTextureId;
 }
 
-unsigned int PostProcessor::sceneLightingTextureId() const noexcept
-{
-    return m_sceneLightingTextureId;
-}
-
 void PostProcessor::presentSceneTexture() const
 {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_compositeFramebufferId);
@@ -190,6 +190,7 @@ void PostProcessor::presentDebugView(const PostProcessSettings& settings,
                                      const DebugViewSettings& debugView,
                                      unsigned int bloomTextureId) const
 {
+    ScopedRenderDebugGroup toneMapScope("Tone Mapping Pass");
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, m_width, m_height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -223,21 +224,20 @@ void PostProcessor::createBuffers(int width, int height)
     glGenFramebuffers(1, &m_sceneFramebufferId);
     glBindFramebuffer(GL_FRAMEBUFFER, m_sceneFramebufferId);
 
+    labelGlObject(GL_FRAMEBUFFER, m_sceneFramebufferId, "Scene.Framebuffer");
+
     glGenTextures(1, &m_sceneColorTextureId);
     attachColorTexture(m_sceneColorTextureId, width, height);
+    labelGlObject(GL_TEXTURE, m_sceneColorTextureId, "Scene.Color");
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                            m_sceneColorTextureId, 0);
 
-    glGenTextures(1, &m_sceneLightingTextureId);
-    attachColorTexture(m_sceneLightingTextureId, width, height);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D,
-                           m_sceneLightingTextureId, 0);
-
-    const unsigned int attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-    glDrawBuffers(2, attachments);
+    const unsigned int sceneAttachment = GL_COLOR_ATTACHMENT0;
+    glDrawBuffers(1, &sceneAttachment);
 
     glGenTextures(1, &m_sceneDepthTextureId);
     glBindTexture(GL_TEXTURE_2D, m_sceneDepthTextureId);
+    labelGlObject(GL_TEXTURE, m_sceneDepthTextureId, "Scene.Depth");
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height, 0, GL_DEPTH_STENCIL,
                  GL_UNSIGNED_INT_24_8, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -251,21 +251,31 @@ void PostProcessor::createBuffers(int width, int height)
     glGenFramebuffers(1, &m_compositeFramebufferId);
     glBindFramebuffer(GL_FRAMEBUFFER, m_compositeFramebufferId);
 
+    labelGlObject(GL_FRAMEBUFFER, m_compositeFramebufferId, "Composite.Framebuffer");
+
     glGenTextures(1, &m_compositeColorTextureId);
     attachColorTexture(m_compositeColorTextureId, width, height);
+    labelGlObject(GL_TEXTURE, m_compositeColorTextureId, "Composite.Color");
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                            m_compositeColorTextureId, 0);
 
     glGenTextures(1, &m_compositeBrightTextureId);
     attachColorTexture(m_compositeBrightTextureId, width, height);
+    labelGlObject(GL_TEXTURE, m_compositeBrightTextureId, "Composite.BloomExtract");
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D,
                            m_compositeBrightTextureId, 0);
 
-    glDrawBuffers(2, attachments);
+    const unsigned int compositeAttachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glDrawBuffers(2, compositeAttachments);
     validateFramebuffer(m_compositeFramebufferId, "lighting composite");
 
     glGenFramebuffers(2, m_pingPongFramebufferIds);
     glGenTextures(2, m_pingPongTextureIds);
+
+    labelGlObject(GL_FRAMEBUFFER, m_pingPongFramebufferIds[0], "Bloom.PingFramebuffer");
+    labelGlObject(GL_FRAMEBUFFER, m_pingPongFramebufferIds[1], "Bloom.PongFramebuffer");
+    labelGlObject(GL_TEXTURE, m_pingPongTextureIds[0], "Bloom.PingTexture");
+    labelGlObject(GL_TEXTURE, m_pingPongTextureIds[1], "Bloom.PongTexture");
 
     for (int index = 0; index < 2; ++index)
     {
@@ -282,7 +292,6 @@ void PostProcessor::createBuffers(int width, int height)
 void PostProcessor::destroyBuffers() noexcept
 {
     glDeleteTextures(1, &m_sceneColorTextureId);
-    glDeleteTextures(1, &m_sceneLightingTextureId);
     glDeleteTextures(1, &m_sceneDepthTextureId);
     glDeleteFramebuffers(1, &m_sceneFramebufferId);
     glDeleteTextures(1, &m_compositeColorTextureId);
@@ -293,7 +302,6 @@ void PostProcessor::destroyBuffers() noexcept
 
     m_sceneFramebufferId = 0;
     m_sceneColorTextureId = 0;
-    m_sceneLightingTextureId = 0;
     m_sceneDepthTextureId = 0;
     m_compositeFramebufferId = 0;
     m_compositeColorTextureId = 0;

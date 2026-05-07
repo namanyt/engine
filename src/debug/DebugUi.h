@@ -6,6 +6,11 @@ struct GLFWwindow;
 
 namespace engine
 {
+struct FramePerformanceStats;
+struct RendererDebugTextures;
+class Player;
+class PlayerController;
+
 class DebugUi final
 {
   public:
@@ -18,7 +23,9 @@ class DebugUi final
     DebugUi& operator=(DebugUi&&) = delete;
 
     void beginFrame() const;
-    void draw(Scene& scene);
+    void draw(Scene& scene, Player& player, PlayerController& playerController,
+              bool& debugFreeCameraEnabled, const FramePerformanceStats& performanceStats,
+              const RendererDebugTextures& debugTextures);
     void endFrame() const;
     bool consumeResumeCameraRequest() noexcept;
     bool shouldQuit() const noexcept;

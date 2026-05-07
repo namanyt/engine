@@ -1,5 +1,6 @@
 #include "core/ShadowMapPass.h"
 
+#include "core/RenderDebug.h"
 #include "core/Shader.h"
 #include "graphics/Mesh.h"
 #include "math/Transform.h"
@@ -37,6 +38,7 @@ void ShadowMapPass::resize(int size)
 
 void ShadowMapPass::begin(const Mat4& lightViewProjection) const
 {
+    pushRenderDebugGroup("Shadow Pass");
     glViewport(0, 0, m_size, m_size);
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebufferId);
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -54,6 +56,7 @@ void ShadowMapPass::end(int viewportWidth, int viewportHeight) const
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, viewportWidth, viewportHeight);
+    popRenderDebugGroup();
 }
 
 unsigned int ShadowMapPass::depthTextureId() const noexcept
@@ -67,6 +70,9 @@ void ShadowMapPass::createResources(int size)
 
     glGenFramebuffers(1, &m_framebufferId);
     glGenTextures(1, &m_depthTextureId);
+
+    labelGlObject(GL_FRAMEBUFFER, m_framebufferId, "ShadowPass.Framebuffer");
+    labelGlObject(GL_TEXTURE, m_depthTextureId, "ShadowPass.DepthTexture");
 
     glBindTexture(GL_TEXTURE_2D, m_depthTextureId);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, m_size, m_size, 0, GL_DEPTH_COMPONENT,

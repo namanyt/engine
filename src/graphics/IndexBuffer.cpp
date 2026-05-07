@@ -1,5 +1,7 @@
 #include "graphics/IndexBuffer.h"
 
+#include "core/RenderDebug.h"
+
 #include <glad/glad.h>
 
 #include <stdexcept>
@@ -15,12 +17,11 @@ IndexBuffer::IndexBuffer(const unsigned int* data, std::size_t indexCount)
         throw std::runtime_error("Failed to create an OpenGL index buffer.");
     }
 
+    labelGlObject(GL_BUFFER, m_bufferId, "Geometry.IndexBuffer");
+
     bind();
-    glBufferData(
-        GL_ELEMENT_ARRAY_BUFFER,
-        static_cast<GLsizeiptr>(indexCount * sizeof(unsigned int)),
-        data,
-        GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indexCount * sizeof(unsigned int)), data, GL_STATIC_DRAW);
 }
 
 IndexBuffer::~IndexBuffer()

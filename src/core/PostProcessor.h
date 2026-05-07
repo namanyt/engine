@@ -31,7 +31,6 @@ class PostProcessor final
 
     unsigned int sceneTextureId() const noexcept;
     unsigned int sceneDepthTextureId() const noexcept;
-    unsigned int sceneLightingTextureId() const noexcept;
 
   private:
     void createBuffers(int width, int height);
@@ -41,7 +40,6 @@ class PostProcessor final
     int m_height = 1;
     unsigned int m_sceneFramebufferId = 0;
     unsigned int m_sceneColorTextureId = 0;
-    unsigned int m_sceneLightingTextureId = 0;
     unsigned int m_sceneDepthTextureId = 0;
     unsigned int m_compositeFramebufferId = 0;
     unsigned int m_compositeColorTextureId = 0;

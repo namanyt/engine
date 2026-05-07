@@ -16,7 +16,9 @@ struct InputState final
     bool moveRight = false;
     bool moveUp = false;
     bool moveDown = false;
+    bool jump = false;
     bool sprint = false;
+    bool toggleDebugFreeCamera = false;
     bool toggleMoonLight = false;
     bool toggleSphereLights = false;
     bool toggleConeLights = false;
@@ -85,6 +87,8 @@ class Application final
     bool m_hasCursorSample = false;
     bool m_cursorCaptured = false;
     mutable bool m_previousEscapePressed = false;
+    mutable bool m_previousJumpPressed = false;
+    mutable bool m_previousDebugFreeCameraPressed = false;
     mutable bool m_previousMoonTogglePressed = false;
     mutable bool m_previousSphereLightsTogglePressed = false;
     mutable bool m_previousConeLightsTogglePressed = false;

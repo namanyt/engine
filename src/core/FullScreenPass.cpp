@@ -1,5 +1,7 @@
 #include "core/FullScreenPass.h"
 
+#include "core/RenderDebug.h"
+
 #include <glad/glad.h>
 
 #include <stdexcept>
@@ -9,16 +11,15 @@ namespace engine
 FullScreenPass::FullScreenPass()
 {
     constexpr float kVertices[] = {
-        -1.0f, -1.0f, 0.0f, 0.0f,
-         1.0f, -1.0f, 1.0f, 0.0f,
-         1.0f,  1.0f, 1.0f, 1.0f,
-        -1.0f, -1.0f, 0.0f, 0.0f,
-         1.0f,  1.0f, 1.0f, 1.0f,
-        -1.0f,  1.0f, 0.0f, 1.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f,  1.0f, 1.0f, 1.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,  1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f,
     };
 
     glGenVertexArrays(1, &m_vertexArrayId);
     glGenBuffers(1, &m_vertexBufferId);
+
+    labelGlObject(GL_VERTEX_ARRAY, m_vertexArrayId, "FullscreenPass.VAO");
+    labelGlObject(GL_BUFFER, m_vertexBufferId, "FullscreenPass.VBO");
 
     if (m_vertexArrayId == 0 || m_vertexBufferId == 0)
     {

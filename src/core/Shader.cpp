@@ -1,6 +1,7 @@
 #include "core/Shader.h"
 
 #include "core/Log.h"
+#include "core/RenderDebug.h"
 #include "math/Transform.h"
 
 #include <glad/glad.h>
@@ -12,7 +13,8 @@
 
 namespace engine
 {
-Shader::Shader(const std::filesystem::path& vertexShaderPath, const std::filesystem::path& fragmentShaderPath)
+Shader::Shader(const std::filesystem::path& vertexShaderPath,
+               const std::filesystem::path& fragmentShaderPath)
 {
     {
         std::ostringstream stream;
@@ -29,8 +31,10 @@ Shader::Shader(const std::filesystem::path& vertexShaderPath, const std::filesys
     const std::string vertexSource = readTextFile(vertexShaderPath);
     const std::string fragmentSource = readTextFile(fragmentShaderPath);
 
-    const unsigned int vertexShader = compileStage(GL_VERTEX_SHADER, vertexSource, vertexShaderPath);
-    const unsigned int fragmentShader = compileStage(GL_FRAGMENT_SHADER, fragmentSource, fragmentShaderPath);
+    const unsigned int vertexShader =
+        compileStage(GL_VERTEX_SHADER, vertexSource, vertexShaderPath);
+    const unsigned int fragmentShader =
+        compileStage(GL_FRAGMENT_SHADER, fragmentSource, fragmentShaderPath);
 
     m_programId = glCreateProgram();
     if (m_programId == 0)
@@ -59,6 +63,10 @@ Shader::Shader(const std::filesystem::path& vertexShaderPath, const std::filesys
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
+
+    labelGlObject(GL_PROGRAM, m_programId,
+                  vertexShaderPath.filename().string() + " + " +
+                      fragmentShaderPath.filename().string());
 
     {
         std::ostringstream stream;
@@ -138,7 +146,8 @@ std::string Shader::readTextFile(const std::filesystem::path& path)
     return contents.str();
 }
 
-unsigned int Shader::compileStage(unsigned int stage, const std::string& source, const std::filesystem::path& path)
+unsigned int Shader::compileStage(unsigned int stage, const std::string& source,
+                                  const std::filesystem::path& path)
 {
     const unsigned int shaderId = glCreateShader(stage);
     if (shaderId == 0)
@@ -149,6 +158,7 @@ unsigned int Shader::compileStage(unsigned int stage, const std::string& source,
     const char* sourcePointer = source.c_str();
     glShaderSource(shaderId, 1, &sourcePointer, nullptr);
     glCompileShader(shaderId);
+    labelGlObject(GL_SHADER, shaderId, path.filename().string());
 
     int compiled = 0;
     glGetShaderiv(shaderId, GL_COMPILE_STATUS, &compiled);
@@ -161,7 +171,8 @@ unsigned int Shader::compileStage(unsigned int stage, const std::string& source,
         glGetShaderInfoLog(shaderId, logLength, nullptr, infoLog.data());
 
         glDeleteShader(shaderId);
-        throw std::runtime_error("Shader compilation failed for '" + path.string() + "':\n" + infoLog);
+        throw std::runtime_error("Shader compilation failed for '" + path.string() + "':\n" +
+                                 infoLog);
     }
 
     {
@@ -188,6 +199,11 @@ void Shader::validateProgramLink(unsigned int programId)
 
         throw std::runtime_error("Shader program linking failed:\n" + infoLog);
     }
+}
+
+unsigned int Shader::programId() const noexcept
+{
+    return m_programId;
 }
 
 int Shader::uniformLocation(const std::string& name) const

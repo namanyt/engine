@@ -3,6 +3,7 @@
 #include "core/Log.h"
 #include "core/PostProcessor.h"
 #include "core/RayEvaluationPass.h"
+#include "core/RenderDebug.h"
 #include "core/Shader.h"
 #include "core/ShaderLibrary.h"
 #include "core/ShadowMapPass.h"
@@ -74,14 +75,27 @@ void Renderer::endFrame(const PostProcessSettings& postProcessSettings,
 
     if (m_rayEvaluationPass != nullptr && m_postProcessor != nullptr)
     {
-        m_rayEvaluationPass->evaluate(m_postProcessor->sceneDepthTextureId(),
-                                      m_postProcessor->sceneLightingTextureId(), frameUniforms);
+        const auto fogCpuScope = m_profiler.makeCpuScope("Fog Integration");
+        const auto atmosphereGpuScope = m_profiler.makeGpuScope("Volumetric Fog Pass");
+        m_rayEvaluationPass->evaluate(m_postProcessor->sceneDepthTextureId(), frameUniforms);
+        m_profiler.setVolumetricStats(
+            m_rayEvaluationPass->renderWidth(), m_rayEvaluationPass->renderHeight(),
+            frameUniforms.rayEvaluation.maxSteps,
+            static_cast<std::uint64_t>(m_rayEvaluationPass->renderWidth()) *
+                static_cast<std::uint64_t>(m_rayEvaluationPass->renderHeight()) *
+                static_cast<std::uint64_t>(std::max(frameUniforms.rayEvaluation.maxSteps, 0)));
+    }
+
+    if (m_postProcessor != nullptr && m_rayEvaluationPass != nullptr)
+    {
+        const auto lightingGpuScope = m_profiler.makeGpuScope("Lighting Pass");
         m_postProcessor->composeLighting(m_rayEvaluationPass->atmosphereTextureId(),
                                          postProcessSettings.bloomThreshold);
     }
 
     if (m_postProcessor != nullptr)
     {
+        const auto postGpuScope = m_profiler.makeGpuScope("Post Processing Pass");
         m_postProcessor->endScene(postProcessSettings, frameUniforms.debugView);
     }
 }
@@ -104,6 +118,7 @@ void Renderer::drawShadow(const Mesh& mesh, const Transform& transform) const
         return;
     }
 
+    m_profiler.addDrawCall();
     m_shadowMapPass->draw(mesh, transform);
 }
 
@@ -141,6 +156,7 @@ void Renderer::draw(const Mesh& mesh, const Material& material, const Transform&
         shader.setInt("uShadowMap", 2);
     }
 
+    m_profiler.addDrawCall();
     mesh.draw();
 }
 
@@ -152,6 +168,38 @@ ShaderLibrary& Renderer::shaderLibrary() noexcept
 const ShaderLibrary& Renderer::shaderLibrary() const noexcept
 {
     return *m_shaderLibrary;
+}
+
+RenderProfiler& Renderer::profiler() noexcept
+{
+    return m_profiler;
+}
+
+const RenderProfiler& Renderer::profiler() const noexcept
+{
+    return m_profiler;
+}
+
+RendererDebugTextures Renderer::debugTextures() const noexcept
+{
+    RendererDebugTextures textures{};
+
+    if (m_shadowMapPass != nullptr)
+    {
+        textures.shadowMapTextureId = m_shadowMapPass->depthTextureId();
+    }
+
+    if (m_postProcessor != nullptr)
+    {
+        textures.sceneDepthTextureId = m_postProcessor->sceneDepthTextureId();
+    }
+
+    if (m_rayEvaluationPass != nullptr)
+    {
+        textures.volumetricTextureId = m_rayEvaluationPass->atmosphereTextureId();
+    }
+
+    return textures;
 }
 
 void Renderer::applyFrameState(const Shader& shader, const FrameUniforms& frameUniforms) const

@@ -46,7 +46,6 @@ uniform LocalLight uLocalLights[kMaxLocalLights];
 uniform float uTime;
 
 layout (location = 0) out vec4 FragColor;
-layout (location = 1) out vec4 LightColor;
 
 float luminance(vec3 color)
 {
@@ -106,6 +105,11 @@ vec3 materialIdColor(int category)
         return vec3(0.56, 0.76, 0.68);
     }
 
+    if (category == 7)
+    {
+        return vec3(0.86, 0.90, 1.00);
+    }
+
     return vec3(1.0, 0.0, 1.0);
 }
 
@@ -147,11 +151,42 @@ void main()
     float metallic = clamp(uMaterialMetallic, 0.0, 1.0);
     float softness = clamp(uMaterialSoftness, 0.0, 1.0);
     float atmosphereResponse = max(uMaterialAtmosphericResponse, 0.0);
+    bool unlitCelestial = uMaterialCategory == 7;
 
     vec3 vertexColor = mix(vec3(1.0), pow(max(vColor.rgb, vec3(0.0)), vec3(1.08)), 0.28);
     vec3 baseColor = uMaterialAlbedo * vertexColor;
     baseColor *= 0.988 + 0.012 * vec3(vTexCoord, 1.0);
     baseColor *= 0.996 + 0.004 * sin(uTime * 0.05 + vWorldPosition.x * 0.018 + vWorldPosition.z * 0.013);
+    vec3 emissive = uMaterialEmissiveColor * uMaterialEmissiveStrength * uEmissiveEnabled;
+
+    if (unlitCelestial)
+    {
+        vec3 color = emissive;
+
+        if (uMaterialDebugViewMode > 0)
+        {
+            vec3 debugColor = vec3(0.0);
+
+            if (uMaterialDebugViewMode == 1)
+            {
+                debugColor = materialIdColor(uMaterialCategory);
+            }
+            else if (uMaterialDebugViewMode == 4)
+            {
+                debugColor = emissive;
+            }
+            else
+            {
+                debugColor = vec3(compressPositive(luminance(color), 0.55));
+            }
+
+            FragColor = vec4(max(debugColor, vec3(0.0)), 1.0);
+            return;
+        }
+
+        FragColor = vec4(color, 1.0);
+        return;
+    }
 
     float upFactor = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
     vec3 skyAmbient = mix(uGroundAmbientColor, uSkyHorizonColor, upFactor);
@@ -185,6 +220,8 @@ void main()
          uSunColor * sunSpecular * (0.48 + atmosphereResponse * 0.72) + edgeLighting * 2.1) *
         atmosphereResponse;
     vec3 localSpecularAccumulation = vec3(0.0);
+    float accumulatedLightAttenuation = (1.0 - shadow) * wrappedDiffuse;
+    vec3 localVolumeDebug = vec3(0.0);
 
     for (int index = 0; index < uLocalLightCount && index < kMaxLocalLights; ++index)
     {
@@ -209,11 +246,12 @@ void main()
         color += localColor * baseColor * softness * pow(1.0 - localDiffuse, 2.0) * 0.08;
 
         localSpecularAccumulation += localSpecularColor;
+        accumulatedLightAttenuation += attenuation * localDiffuse;
+        localVolumeDebug += localColor * (0.35 + attenuation * 0.65);
         atmosphereLightField +=
             (localColor * (0.16 + localDiffuse * 0.18) + localSpecularColor * 1.45) * atmosphereResponse;
     }
 
-    vec3 emissive = uMaterialEmissiveColor * uMaterialEmissiveStrength * uEmissiveEnabled;
     color += emissive;
 
     vec3 surfaceLightField = atmosphereLightField + emissive * (0.45 + atmosphereResponse * 1.15);
@@ -248,12 +286,26 @@ void main()
         {
             debugColor = heatmapColor(compressPositive(luminance(color), 0.55));
         }
+        else if (uMaterialDebugViewMode == 7)
+        {
+            debugColor = normal * 0.5 + 0.5;
+        }
+        else if (uMaterialDebugViewMode == 8)
+        {
+            debugColor = heatmapColor(clamp(accumulatedLightAttenuation * 0.25, 0.0, 1.0));
+        }
+        else if (uMaterialDebugViewMode == 9)
+        {
+            debugColor = clamp(localVolumeDebug, 0.0, 1.0);
+        }
+        else if (uMaterialDebugViewMode == 10)
+        {
+            debugColor = heatmapColor(clamp(1.0 - shadow, 0.0, 1.0));
+        }
 
         FragColor = vec4(max(debugColor, vec3(0.0)), 1.0);
-        LightColor = vec4(0.0, 0.0, 0.0, 1.0);
         return;
     }
 
     FragColor = vec4(color, 1.0);
-    LightColor = vec4(max(surfaceLightField, vec3(0.0)), 1.0);
 }

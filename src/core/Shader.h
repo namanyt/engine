@@ -9,8 +9,9 @@ struct Mat4;
 
 class Shader final
 {
-public:
-    Shader(const std::filesystem::path& vertexShaderPath, const std::filesystem::path& fragmentShaderPath);
+  public:
+    Shader(const std::filesystem::path& vertexShaderPath,
+           const std::filesystem::path& fragmentShaderPath);
     ~Shader();
 
     Shader(const Shader&) = delete;
@@ -24,10 +25,12 @@ public:
     void setVec2(const std::string& name, float x, float y) const;
     void setVec3(const std::string& name, float x, float y, float z) const;
     void setMat4(const std::string& name, const Mat4& value) const;
+    unsigned int programId() const noexcept;
 
-private:
+  private:
     static std::string readTextFile(const std::filesystem::path& path);
-    static unsigned int compileStage(unsigned int stage, const std::string& source, const std::filesystem::path& path);
+    static unsigned int compileStage(unsigned int stage, const std::string& source,
+                                     const std::filesystem::path& path);
     static void validateProgramLink(unsigned int programId);
 
     int uniformLocation(const std::string& name) const;

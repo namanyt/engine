@@ -23,12 +23,26 @@ enum class PostDebugViewMode
 
 enum class VolumetricDebugViewMode
 {
-    Composite = 0,
-    RaySteps = 1,
-    DensityAccumulation = 2,
-    ScatteringOnly = 3,
-    IntegrationHeatmap = 4,
-    SampleCount = 5,
+    FinalImage = 0,
+    FogDensity = 1,
+    Transmittance = 2,
+    Scattering = 3,
+    RaymarchSteps = 4,
+    ShadowedFog = 5,
+    UnshadowedFog = 6,
+    TemporalHistory = 7,
+    VolumetricBufferResolution = 8,
+    Extinction = 9,
+    LightEnergy = 10,
+    PhaseFunction = 11,
+    ShadowContribution = 12,
+    AtmosphericOcclusion = 13,
+    TemporalHistoryWeight = 14,
+    RejectedReprojectionPixels = 15,
+    ReprojectionVelocity = 16,
+    ReprojectionUv = 17,
+    BilateralUpscaleMask = 18,
+    TemporalAccumulationConfidence = 19,
 };
 
 enum class MaterialDebugViewMode
@@ -40,6 +54,10 @@ enum class MaterialDebugViewMode
     EmissiveOnly = 4,
     AtmosphereResponse = 5,
     LuminanceHeatmap = 6,
+    Normals = 7,
+    LightAttenuation = 8,
+    LightVolumes = 9,
+    ShadowFactor = 10,
 };
 
 struct FogSettings final
@@ -48,6 +66,7 @@ struct FogSettings final
     float density = 0.02f;
     float baseHeight = 3.0f;
     float heightFalloff = 0.08f;
+    float maxHeight = 96.0f;
 };
 
 struct DirectionalLight final
@@ -104,17 +123,24 @@ struct PostProcessSettings final
 struct RayEvaluationSettings final
 {
     float shadowStrength = 0.18f;
-    float atmosphereIntensity = 0.95f;
-    float emissiveScatter = 1.35f;
-    float stepLength = 0.85f;
-    float maxDistance = 160.0f;
-    int maxSteps = 96;
-    float extinction = 0.58f;
-    float nearFieldHaze = 0.62f;
-    float phaseAnisotropy = 0.68f;
-    float jitterStrength = 0.92f;
-    float stepDistributionExponent = 1.55f;
-    float temporalJitterScale = 0.0f;
+    float scatteringStrength = 1.20f;
+    float volumetricLightIntensity = 2.0f;
+    float directionalLightAngularRadius = 0.004f;
+    float stepLength = 1.0f;
+    float maxDistance = 760.0f;
+    int maxSteps = 64;
+    float extinctionStrength = 1.50f;
+    float atmosphericAmbientFloor = 0.015f;
+    float temporalBlend = 0.86f;
+    float bilateralDepthFactor = 40.0f;
+    float nearFieldHaze = 0.0f;
+    float phaseAnisotropy = 0.45f;
+    float jitterStrength = 0.14f;
+    float stepDistributionExponent = 1.12f;
+    float temporalJitterScale = 1.0f;
+    float temporalDepthThreshold = 0.18f;
+    float temporalNormalThreshold = 0.82f;
+    float temporalVelocityThreshold = 4.5f;
 };
 
 struct DebugViewSettings final
@@ -126,7 +152,7 @@ struct DebugViewSettings final
     bool skyLightingEnabled = true;
     bool emissivePropagationEnabled = true;
     int postDebugViewMode = static_cast<int>(PostDebugViewMode::FinalImage);
-    int volumetricDebugViewMode = static_cast<int>(VolumetricDebugViewMode::Composite);
+    int volumetricDebugViewMode = static_cast<int>(VolumetricDebugViewMode::FinalImage);
     int materialDebugViewMode = static_cast<int>(MaterialDebugViewMode::Shaded);
 };
 } // namespace engine
