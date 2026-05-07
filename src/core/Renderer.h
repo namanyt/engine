@@ -2,16 +2,56 @@
 
 #include "math/Transform.h"
 
+#include <filesystem>
+#include <memory>
+#include <vector>
+
+#include "world/RayTracing.h"
+#include "world/Lighting.h"
+#include "world/Material.h"
+
 namespace engine
 {
 class Mesh;
+class PostProcessor;
+class RayEvaluationPass;
 class Shader;
+class ShaderLibrary;
+class ShadowMapPass;
+
+struct FrameUniforms final
+{
+    Mat4 viewMatrix = Mat4::identity();
+    Mat4 projectionMatrix = Mat4::identity();
+    Mat4 lightViewProjectionMatrix = Mat4::identity();
+    Vec3 viewPosition{};
+    Vec3 viewForward{0.0f, 0.0f, -1.0f};
+    Vec3 viewRight{1.0f, 0.0f, 0.0f};
+    Vec3 viewUp{0.0f, 1.0f, 0.0f};
+    float timeSeconds = 0.0f;
+    float aspectRatio = 1.0f;
+    float verticalFieldOfViewRadians = 0.78539816339f;
+    float nearPlane = 0.1f;
+    Vec3 fogColor{0.18f, 0.24f, 0.30f};
+    float fogDensity = 0.02f;
+    float fogBaseHeight = 3.0f;
+    float fogHeightFalloff = 0.08f;
+    DirectionalLight directionalLight{};
+    std::vector<LocalLight> localLights{};
+    ShadowSettings shadowSettings{};
+    SkyLight skyLight{};
+    RayEvaluationSettings rayEvaluation{};
+    DebugViewSettings debugView{};
+    RayTracingScene rayTracingScene{};
+    float exposure = 1.10f;
+    float bloomThreshold = 1.05f;
+};
 
 class Renderer final
 {
-public:
-    Renderer();
-    ~Renderer() = default;
+  public:
+    explicit Renderer(const std::filesystem::path& shaderDirectory);
+    ~Renderer();
 
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
@@ -19,16 +59,27 @@ public:
     Renderer& operator=(Renderer&&) = delete;
 
     void setViewport(int width, int height);
-    void beginFrame() const;
-    void draw(const Mesh& mesh, const Shader& shader, const Transform& transform) const;
+    void beginFrame(const Color& clearColor);
+    void endFrame(const PostProcessSettings& postProcessSettings,
+                  const FrameUniforms& frameUniforms, float timeSeconds) const;
+    void beginShadowPass(const FrameUniforms& frameUniforms) const;
+    void drawShadow(const Mesh& mesh, const Transform& transform) const;
+    void endShadowPass() const;
+    void draw(const Mesh& mesh, const Material& material, const Transform& transform,
+              const FrameUniforms& frameUniforms) const;
+    ShaderLibrary& shaderLibrary() noexcept;
+    const ShaderLibrary& shaderLibrary() const noexcept;
 
-private:
-    void updateProjectionMatrix();
+  private:
+    void applyFrameState(const Shader& shader, const FrameUniforms& frameUniforms) const;
+    void applyMaterialState(const Shader& shader, const Material& material) const;
+    void applyLocalLightState(const Shader& shader, const FrameUniforms& frameUniforms) const;
 
     int m_framebufferWidth = 800;
     int m_framebufferHeight = 600;
-    Vec3 m_viewPosition{0.0f, 0.0f, 13.5f};
-    Mat4 m_viewMatrix;
-    Mat4 m_projectionMatrix;
+    std::shared_ptr<ShaderLibrary> m_shaderLibrary;
+    std::unique_ptr<PostProcessor> m_postProcessor;
+    std::unique_ptr<RayEvaluationPass> m_rayEvaluationPass;
+    std::unique_ptr<ShadowMapPass> m_shadowMapPass;
 };
 } // namespace engine

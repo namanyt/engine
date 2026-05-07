@@ -23,6 +23,11 @@ engine::Vertex makeVertex(
     return vertex;
 }
 
+engine::Vec3 rotateZUpToYUp(const engine::Vec3& value)
+{
+    return engine::Vec3{value.x, value.z, -value.y};
+}
+
 void appendQuad(
     std::vector<unsigned int>& indices,
     unsigned int bottomLeft,
@@ -98,11 +103,10 @@ Geometry makePlaneGeometry()
 {
     Geometry quad = makeQuad();
 
-    const Vec3 normal{0.0f, 1.0f, 0.0f};
     for (Vertex& vertex : quad.vertices)
     {
-        vertex.position = Vec3{vertex.position.x, 0.0f, -vertex.position.y};
-        vertex.normal = normal;
+        vertex.position = rotateZUpToYUp(vertex.position);
+        vertex.normal = rotateZUpToYUp(vertex.normal);
     }
 
     return quad;
@@ -115,7 +119,15 @@ Geometry makeCubeGeometry()
 
 Geometry makeCylinderGeometry(unsigned int segmentCount)
 {
-    return extrude(makeCircle(static_cast<int>(segmentCount)), 1.0f);
+    Geometry cylinder = extrude(makeCircle(static_cast<int>(segmentCount)), 1.0f);
+
+    for (Vertex& vertex : cylinder.vertices)
+    {
+        vertex.position = rotateZUpToYUp(vertex.position);
+        vertex.normal = rotateZUpToYUp(vertex.normal);
+    }
+
+    return cylinder;
 }
 
 Geometry makePyramidGeometry()

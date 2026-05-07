@@ -3,44 +3,47 @@
 #include "core/Log.h"
 #include "core/Renderer.h"
 #include "core/Shader.h"
-#include "math/Transform.h"
-#include "primitives/Capsule.h"
+#include "core/ShaderLibrary.h"
 #include "primitives/Cone.h"
 #include "primitives/Cube.h"
-#include "primitives/Cylinder.h"
 #include "primitives/Plane.h"
 #include "primitives/Pyramid.h"
-#include "primitives/Quad.h"
 #include "primitives/Sphere.h"
-#include "primitives/Torus.h"
-#include "primitives/Triangle.h"
+#include "primitives/Cylinder.h"
+#include "world/Camera.h"
+#include "world/FreeCameraController.h"
+#include "world/TestWorld.h"
 
-#include <array>
-#include <cmath>
 #include <cstdlib>
 #include <exception>
+#include <memory>
 #include <sstream>
-#include <string_view>
+
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+#include "debug/DebugUi.h"
+#endif
 
 namespace
 {
-struct RenderObject final
+engine::Mat4 makeDirectionalLightViewProjection(const engine::Scene& scene)
 {
-    std::string_view label;
-    const engine::Mesh* mesh = nullptr;
-    engine::Transform transform{};
-    engine::Vec3 basePosition{};
-    engine::Vec3 baseRotation{};
-    engine::Vec3 baseScale{1.0f, 1.0f, 1.0f};
-    float rotationSpeed = 0.0f;
-    float bobAmplitude = 0.0f;
-    float bobSpeed = 0.0f;
-    float scaleAmplitude = 0.0f;
-    float scaleSpeed = 0.0f;
-    float phaseOffset = 0.0f;
-};
+    const engine::Vec3 lightDirection = engine::normalize(scene.sunLight.direction);
+    const engine::Vec3 focusPoint = scene.shadow.focusPoint;
+    const engine::Vec3 eye = focusPoint - lightDirection * (scene.shadow.projectionRadius * 0.8f);
+    const engine::Mat4 lightView =
+        engine::makeLookAt(eye, focusPoint, engine::Vec3{0.0f, 1.0f, 0.0f});
+    const float radius = scene.shadow.projectionRadius;
+    const engine::Mat4 lightProjection = engine::makeOrthographic(
+        -radius, radius, -radius, radius, scene.shadow.nearPlane, scene.shadow.farPlane);
+    return lightProjection * lightView;
+}
 
-constexpr float kPi = 3.14159265359f;
+engine::Mat4 makeCameraProjectionMatrix(const engine::Camera& camera, float aspectRatio)
+{
+    const float safeAspectRatio = aspectRatio > 0.01f ? aspectRatio : 0.01f;
+    return engine::makeInfinitePerspective(camera.fieldOfViewRadians(), safeAspectRatio,
+                                           camera.nearPlane());
+}
 } // namespace
 
 int main()
@@ -48,169 +51,196 @@ int main()
     try
     {
         engine::Application application;
-        engine::Renderer renderer;
-        engine::Shader shader(
-            application.shaderDirectory() / "vertex.glsl",
-            application.shaderDirectory() / "fragment.glsl");
-        engine::Triangle triangle;
+        engine::Renderer renderer(application.shaderDirectory());
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+        auto debugUi = std::make_unique<engine::DebugUi>(application.nativeWindow());
+#endif
+        engine::Camera camera(engine::Vec3{0.0f, 1.8f, 12.0f});
+        engine::FreeCameraController cameraController;
+        const engine::Shader& shader = renderer.shaderLibrary().loadGraphicsProgram(
+            "surface.forward", "vertex.glsl", "fragment.glsl");
         engine::Plane plane;
         engine::Cube cube;
-        engine::Quad quad;
         engine::Pyramid pyramid;
         engine::Sphere sphere;
         engine::Cylinder cylinder;
         engine::Cone cone;
-        engine::Capsule capsule;
-        engine::Torus torus;
+        engine::Scene scene = engine::createAtmosphericTestWorld(engine::TestWorldAssets{
+            &plane.mesh(),
+            &cube.mesh(),
+            &cylinder.mesh(),
+            &pyramid.mesh(),
+            &sphere.mesh(),
+            &cone.mesh(),
+            &shader,
+        });
 
-        engine::Log::info("Main", "Building primitive gallery scene.");
-
-        std::array<RenderObject, 10> sceneObjects = {};
-
-        sceneObjects[0].label = "Triangle";
-        sceneObjects[0].mesh = &triangle.mesh();
-        sceneObjects[0].basePosition = engine::Vec3{-5.0f, 2.4f, 0.0f};
-        sceneObjects[0].baseRotation = engine::Vec3{0.0f, 0.0f, -0.18f};
-        sceneObjects[0].baseScale = engine::Vec3{0.95f, 0.95f, 0.95f};
-        sceneObjects[0].rotationSpeed = 0.6f;
-        sceneObjects[0].bobAmplitude = 0.18f;
-        sceneObjects[0].bobSpeed = 1.2f;
-        sceneObjects[0].phaseOffset = 0.0f;
-
-        sceneObjects[1].label = "Quad";
-        sceneObjects[1].mesh = &quad.mesh();
-        sceneObjects[1].basePosition = engine::Vec3{-1.7f, 2.4f, 0.0f};
-        sceneObjects[1].baseRotation = engine::Vec3{0.0f, 0.0f, 0.35f};
-        sceneObjects[1].baseScale = engine::Vec3{1.05f, 1.05f, 1.05f};
-        sceneObjects[1].rotationSpeed = -0.45f;
-        sceneObjects[1].scaleAmplitude = 0.08f;
-        sceneObjects[1].scaleSpeed = 1.4f;
-        sceneObjects[1].phaseOffset = 0.5f;
-
-        sceneObjects[2].label = "Plane";
-        sceneObjects[2].mesh = &plane.mesh();
-        sceneObjects[2].basePosition = engine::Vec3{1.7f, 2.4f, 0.0f};
-        sceneObjects[2].baseRotation = engine::Vec3{-0.42f * kPi, 0.28f, 0.0f};
-        sceneObjects[2].baseScale = engine::Vec3{1.25f, 1.25f, 1.25f};
-        sceneObjects[2].rotationSpeed = 0.35f;
-        sceneObjects[2].bobAmplitude = 0.12f;
-        sceneObjects[2].bobSpeed = 0.9f;
-        sceneObjects[2].phaseOffset = 1.0f;
-
-        sceneObjects[3].label = "Cube";
-        sceneObjects[3].mesh = &cube.mesh();
-        sceneObjects[3].basePosition = engine::Vec3{5.0f, 2.4f, 0.0f};
-        sceneObjects[3].baseRotation = engine::Vec3{0.45f, 0.65f, 0.0f};
-        sceneObjects[3].baseScale = engine::Vec3{0.95f, 0.95f, 0.95f};
-        sceneObjects[3].rotationSpeed = 1.1f;
-        sceneObjects[3].phaseOffset = 1.6f;
-
-        sceneObjects[4].label = "Pyramid";
-        sceneObjects[4].mesh = &pyramid.mesh();
-        sceneObjects[4].basePosition = engine::Vec3{-5.0f, -0.6f, 0.0f};
-        sceneObjects[4].baseRotation = engine::Vec3{0.0f, -0.45f, 0.0f};
-        sceneObjects[4].baseScale = engine::Vec3{0.95f, 1.15f, 0.95f};
-        sceneObjects[4].rotationSpeed = -0.75f;
-        sceneObjects[4].bobAmplitude = 0.15f;
-        sceneObjects[4].bobSpeed = 1.5f;
-        sceneObjects[4].phaseOffset = 2.0f;
-
-        sceneObjects[5].label = "Sphere";
-        sceneObjects[5].mesh = &sphere.mesh();
-        sceneObjects[5].basePosition = engine::Vec3{-1.7f, -0.6f, 0.0f};
-        sceneObjects[5].baseScale = engine::Vec3{0.95f, 0.95f, 0.95f};
-        sceneObjects[5].scaleAmplitude = 0.10f;
-        sceneObjects[5].scaleSpeed = 1.9f;
-        sceneObjects[5].phaseOffset = 2.4f;
-
-        sceneObjects[6].label = "Cylinder";
-        sceneObjects[6].mesh = &cylinder.mesh();
-        sceneObjects[6].basePosition = engine::Vec3{1.7f, -0.6f, 0.0f};
-        sceneObjects[6].baseRotation = engine::Vec3{0.0f, 0.35f, 0.0f};
-        sceneObjects[6].baseScale = engine::Vec3{0.85f, 1.15f, 0.85f};
-        sceneObjects[6].rotationSpeed = 0.7f;
-        sceneObjects[6].phaseOffset = 2.9f;
-
-        sceneObjects[7].label = "Cone";
-        sceneObjects[7].mesh = &cone.mesh();
-        sceneObjects[7].basePosition = engine::Vec3{5.0f, -0.6f, 0.0f};
-        sceneObjects[7].baseRotation = engine::Vec3{0.0f, -0.35f, 0.0f};
-        sceneObjects[7].baseScale = engine::Vec3{0.95f, 1.05f, 0.95f};
-        sceneObjects[7].rotationSpeed = -0.6f;
-        sceneObjects[7].bobAmplitude = 0.14f;
-        sceneObjects[7].bobSpeed = 1.1f;
-        sceneObjects[7].phaseOffset = 3.3f;
-
-        sceneObjects[8].label = "Capsule";
-        sceneObjects[8].mesh = &capsule.mesh();
-        sceneObjects[8].basePosition = engine::Vec3{-2.6f, -3.6f, 0.0f};
-        sceneObjects[8].baseRotation = engine::Vec3{0.35f, 0.45f, 0.0f};
-        sceneObjects[8].baseScale = engine::Vec3{0.9f, 1.2f, 0.9f};
-        sceneObjects[8].rotationSpeed = 0.85f;
-        sceneObjects[8].phaseOffset = 3.9f;
-
-        sceneObjects[9].label = "Torus";
-        sceneObjects[9].mesh = &torus.mesh();
-        sceneObjects[9].basePosition = engine::Vec3{2.6f, -3.6f, 0.0f};
-        sceneObjects[9].baseRotation = engine::Vec3{1.1f, 0.35f, 0.25f};
-        sceneObjects[9].baseScale = engine::Vec3{1.05f, 1.05f, 1.05f};
-        sceneObjects[9].rotationSpeed = -1.0f;
-        sceneObjects[9].scaleAmplitude = 0.07f;
-        sceneObjects[9].scaleSpeed = 1.6f;
-        sceneObjects[9].phaseOffset = 4.4f;
+        camera.setYawPitch(-90.0f, -4.5f);
+        cameraController.setMoveSpeed(10.5f);
+        cameraController.setSprintMultiplier(2.1f);
 
         {
             std::ostringstream stream;
-            stream << "Scene objects configured: " << sceneObjects.size();
+            stream << "Loaded atmospheric scene with " << scene.objects().size()
+                   << " world objects.";
             engine::Log::info("Main", stream.str());
         }
 
-        for (const RenderObject& object : sceneObjects)
-        {
-            std::ostringstream stream;
-            stream
-                << object.label
-                << " pos=("
-                << object.basePosition.x
-                << ", "
-                << object.basePosition.y
-                << ", "
-                << object.basePosition.z
-                << ") rotYSpeed="
-                << object.rotationSpeed
-                << " bobAmp="
-                << object.bobAmplitude
-                << " scaleAmp="
-                << object.scaleAmplitude;
-            engine::Log::info("Main", stream.str());
-        }
-
-        engine::Log::info("Main", "Entering main loop.");
+        application.pollEvents();
+        static_cast<void>(application.consumeInputState());
+        application.primeFrameState();
+        engine::Log::info("Main", "Entering world loop.");
 
         while (application.isRunning())
         {
+            application.pollEvents();
             application.processInput();
+            const engine::InputState inputState = application.consumeInputState();
+            const float deltaSeconds = application.deltaSeconds();
             const float timeSeconds = application.timeSeconds();
+            cameraController.update(camera, inputState, deltaSeconds);
+
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+            if (inputState.toggleDebugUi)
+            {
+                const bool debugUiEnabled = !debugUi->isEnabled();
+                debugUi->setEnabled(debugUiEnabled);
+                application.setCursorCaptured(!debugUiEnabled);
+            }
+
+            if (inputState.toggleCursorCapture && debugUi->isEnabled() &&
+                !application.isCursorCaptured())
+            {
+                application.setCursorCaptured(true);
+                debugUi->setEnabled(false);
+            }
+#endif
+
+            if (inputState.toggleMoonLight)
+            {
+                engine::setMoonLightEnabled(scene, !engine::isMoonLightEnabled(scene));
+            }
+
+            if (inputState.toggleSphereLights)
+            {
+                engine::setSphereLightsEnabled(scene, !engine::areSphereLightsEnabled(scene));
+            }
+
+            if (inputState.toggleConeLights)
+            {
+                engine::setConeLightsEnabled(scene, !engine::areConeLightsEnabled(scene));
+            }
+
+            if (inputState.toggleMoonEmissive)
+            {
+                engine::setMoonEmissiveEnabled(scene, !engine::isMoonEmissiveEnabled(scene));
+            }
+
+            if (inputState.toggleSphereEmissive)
+            {
+                engine::setSphereEmissiveEnabled(scene, !engine::areSphereEmissiveEnabled(scene));
+            }
+
+            if (inputState.toggleConeEmissive)
+            {
+                engine::setConeEmissiveEnabled(scene, !engine::areConeEmissiveEnabled(scene));
+            }
+
+            if (inputState.stepMoonBackward)
+            {
+                engine::stepMoonTime(scene, -8.0f);
+            }
+
+            if (inputState.stepMoonForward)
+            {
+                engine::stepMoonTime(scene, 8.0f);
+            }
+
+            if (inputState.toggleMoonMotion)
+            {
+                engine::setMoonMotionEnabled(scene, !engine::isMoonMotionEnabled(scene));
+            }
+
+            engine::updateAtmosphericWorldLighting(scene, timeSeconds);
             application.updateWindowTitle(timeSeconds);
 
             renderer.setViewport(application.framebufferWidth(), application.framebufferHeight());
-            renderer.beginFrame();
 
-            for (RenderObject& object : sceneObjects)
+            const float aspectRatio = static_cast<float>(application.framebufferWidth()) /
+                                      static_cast<float>(application.framebufferHeight() > 0
+                                                             ? application.framebufferHeight()
+                                                             : 1);
+            engine::FrameUniforms frameUniforms{};
+            frameUniforms.viewMatrix = camera.viewMatrix();
+            frameUniforms.projectionMatrix = makeCameraProjectionMatrix(camera, aspectRatio);
+            frameUniforms.viewPosition = camera.position();
+            frameUniforms.viewForward = camera.front();
+            frameUniforms.viewRight = camera.right();
+            frameUniforms.viewUp = camera.up();
+            frameUniforms.timeSeconds = timeSeconds;
+            frameUniforms.aspectRatio = aspectRatio;
+            frameUniforms.verticalFieldOfViewRadians = camera.fieldOfViewRadians();
+            frameUniforms.nearPlane = camera.nearPlane();
+            frameUniforms.fogColor = scene.fog.color;
+            frameUniforms.fogDensity = scene.fog.density;
+            frameUniforms.fogBaseHeight = scene.fog.baseHeight;
+            frameUniforms.fogHeightFalloff = scene.fog.heightFalloff;
+            frameUniforms.directionalLight = scene.sunLight;
+            frameUniforms.localLights = scene.localLights;
+            frameUniforms.shadowSettings = scene.shadow;
+            frameUniforms.skyLight = scene.skyLight;
+            frameUniforms.rayEvaluation = scene.rayEvaluation;
+            frameUniforms.debugView = scene.debugView;
+            frameUniforms.rayTracingScene = scene.rayTracingScene;
+            frameUniforms.exposure = scene.postProcess.exposure;
+            frameUniforms.bloomThreshold = scene.postProcess.bloomThreshold;
+            frameUniforms.lightViewProjectionMatrix = makeDirectionalLightViewProjection(scene);
+
+            renderer.beginShadowPass(frameUniforms);
+
+            for (const engine::WorldObject& object : scene.objects())
             {
-                const float phaseTime = timeSeconds + object.phaseOffset;
-                const float bob = std::sin(phaseTime * object.bobSpeed) * object.bobAmplitude;
-                const float uniformScale = 1.0f + std::sin(phaseTime * object.scaleSpeed) * object.scaleAmplitude;
+                if (object.mesh == nullptr || !object.castsShadows)
+                {
+                    continue;
+                }
 
-                object.transform.position = object.basePosition + engine::Vec3{0.0f, bob, 0.0f};
-                object.transform.rotation = object.baseRotation + engine::Vec3{0.0f, timeSeconds * object.rotationSpeed, 0.0f};
-                object.transform.scale = object.baseScale * uniformScale;
-
-                renderer.draw(*object.mesh, shader, object.transform);
+                renderer.drawShadow(*object.mesh, object.transform);
             }
 
+            renderer.endShadowPass();
+            renderer.beginFrame(scene.clearColor);
+
+            for (const engine::WorldObject& object : scene.objects())
+            {
+                if (object.mesh == nullptr || object.material.shader == nullptr)
+                {
+                    continue;
+                }
+
+                renderer.draw(*object.mesh, object.material, object.transform, frameUniforms);
+            }
+
+            renderer.endFrame(scene.postProcess, frameUniforms, timeSeconds);
+
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+            debugUi->beginFrame();
+            debugUi->draw(scene);
+            debugUi->endFrame();
+
+            if (debugUi->shouldQuit())
+            {
+                application.requestQuit();
+            }
+
+            if (debugUi->consumeResumeCameraRequest())
+            {
+                application.setCursorCaptured(true);
+                debugUi->setEnabled(false);
+            }
+#endif
+
             application.present();
-            application.pollEvents();
         }
     }
     catch (const std::exception& exception)

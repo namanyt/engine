@@ -25,6 +25,7 @@ file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}" ENGINE_SOURCE_DIR_NORMALIZED)
 set(GLFW_SOURCE_DIR "${CMAKE_SOURCE_DIR}/external/glfw")
 set(GLAD_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/glad/include")
 set(GLAD_SOURCE_FILE "${CMAKE_SOURCE_DIR}/external/glad/src/glad.c")
+set(IMGUI_SOURCE_DIR "${CMAKE_SOURCE_DIR}/external/imgui")
 
 if(NOT EXISTS "${GLFW_SOURCE_DIR}/CMakeLists.txt")
     message(FATAL_ERROR "GLFW was not found in external/glfw. Follow external/README.md before configuring the project.")
@@ -32,6 +33,10 @@ endif()
 
 if(NOT EXISTS "${GLAD_SOURCE_FILE}" OR NOT EXISTS "${GLAD_INCLUDE_DIR}/glad/glad.h")
     message(FATAL_ERROR "GLAD was not found in external/glad. Follow external/README.md before configuring the project.")
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT EXISTS "${IMGUI_SOURCE_DIR}/imgui.h")
+    message(FATAL_ERROR "Dear ImGui was not found in external/imgui. It is required for debug UI builds.")
 endif()
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -44,6 +49,24 @@ add_subdirectory("${GLFW_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/external/glfw")
 add_library(glad STATIC "${GLAD_SOURCE_FILE}")
 target_include_directories(glad PUBLIC "${GLAD_INCLUDE_DIR}")
 
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release" AND EXISTS "${IMGUI_SOURCE_DIR}/imgui.h")
+    add_library(imgui STATIC
+        ${IMGUI_SOURCE_DIR}/imgui.cpp
+        ${IMGUI_SOURCE_DIR}/imgui_draw.cpp
+        ${IMGUI_SOURCE_DIR}/imgui_tables.cpp
+        ${IMGUI_SOURCE_DIR}/imgui_widgets.cpp
+        ${IMGUI_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+        ${IMGUI_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+    )
+    target_include_directories(imgui PUBLIC
+        ${IMGUI_SOURCE_DIR}
+        ${IMGUI_SOURCE_DIR}/backends
+        ${GLAD_INCLUDE_DIR}
+    )
+    target_compile_definitions(imgui PUBLIC GLFW_INCLUDE_NONE)
+    target_link_libraries(imgui PUBLIC glfw glad OpenGL::GL)
+endif()
+
 find_package(OpenGL REQUIRED)
 
 set(ENGINE_SOURCES
@@ -52,6 +75,11 @@ set(ENGINE_SOURCES
     src/core/Log.cpp
     src/core/Renderer.cpp
     src/core/Shader.cpp
+    src/core/ShaderLibrary.cpp
+    src/core/FullScreenPass.cpp
+    src/core/PostProcessor.cpp
+    src/core/RayEvaluationPass.cpp
+    src/core/ShadowMapPass.cpp
     src/geometry/Geometry.cpp
     src/geometry/Generators.cpp
     src/geometry/Operations.cpp
@@ -72,6 +100,9 @@ set(ENGINE_SOURCES
     src/primitives/Torus.cpp
     src/math/Types.cpp
     src/math/Transform.cpp
+    src/world/Camera.cpp
+    src/world/FreeCameraController.cpp
+    src/world/TestWorld.cpp
 )
 
 set(ENGINE_HEADERS
@@ -79,6 +110,11 @@ set(ENGINE_HEADERS
     src/core/Log.h
     src/core/Renderer.h
     src/core/Shader.h
+    src/core/ShaderLibrary.h
+    src/core/FullScreenPass.h
+    src/core/PostProcessor.h
+    src/core/RayEvaluationPass.h
+    src/core/ShadowMapPass.h
     src/geometry/Geometry.h
     src/geometry/Generators.h
     src/geometry/Operations.h
@@ -99,18 +135,48 @@ set(ENGINE_HEADERS
     src/primitives/Torus.h
     src/math/Types.h
     src/math/Transform.h
+    src/world/Camera.h
+    src/world/FreeCameraController.h
+    src/world/Lighting.h
+    src/world/Material.h
+    src/world/RayTracing.h
+    src/world/Scene.h
+    src/world/TestWorld.h
 )
 
 set(ENGINE_SHADERS
     shaders/vertex.glsl
     shaders/fragment.glsl
+    shaders/post_blur.vert
+    shaders/post_blur.frag
+    shaders/ray_eval.vert
+    shaders/ray_eval.frag
+    shaders/post_tonemap.vert
+    shaders/post_tonemap.frag
+    shaders/post_compose.frag
+    shaders/shadow_depth.vert
+    shaders/shadow_depth.frag
 )
+
+set(ENGINE_DEBUG_UI_SOURCES)
+set(ENGINE_DEBUG_UI_HEADERS)
+
+if(TARGET imgui)
+    list(APPEND ENGINE_DEBUG_UI_SOURCES
+        src/debug/DebugUi.cpp
+    )
+    list(APPEND ENGINE_DEBUG_UI_HEADERS
+        src/debug/DebugUi.h
+    )
+endif()
 
 set_source_files_properties(${ENGINE_SHADERS} PROPERTIES HEADER_FILE_ONLY TRUE)
 
 add_executable(EngineStarter
     ${ENGINE_SOURCES}
+    ${ENGINE_DEBUG_UI_SOURCES}
     ${ENGINE_HEADERS}
+    ${ENGINE_DEBUG_UI_HEADERS}
     ${ENGINE_SHADERS}
 )
 
@@ -133,6 +199,11 @@ target_link_libraries(EngineStarter
         OpenGL::GL
 )
 
+if(TARGET imgui)
+    target_link_libraries(EngineStarter PRIVATE imgui)
+    target_compile_definitions(EngineStarter PRIVATE ENGINE_ENABLE_DEBUG_UI=1)
+endif()
+
 engine_apply_target_defaults(EngineStarter)
 
 set_target_properties(glad PROPERTIES FOLDER "external")
@@ -142,11 +213,26 @@ set_target_properties(EngineStarter PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:EngineStarter>"
 )
 
-add_custom_command(TARGET EngineStarter POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_SOURCE_DIR}/shaders"
-            "$<TARGET_FILE_DIR:EngineStarter>/shaders"
+set(ENGINE_SHADER_COPY_COMMANDS
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:EngineStarter>/shaders"
 )
+
+foreach(shader_file IN LISTS ENGINE_SHADERS)
+    get_filename_component(shader_name "${shader_file}" NAME)
+    list(APPEND ENGINE_SHADER_COPY_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_SOURCE_DIR}/${shader_file}"
+                "$<TARGET_FILE_DIR:EngineStarter>/shaders/${shader_name}"
+    )
+endforeach()
+
+add_custom_target(EngineStarterShaders ALL
+    ${ENGINE_SHADER_COPY_COMMANDS}
+    DEPENDS ${ENGINE_SHADERS}
+    COMMENT "Copying shader assets"
+)
+
+add_dependencies(EngineStarter EngineStarterShaders)
 
 source_group(TREE "${CMAKE_SOURCE_DIR}" FILES
     ${ENGINE_SOURCES}

@@ -239,6 +239,19 @@ Mat4 makePerspective(float fieldOfViewRadians, float aspectRatio, float nearPlan
     return matrix;
 }
 
+Mat4 makeInfinitePerspective(float fieldOfViewRadians, float aspectRatio, float nearPlane)
+{
+    const float tangent = std::tan(fieldOfViewRadians * 0.5f);
+
+    Mat4 matrix{};
+    matrix.elements[0] = 1.0f / (aspectRatio * tangent);
+    matrix.elements[5] = 1.0f / tangent;
+    matrix.elements[10] = -1.0f;
+    matrix.elements[11] = -1.0f;
+    matrix.elements[14] = -2.0f * nearPlane;
+    return matrix;
+}
+
 Mat4 makeOrthographic(float left, float right, float bottom, float top, float nearPlane, float farPlane)
 {
     Mat4 matrix = Mat4::identity();
@@ -259,13 +272,13 @@ Mat4 makeLookAt(const Vec3& eye, const Vec3& target, const Vec3& upDirection)
 
     Mat4 matrix = Mat4::identity();
     matrix.elements[0] = side.x;
-    matrix.elements[1] = side.y;
-    matrix.elements[2] = side.z;
-    matrix.elements[4] = up.x;
+    matrix.elements[4] = side.y;
+    matrix.elements[8] = side.z;
+    matrix.elements[1] = up.x;
     matrix.elements[5] = up.y;
-    matrix.elements[6] = up.z;
-    matrix.elements[8] = -forward.x;
-    matrix.elements[9] = -forward.y;
+    matrix.elements[9] = up.z;
+    matrix.elements[2] = -forward.x;
+    matrix.elements[6] = -forward.y;
     matrix.elements[10] = -forward.z;
     matrix.elements[12] = -dot(side, eye);
     matrix.elements[13] = -dot(up, eye);

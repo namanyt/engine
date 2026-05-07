@@ -9,10 +9,12 @@ out vec3 vWorldPosition;
 out vec3 vWorldNormal;
 out vec2 vTexCoord;
 out vec4 vColor;
+out vec4 vShadowPosition;
 
 uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProjection;
+uniform mat4 uLightViewProjection;
 
 void main()
 {
@@ -23,6 +25,7 @@ void main()
     vWorldNormal = normalize(normalMatrix * aNormal);
     vTexCoord = aTexCoord;
     vColor = aColor;
+    vShadowPosition = uLightViewProjection * worldPosition;
 
     gl_Position = uProjection * uView * worldPosition;
 }

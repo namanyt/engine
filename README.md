@@ -3,16 +3,18 @@
 Minimal OpenGL 3.3 Core starter project for Windows using CMake, GLFW, and GLAD.
 
 The repository now includes vendored GLFW source in `external/glfw` and generated GLAD files in `external/glad`.
+Debug builds can also use Dear ImGui from `external/imgui` for the in-engine debug menu.
 
 ## Included systems
 
 - `Application`: window lifecycle, context setup, swap/poll/input handling
-- `core/Renderer`: frame setup, view/projection state, mesh draw submission
+- `core/Renderer`: frame setup and mesh draw submission from caller-provided frame uniforms
 - `core/Shader`: file loading, compilation, program linking, uniform updates
 - `geometry/`: CPU-side geometry types, 2D generators, and geometry operations like extrusion
 - `graphics/`: thin OpenGL wrappers for VAO/VBO/EBO plus `Mesh`
 - `primitives/`: reusable basic shapes including `Triangle`, `Quad`, `Plane`, `Cube`, `Pyramid`, `Sphere`, `Cylinder`, `Cone`, `Capsule`, and `Torus`
 - `math/`: foundational vector, color, matrix, and transform helpers
+- `world/`: camera, free-fly controller, scene container, and atmospheric test-world assembly
 - `shaders/`: external GLSL files copied next to the executable after build
 
 ## Dependency setup
@@ -22,6 +24,7 @@ Dependencies are already present in this workspace. If you need to recreate them
 - `external/glfw/`
 - `external/glad/include/`
 - `external/glad/src/glad.c`
+- `external/imgui/` for debug UI builds
 
 ## Configure and build with Visual Studio
 
@@ -69,19 +72,32 @@ ctest --preset test-debug-ninja -R shader_assets_exist --output-on-failure
 
 ## Runtime behavior
 
-- Opens a `1270x720` window
+- Opens a `1600x900` window
 - Creates an OpenGL 3.3 Core context
+- Disables VSync by default so the frame rate is uncapped
 - Loads GLAD after the context is current
-- Renders a gallery of primitive meshes through the reusable mesh and renderer abstraction
-- Uses core transform math only in the vertex shader: model, view, projection, and normal transforms
-- Animates the demo with basic CPU-side transform updates only: rotation, bobbing, and uniform scaling
-- Closes when `Escape` is pressed
+- Captures the mouse for free-look camera control on startup
+- Builds an atmospheric world-space scene with a large ground plane, distant structures, and fog falloff
+- Uses caller-provided camera view/projection state so world systems stay outside the renderer
+- Applies distance fog in the fragment shader to soften far geometry and hide scene bounds
+- In debug UI builds, `Escape` releases the mouse and a second `Escape` resumes camera capture when the menu is open
+- In release-style builds without the debug UI, `Escape` closes the application
+
+## Controls
+
+- `W`, `A`, `S`, `D`: move on the ground plane relative to the camera heading
+- `Space`: move upward
+- `Left Ctrl`: move downward
+- `Left Shift`: sprint
+- Mouse: look around
+- `Escape`: release or recapture the mouse in debug UI builds, or close the app otherwise
+- `F1`: toggle the debug menu in debug builds
 
 ## Tests
 
 - `shader_assets_exist`: verifies required GLSL files are present
 - `dependency_layout_exists`: verifies GLFW and GLAD files exist in `external/`
-- `engine_source_layout_exists`: verifies expected starter source files exist
+- `engine_source_layout_exists`: verifies expected starter source files exist, including the world subsystem
 
 ## Primitive coverage
 

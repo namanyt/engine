@@ -31,8 +31,23 @@ int shaderAssetsExist()
 
     const bool hasVertexShader = requirePath(root / "shaders" / "vertex.glsl");
     const bool hasFragmentShader = requirePath(root / "shaders" / "fragment.glsl");
+    const bool hasPostBlurVertexShader = requirePath(root / "shaders" / "post_blur.vert");
+    const bool hasPostBlurFragmentShader = requirePath(root / "shaders" / "post_blur.frag");
+    const bool hasPostComposeFragmentShader = requirePath(root / "shaders" / "post_compose.frag");
+    const bool hasRayEvalVertexShader = requirePath(root / "shaders" / "ray_eval.vert");
+    const bool hasRayEvalFragmentShader = requirePath(root / "shaders" / "ray_eval.frag");
+    const bool hasPostTonemapVertexShader = requirePath(root / "shaders" / "post_tonemap.vert");
+    const bool hasPostTonemapFragmentShader = requirePath(root / "shaders" / "post_tonemap.frag");
+    const bool hasShadowDepthVertexShader = requirePath(root / "shaders" / "shadow_depth.vert");
+    const bool hasShadowDepthFragmentShader = requirePath(root / "shaders" / "shadow_depth.frag");
 
-    return hasVertexShader && hasFragmentShader ? 0 : 1;
+    return hasVertexShader && hasFragmentShader && hasPostBlurVertexShader &&
+                   hasPostBlurFragmentShader && hasPostComposeFragmentShader &&
+                   hasRayEvalVertexShader && hasRayEvalFragmentShader &&
+                   hasPostTonemapVertexShader && hasPostTonemapFragmentShader &&
+                   hasShadowDepthVertexShader && hasShadowDepthFragmentShader
+               ? 0
+               : 1;
 }
 
 int dependencyLayoutExists()
@@ -40,7 +55,8 @@ int dependencyLayoutExists()
     const std::filesystem::path root = repoRoot();
 
     const bool hasGlfw = requirePath(root / "external" / "glfw" / "CMakeLists.txt");
-    const bool hasGladHeader = requirePath(root / "external" / "glad" / "include" / "glad" / "glad.h");
+    const bool hasGladHeader =
+        requirePath(root / "external" / "glad" / "include" / "glad" / "glad.h");
     const bool hasGladSource = requirePath(root / "external" / "glad" / "src" / "glad.c");
 
     return hasGlfw && hasGladHeader && hasGladSource ? 0 : 1;
@@ -57,6 +73,16 @@ int engineSourceLayoutExists()
         root / "src" / "core" / "Log.h",
         root / "src" / "core" / "Log.cpp",
         root / "src" / "core" / "Renderer.h",
+        root / "src" / "core" / "FullScreenPass.h",
+        root / "src" / "core" / "FullScreenPass.cpp",
+        root / "src" / "core" / "PostProcessor.h",
+        root / "src" / "core" / "PostProcessor.cpp",
+        root / "src" / "core" / "RayEvaluationPass.h",
+        root / "src" / "core" / "RayEvaluationPass.cpp",
+        root / "src" / "core" / "ShadowMapPass.h",
+        root / "src" / "core" / "ShadowMapPass.cpp",
+        root / "src" / "debug" / "DebugUi.h",
+        root / "src" / "debug" / "DebugUi.cpp",
         root / "src" / "core" / "Renderer.cpp",
         root / "src" / "core" / "Shader.h",
         root / "src" / "core" / "Shader.cpp",
@@ -100,8 +126,17 @@ int engineSourceLayoutExists()
         root / "src" / "math" / "Types.cpp",
         root / "src" / "math" / "Transform.h",
         root / "src" / "math" / "Transform.cpp",
-        root / "CMakeLists.txt"
-    };
+        root / "src" / "world" / "Camera.h",
+        root / "src" / "world" / "Camera.cpp",
+        root / "src" / "world" / "FreeCameraController.h",
+        root / "src" / "world" / "FreeCameraController.cpp",
+        root / "src" / "world" / "Lighting.h",
+        root / "src" / "world" / "Material.h",
+        root / "src" / "world" / "RayTracing.h",
+        root / "src" / "world" / "Scene.h",
+        root / "src" / "world" / "TestWorld.h",
+        root / "src" / "world" / "TestWorld.cpp",
+        root / "CMakeLists.txt"};
 
     bool success = true;
 
@@ -125,8 +160,7 @@ int main(int argc, char** argv)
     const std::vector<NamedTest> tests = {
         {"shader_assets_exist", &shaderAssetsExist},
         {"dependency_layout_exists", &dependencyLayoutExists},
-        {"engine_source_layout_exists", &engineSourceLayoutExists}
-    };
+        {"engine_source_layout_exists", &engineSourceLayoutExists}};
 
     if (argc != 2)
     {

@@ -77,6 +77,7 @@ Mat4 makeRotationX(float angleRadians);
 Mat4 makeRotationY(float angleRadians);
 Mat4 makeRotationZ(float angleRadians);
 Mat4 makePerspective(float fieldOfViewRadians, float aspectRatio, float nearPlane, float farPlane);
+Mat4 makeInfinitePerspective(float fieldOfViewRadians, float aspectRatio, float nearPlane);
 Mat4 makeOrthographic(float left, float right, float bottom, float top, float nearPlane, float farPlane);
 Mat4 makeLookAt(const Vec3& eye, const Vec3& target, const Vec3& upDirection);
 } // namespace engine

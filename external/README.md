@@ -17,6 +17,17 @@ external/
       KHR/khrplatform.h
     src/
       glad.c
+  imgui/
+    imgui.h
+    imgui.cpp
+    imgui_draw.cpp
+    imgui_tables.cpp
+    imgui_widgets.cpp
+    backends/
+      imgui_impl_glfw.cpp
+      imgui_impl_glfw.h
+      imgui_impl_opengl3.cpp
+      imgui_impl_opengl3.h
 ```
 
 ## GLFW setup
@@ -45,3 +56,9 @@ external/
 - Keeps engine code independent from vendor source layout changes
 - Lets CMake treat GLFW as a normal subproject
 - Keeps GLAD explicit and easy to regenerate when upgrading OpenGL targets
+
+## Dear ImGui setup
+
+1. Clone or download https://github.com/ocornut/imgui into `external/imgui`.
+2. Keep the `backends/` folder intact.
+3. The engine only links ImGui in debug-style builds for the runtime debug menu.
