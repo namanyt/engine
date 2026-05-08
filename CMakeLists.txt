@@ -20,6 +20,49 @@ function(engine_apply_target_defaults target_name)
     endif()
 endfunction()
 
+function(engine_stage_runtime_dependencies target_name)
+    if(NOT MINGW)
+        return()
+    endif()
+
+    get_filename_component(engine_mingw_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+
+    set(runtime_copy_script_content [=[
+set(target_file "$<TARGET_FILE:@target_name@>")
+set(target_dir "$<TARGET_FILE_DIR:@target_name@>")
+
+file(GET_RUNTIME_DEPENDENCIES
+    EXECUTABLES "${target_file}"
+    RESOLVED_DEPENDENCIES_VAR resolved_dependencies
+    UNRESOLVED_DEPENDENCIES_VAR unresolved_dependencies
+    DIRECTORIES "@engine_mingw_bin_dir@"
+    PRE_EXCLUDE_REGEXES "api-ms-win-.*" "ext-ms-win-.*"
+    POST_EXCLUDE_REGEXES ".*[/\\][Ss][Yy][Ss][Tt][Ee][Mm]32[/\\].*"
+)
+
+foreach(resolved_dependency IN LISTS resolved_dependencies)
+    file(COPY "${resolved_dependency}" DESTINATION "${target_dir}")
+endforeach()
+
+if(unresolved_dependencies)
+    list(JOIN unresolved_dependencies ", " unresolved_dependency_list)
+    message(WARNING "Unresolved runtime dependencies for @target_name@: ${unresolved_dependency_list}")
+endif()
+]=])
+
+    string(CONFIGURE "${runtime_copy_script_content}" runtime_copy_script_content @ONLY)
+
+    set(runtime_copy_script "${CMAKE_CURRENT_BINARY_DIR}/${target_name}_stage_runtime_deps.cmake")
+    file(GENERATE OUTPUT "${runtime_copy_script}" CONTENT "${runtime_copy_script_content}")
+
+    add_custom_command(
+        TARGET ${target_name}
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -P "${runtime_copy_script}"
+        VERBATIM
+    )
+endfunction()
+
 file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}" ENGINE_SOURCE_DIR_NORMALIZED)
 
 set(GLFW_SOURCE_DIR "${CMAKE_SOURCE_DIR}/external/glfw")
@@ -256,6 +299,7 @@ add_custom_target(EngineStarterShaders ALL
 )
 
 add_dependencies(EngineStarter EngineStarterShaders)
+engine_stage_runtime_dependencies(EngineStarter)
 
 source_group(TREE "${CMAKE_SOURCE_DIR}" FILES
     ${ENGINE_SOURCES}
@@ -271,6 +315,8 @@ if(BUILD_TESTING)
     set_target_properties(EngineStarterTests PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
+
+    engine_stage_runtime_dependencies(EngineStarterTests)
 
     target_compile_definitions(EngineStarterTests
         PRIVATE

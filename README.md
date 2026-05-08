@@ -45,6 +45,7 @@ cmake --build build
 ```
 
 Run the executable from `build/bin/EngineStarter.exe`.
+When sharing a MinGW/Ninja build with another machine, send the whole `build/bin` folder so the copied `shaders/` directory and staged runtime DLLs stay beside the executable.
 
 The Ninja workflow was verified successfully in this workspace.
 

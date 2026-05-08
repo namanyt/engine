@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include "components/WorldComponents.h"
 #include "core/Log.h"
 #include "core/RenderPipeline.h"
 #include "core/RenderDebug.h"
@@ -38,6 +39,14 @@ void copyCameraPose(const engine::Camera& source, engine::Camera& destination)
 {
     destination.setPosition(source.position());
     destination.setYawPitch(source.yawDegrees(), source.pitchDegrees());
+}
+
+void movePlayerToCameraPose(const engine::Camera& source, engine::Player& destination)
+{
+    destination.setPosition(source.position() - engine::Vec3{0.0f, destination.eyeHeight(), 0.0f});
+    destination.setYawPitch(source.yawDegrees(), source.pitchDegrees());
+    destination.setVelocity(engine::Vec3{});
+    destination.setGrounded(false);
 }
 } // namespace
 
@@ -85,14 +94,25 @@ int main()
 
         auto ensureRuntimeEntities = [&]()
         {
-            if (!scene.registry().isAlive(playerEntity))
+            engine::ecs::Registry& registry = scene.registry();
+
+            const bool playerEntityInvalid =
+                !registry.isAlive(playerEntity) ||
+                registry.has<engine::components::WorldObjectComponent>(playerEntity) ||
+                !registry.has<engine::components::PlayerComponent>(playerEntity);
+            if (playerEntityInvalid)
             {
-                playerEntity = scene.registry().createEntity();
+                playerEntity = registry.createEntity();
             }
 
-            if (!scene.registry().isAlive(debugCameraEntity))
+            const bool debugCameraEntityInvalid =
+                !registry.isAlive(debugCameraEntity) ||
+                registry.has<engine::components::WorldObjectComponent>(debugCameraEntity) ||
+                registry.has<engine::components::PlayerComponent>(debugCameraEntity) ||
+                !registry.has<engine::components::CameraComponent>(debugCameraEntity);
+            if (debugCameraEntityInvalid)
             {
-                debugCameraEntity = scene.registry().createEntity();
+                debugCameraEntity = registry.createEntity();
             }
         };
 
@@ -129,14 +149,24 @@ int main()
                 engine::syncAtmosphericTestWorld(scene, worldAssets);
             }
             ensureRuntimeEntities();
+            engine::systems::syncPlayerEntity(scene, playerEntity, player, !debugFreeCameraEnabled);
+            engine::systems::syncCameraEntity(scene, debugCameraEntity, debugCamera,
+                                              debugFreeCameraEnabled, true);
 
             if (inputState.toggleDebugFreeCamera)
             {
-                debugFreeCameraEnabled = !debugFreeCameraEnabled;
                 if (debugFreeCameraEnabled)
+                {
+                    const engine::Camera previousPlayerCamera = player.camera();
+                    movePlayerToCameraPose(debugCamera, player);
+                    copyCameraPose(previousPlayerCamera, debugCamera);
+                }
+                else
                 {
                     copyCameraPose(player.camera(), debugCamera);
                 }
+
+                debugFreeCameraEnabled = !debugFreeCameraEnabled;
             }
 
             if (debugFreeCameraEnabled)
