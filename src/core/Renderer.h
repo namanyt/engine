@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/RuntimeOverlay.h"
 #include "math/Transform.h"
 
 #include <filesystem>
@@ -99,6 +100,8 @@ class Renderer final
     const RenderProfiler& profiler() const noexcept;
     RendererDebugTextures debugTextures() const noexcept;
     void setRuntimeOverlayTexture(unsigned int textureId, int width, int height);
+    void setRuntimeOverlayTexture(unsigned int textureId, int width, int height,
+                                  const RuntimeOverlayOptions& options);
     void clearRuntimeOverlayTexture();
 
   private:

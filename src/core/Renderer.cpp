@@ -260,6 +260,17 @@ void Renderer::setRuntimeOverlayTexture(unsigned int textureId, int width, int h
     m_postProcessor->setRuntimeOverlayTexture(textureId, width, height);
 }
 
+void Renderer::setRuntimeOverlayTexture(unsigned int textureId, int width, int height,
+                                        const RuntimeOverlayOptions& options)
+{
+    if (m_postProcessor == nullptr)
+    {
+        return;
+    }
+
+    m_postProcessor->setRuntimeOverlayTexture(textureId, width, height, options);
+}
+
 void Renderer::clearRuntimeOverlayTexture()
 {
     setRuntimeOverlayTexture(0, 0, 0);

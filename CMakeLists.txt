@@ -124,6 +124,8 @@ set(ENGINE_SOURCES
     src/runtime/MenuRuntime.cpp
     src/runtime/RuntimeMode.cpp
     src/runtime/ExplorationRuntime.cpp
+    src/runtime/SettingsOverlay.cpp
+    src/runtime/StartupFlowOverlay.cpp
     src/runtime/SceneRuntime.cpp
     src/runtime/SceneAssetScope.cpp
     src/runtime/EngineRuntime.cpp
@@ -193,6 +195,8 @@ set(ENGINE_HEADERS
     src/runtime/ExplorationRuntime.h
     src/runtime/LoadingRuntime.h
     src/runtime/MenuRuntime.h
+    src/runtime/SettingsOverlay.h
+    src/runtime/StartupFlowOverlay.h
     src/runtime/SceneRuntime.h
     src/runtime/SceneAssetScope.h
     src/runtime/EngineRuntime.h

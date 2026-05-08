@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/FullScreenPass.h"
+#include "core/RuntimeOverlay.h"
 #include "core/ShaderLibrary.h"
 #include "world/Lighting.h"
 
@@ -29,6 +30,8 @@ class PostProcessor final
     void endScene(const PostProcessSettings& settings, const DebugViewSettings& debugView) const;
     void endOverlayScene() const;
     void setRuntimeOverlayTexture(unsigned int textureId, int width, int height) noexcept;
+    void setRuntimeOverlayTexture(unsigned int textureId, int width, int height,
+                                  const RuntimeOverlayOptions& options) noexcept;
     void presentSceneTexture() const;
     void presentDebugView(const PostProcessSettings& settings, const DebugViewSettings& debugView,
                           unsigned int bloomTextureId) const;
@@ -62,5 +65,6 @@ class PostProcessor final
     unsigned int m_runtimeOverlayTextureId = 0;
     int m_runtimeOverlayTextureWidth = 0;
     int m_runtimeOverlayTextureHeight = 0;
+    RuntimeOverlayOptions m_runtimeOverlayOptions{};
 };
 } // namespace engine

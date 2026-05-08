@@ -1,0 +1,32 @@
+# License
+
+Copyright (c) 2026 Nitya Naman
+
+All rights reserved.
+
+`Engine` is a personal game project and custom runtime framework developed specifically for the game itself.
+
+The source code in this repository is provided for:
+
+- personal viewing
+- learning
+- reference
+- non-commercial experimentation
+
+You may NOT:
+
+- redistribute this project
+- sell this project or modified versions of it
+- use the game's assets, branding, or identity commercially
+- reupload large portions of the source as your own project
+- create commercial derivative works from this repository
+
+You MAY:
+
+- fork the repository for personal/private experimentation
+- study and learn from the code
+- reference techniques or architecture concepts in your own projects
+
+Some third-party libraries and dependencies included in this repository may use their own licenses. Those licenses remain property of their respective authors.
+
+This repository is provided "as is", without warranty of any kind.

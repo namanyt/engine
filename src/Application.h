@@ -43,13 +43,31 @@ struct RawInputState final
     RawButtonState keyDigit7{};
     RawButtonState keyDigit8{};
     RawButtonState keyDigit9{};
+    RawButtonState mouseLeft{};
     bool cursorCaptured = false;
     Vec2 mouseDelta{};
+    Vec2 mousePosition{};
+    Vec2 windowSize{};
 };
 
 class Application final
 {
   public:
+    enum class WindowMode
+    {
+        Windowed,
+        BorderlessFullscreen,
+        ExclusiveFullscreen,
+    };
+
+    struct DisplaySettings final
+    {
+        int width = 1600;
+        int height = 900;
+        WindowMode windowMode = WindowMode::Windowed;
+        bool vSyncEnabled = false;
+    };
+
     Application();
     ~Application();
 
@@ -71,6 +89,10 @@ class Application final
     void setStatusWindowTitle(std::string title);
     void clearStatusWindowTitle();
     void updateWindowTitle(float timeSeconds);
+    void setWindowResolution(int width, int height);
+    void setWindowMode(WindowMode mode);
+    void setExclusiveFullscreen(bool enabled);
+    void setVSyncEnabled(bool enabled);
 
     int framebufferWidth() const noexcept;
     int framebufferHeight() const noexcept;
@@ -78,25 +100,34 @@ class Application final
     const std::filesystem::path& shaderDirectory() const noexcept;
     const std::shared_ptr<AssetManager>& assetManager() const noexcept;
     bool isCursorCaptured() const noexcept;
+    bool isBorderlessFullscreen() const noexcept;
+    bool isExclusiveFullscreen() const noexcept;
+    bool isVSyncEnabled() const noexcept;
+    WindowMode windowMode() const noexcept;
+    const DisplaySettings& displaySettings() const noexcept;
     GLFWwindow* nativeWindow() const noexcept;
 
   private:
     void initializeWindow();
     void shutdown() noexcept;
     void updateKeyboardState(RawInputState& inputState) const;
-    void toggleExclusiveFullscreen();
+    void persistDisplaySettings() const;
+    void toggleBorderlessFullscreen();
 
     static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
     static void windowSizeCallback(GLFWwindow* window, int width, int height);
     static void cursorPositionCallback(GLFWwindow* window, double xPosition, double yPosition);
     static std::filesystem::path resolveAssetRootDirectory();
     static std::filesystem::path resolveShaderDirectory();
+    static std::filesystem::path resolveSettingsFilePath();
     void applyWindowTitle(const std::string& title) const;
 
     GLFWwindow* m_window = nullptr;
     std::shared_ptr<AssetManager> m_assetManager;
     std::filesystem::path m_assetRootDirectory;
     std::filesystem::path m_shaderDirectory;
+    std::filesystem::path m_settingsFilePath;
+    DisplaySettings m_displaySettings{};
     int m_windowWidth = 1600;
     int m_windowHeight = 900;
     int m_windowedPosX = 100;
@@ -114,7 +145,7 @@ class Application final
     bool m_glfwInitialized = false;
     bool m_hasCursorSample = false;
     bool m_cursorCaptured = false;
-    bool m_isExclusiveFullscreen = false;
+    WindowMode m_windowMode = WindowMode::Windowed;
     mutable bool m_previousFullscreenTogglePressed = false;
     mutable bool m_previousEnterPressed = false;
     mutable bool m_previousUpArrowPressed = false;
@@ -132,5 +163,6 @@ class Application final
     mutable bool m_previousDigit7Pressed = false;
     mutable bool m_previousDigit8Pressed = false;
     mutable bool m_previousDigit9Pressed = false;
+    mutable bool m_previousMouseLeftPressed = false;
 };
 } // namespace engine

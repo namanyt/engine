@@ -1,15 +1,15 @@
 #include "runtime/MenuRuntime.h"
 
 #include "Application.h"
-#include "assets/TextureAsset.h"
+#include "core/Log.h"
 #include "core/RenderPipeline.h"
 #include "core/Renderer.h"
-#include "core/Log.h"
-#include "metassets/MenuScene.metasset.h"
+#include "core/RuntimeOverlay.h"
+#include "runtime/OverlayUiLayout.h"
 #include "runtime/ExplorationRuntime.h"
 #include "runtime/LoadingRuntime.h"
-#include "scenes/MenuScene.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace engine
@@ -25,45 +25,85 @@ const char* MenuRuntime::name() const
 
 void MenuRuntime::activate(ActivationContext& activationContext)
 {
-    m_sceneMetasset = std::make_unique<MenuSceneMetasset>();
-    m_scene = std::make_unique<MenuScene>(*m_sceneMetasset);
-
     activationContext.renderer.prepareOverlayRenderingResources();
 
-    SceneRuntime::AssetScope assetScope{
-        activationContext.assetManager, activationContext.shaderLibrary,
-        activationContext.assetRootDirectory, activationContext.shaderDirectory};
-    m_scene->activate(assetScope);
+    m_startSelectedOverlay = StartupFlowOverlay::createMenu(MainMenuSelection::NewGame);
+    m_settingsSelectedOverlay = StartupFlowOverlay::createMenu(MainMenuSelection::Settings);
+    m_quitSelectedOverlay = StartupFlowOverlay::createMenu(MainMenuSelection::Quit);
+    m_idleOverlay = StartupFlowOverlay::createMenu(MainMenuSelection::None);
+    m_phase = Phase::Browsing;
+    m_view = View::Main;
+    m_phaseElapsedSeconds = 0.0f;
+    m_selectedAction = Selection::None;
     activationContext.application.setCursorCaptured(false);
-    applyOverlayTexture(activationContext.renderer);
     Log::info("MenuRuntime", "Activated menu runtime.");
 }
 
 void MenuRuntime::deactivate(Renderer& renderer)
 {
-    if (m_scene != nullptr)
-    {
-        m_scene->deactivate(renderer);
-        m_scene.reset();
-    }
-
-    m_sceneMetasset.reset();
+    m_startSelectedOverlay.reset();
+    m_settingsSelectedOverlay.reset();
+    m_quitSelectedOverlay.reset();
+    m_idleOverlay.reset();
+    m_settingsOverlayTexture.reset();
+    renderer.clearRuntimeOverlayTexture();
 }
 
 void MenuRuntime::update(const UpdateContext& updateContext)
 {
-    if (m_scene == nullptr)
-    {
-        return;
-    }
+    m_phaseElapsedSeconds += updateContext.deltaSeconds;
 
     const MenuInputState inputState = interpretInput(updateContext.inputState);
 
-    if (inputState.navigatePrevious || inputState.navigateNext)
+    if (m_view == View::Settings)
     {
-        m_selectedAction = m_selectedAction == Selection::StartExploration
-                               ? Selection::Quit
-                               : Selection::StartExploration;
+        SettingsOverlay::InputState settingsInput{};
+        settingsInput.cancel = inputState.cancel;
+        settingsInput.click = updateContext.inputState.mouseLeft.pressed;
+        settingsInput.mouseDown = updateContext.inputState.mouseLeft.down;
+        settingsInput.mousePosition = updateContext.inputState.mousePosition;
+        settingsInput.windowSize = updateContext.inputState.windowSize;
+
+        if (m_settingsOverlay.update(settingsInput, updateContext.application) ==
+            SettingsOverlay::Result::Close)
+        {
+            m_view = View::Main;
+            m_selectedAction = Selection::None;
+        }
+
+        if (m_settingsOverlay.consumeDirty())
+        {
+            refreshSettingsOverlay();
+        }
+        return;
+    }
+
+    if (m_phase == Phase::FadingOut)
+    {
+        if (m_phaseElapsedSeconds >= 0.65f)
+        {
+            requestTransition(std::make_unique<LoadingRuntime>(
+                std::make_unique<ExplorationRuntime>(), 4.0f, "TestWorld"));
+        }
+
+        return;
+    }
+
+    if (inputState.hoverStart)
+    {
+        m_selectedAction = Selection::StartExploration;
+    }
+    else if (inputState.hoverSettings)
+    {
+        m_selectedAction = Selection::Settings;
+    }
+    else if (inputState.hoverQuit)
+    {
+        m_selectedAction = Selection::Quit;
+    }
+    else
+    {
+        m_selectedAction = Selection::None;
     }
 
     if (inputState.cancel)
@@ -72,15 +112,24 @@ void MenuRuntime::update(const UpdateContext& updateContext)
         return;
     }
 
-    if (!inputState.confirm)
+    if (!inputState.click)
     {
         return;
     }
 
     if (m_selectedAction == Selection::StartExploration)
     {
-        requestTransition(std::make_unique<LoadingRuntime>(std::make_unique<ExplorationRuntime>(),
-                                                           0.35f, "ExplorationRuntime"));
+        m_phase = Phase::FadingOut;
+        m_phaseElapsedSeconds = 0.0f;
+        return;
+    }
+
+    if (m_selectedAction == Selection::Settings)
+    {
+        m_view = View::Settings;
+        m_selectedAction = Selection::None;
+        m_settingsOverlay.activate(updateContext.application, false);
+        refreshSettingsOverlay();
         return;
     }
 
@@ -89,11 +138,7 @@ void MenuRuntime::update(const UpdateContext& updateContext)
 
 void MenuRuntime::render(const RenderContext& renderContext)
 {
-    if (m_scene == nullptr)
-    {
-        return;
-    }
-
+    applyOverlayTexture(renderContext.renderer);
     renderContext.renderer.setViewport(renderContext.framebufferWidth,
                                        renderContext.framebufferHeight);
     renderContext.renderPipeline.renderOverlayFrame(activeClearColor(renderContext.timeSeconds));
@@ -109,38 +154,78 @@ void MenuRuntime::drawDebugUi(const DebugUiContext& debugUiContext)
 MenuRuntime::MenuInputState MenuRuntime::interpretInput(const RawInputState& inputState) const
 {
     MenuInputState menuInput{};
-    menuInput.navigatePrevious = inputState.keyUpArrow.pressed;
-    menuInput.navigateNext = inputState.keyDownArrow.pressed;
-    menuInput.confirm = inputState.keyEnter.pressed;
     menuInput.cancel = inputState.keyEscape.pressed;
+
+    if (!inputState.cursorCaptured && inputState.windowSize.x > 1.0f &&
+        inputState.windowSize.y > 1.0f)
+    {
+        const Vec2 designMouse =
+            overlayui::toDesignSpace(inputState.mousePosition, inputState.windowSize);
+        menuInput.hoverStart = overlayui::contains(overlayui::kMenuNewGameRect, designMouse);
+        menuInput.hoverSettings = overlayui::contains(overlayui::kMenuSettingsRect, designMouse);
+        menuInput.hoverQuit = overlayui::contains(overlayui::kMenuQuitRect, designMouse);
+        menuInput.click = inputState.mouseLeft.pressed &&
+                          (menuInput.hoverStart || menuInput.hoverSettings || menuInput.hoverQuit);
+    }
+
     return menuInput;
 }
 
 Color MenuRuntime::activeClearColor(float timeSeconds) const
 {
-    const Color baseColor =
-        m_scene != nullptr ? m_scene->clearColor() : Color{0.04f, 0.06f, 0.10f, 1.0f};
-    const float pulse = 0.5f + 0.5f * std::sin(timeSeconds * 1.35f);
-    if (m_selectedAction == Selection::StartExploration)
-    {
-        return Color{baseColor.r + 0.05f * pulse, baseColor.g + 0.04f * pulse,
-                     baseColor.b + 0.08f * pulse, 1.0f};
-    }
-
-    return Color{baseColor.r + 0.04f * pulse, baseColor.g + 0.01f * pulse,
-                 baseColor.b + 0.01f * pulse, 1.0f};
+    const float sweep = 0.5f + 0.5f * std::sin(timeSeconds * 0.85f);
+    const float shimmer = 0.5f + 0.5f * std::sin(timeSeconds * 1.45f + 0.8f);
+    Color livelyBase{0.10f + 0.04f * sweep, 0.14f + 0.05f * shimmer, 0.18f + 0.04f * sweep, 1.0f};
+    const float fade = fadeProgress();
+    return Color{livelyBase.r * (1.0f - fade), livelyBase.g * (1.0f - fade),
+                 livelyBase.b * (1.0f - fade), 1.0f};
 }
 
 void MenuRuntime::applyOverlayTexture(Renderer& renderer) const
 {
-    if (m_scene == nullptr || m_scene->overlayTexture() == nullptr)
+    if (m_view == View::Settings)
+    {
+        if (!m_settingsOverlayTexture.valid())
+        {
+            renderer.clearRuntimeOverlayTexture();
+            return;
+        }
+
+        m_settingsOverlayTexture.apply(
+            renderer, RuntimeOverlayOptions{RuntimeOverlayLayout::FullScreen, 1.0f});
+        return;
+    }
+
+    const StartupFlowOverlay& activeOverlay =
+        m_selectedAction == Selection::StartExploration
+            ? m_startSelectedOverlay
+            : (m_selectedAction == Selection::Settings
+                   ? m_settingsSelectedOverlay
+                   : (m_selectedAction == Selection::Quit ? m_quitSelectedOverlay : m_idleOverlay));
+    if (!activeOverlay.valid())
     {
         renderer.clearRuntimeOverlayTexture();
         return;
     }
 
-    renderer.setRuntimeOverlayTexture(m_scene->overlayTexture()->textureId(),
-                                      m_scene->overlayTexture()->width(),
-                                      m_scene->overlayTexture()->height());
+    activeOverlay.apply(
+        renderer, RuntimeOverlayOptions{RuntimeOverlayLayout::FullScreen, 1.0f - fadeProgress()});
+}
+
+void MenuRuntime::refreshSettingsOverlay()
+{
+    m_settingsOverlayTexture.reset();
+    m_settingsOverlayTexture =
+        StartupFlowOverlay::createSettingsMenu(m_settingsOverlay.viewModel());
+}
+
+float MenuRuntime::fadeProgress() const
+{
+    if (m_phase != Phase::FadingOut)
+    {
+        return 0.0f;
+    }
+
+    return std::clamp(m_phaseElapsedSeconds / 0.65f, 0.0f, 1.0f);
 }
 } // namespace engine

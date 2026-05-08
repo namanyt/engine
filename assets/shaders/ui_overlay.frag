@@ -7,14 +7,13 @@ out vec4 FragColor;
 uniform sampler2D uOverlayTexture;
 uniform vec2 uScreenSize;
 uniform vec2 uOverlaySizePixels;
-uniform vec2 uOverlayMarginPixels;
+uniform vec2 uOverlayMinPixels;
 uniform float uOverlayOpacity;
 
 void main()
 {
     vec2 fragmentPosition = vTexCoord * uScreenSize;
-    vec2 overlayMin = vec2(uScreenSize.x - uOverlayMarginPixels.x - uOverlaySizePixels.x,
-                           uOverlayMarginPixels.y);
+    vec2 overlayMin = uOverlayMinPixels;
     vec2 overlayMax = overlayMin + uOverlaySizePixels;
 
     if (fragmentPosition.x < overlayMin.x || fragmentPosition.x > overlayMax.x ||

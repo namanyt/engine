@@ -2,14 +2,17 @@
 
 #include "math/Types.h"
 #include "runtime/RuntimeMode.h"
+#include "runtime/StartupFlowOverlay.h"
 
+#include <filesystem>
 #include <memory>
 #include <string>
 
 namespace engine
 {
-class LoadingScene;
-class SceneMetasset;
+class Application;
+class AssetManager;
+class ShaderLibrary;
 
 class LoadingRuntime final : public RuntimeMode
 {
@@ -29,18 +32,26 @@ class LoadingRuntime final : public RuntimeMode
 #endif
 
   private:
-    Color activeClearColor(float timeSeconds) const;
+    Color activeClearColor() const;
     void applyOverlayTexture(Renderer& renderer) const;
+    void beginDeferredLoad(const UpdateContext& updateContext);
+    float disclaimerOpacity() const;
+    float transitionReadyTimeSeconds() const;
     void setProgress(Application& application, float progress, const char* phase);
     void updateProgressTitle(Application& application) const;
 
-    std::unique_ptr<SceneMetasset> m_sceneMetasset;
-    std::unique_ptr<LoadingScene> m_scene;
+    std::shared_ptr<AssetManager> m_assetManager;
+    ShaderLibrary* m_shaderLibrary = nullptr;
+    std::filesystem::path m_assetRootDirectory;
+    std::filesystem::path m_shaderDirectory;
+    StartupFlowOverlay m_disclaimerOverlay;
     std::unique_ptr<RuntimeMode> m_nextRuntimeMode;
     std::string m_nextRuntimeLabel;
     std::string m_progressPhase;
     float m_activationProgress = 0.0f;
     float m_elapsedSeconds = 0.0f;
     float m_minimumDurationSeconds = 0.0f;
+    float m_loadingCompletedAtSeconds = -1.0f;
+    bool m_loadingStarted = false;
 };
 } // namespace engine

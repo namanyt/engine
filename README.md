@@ -1,118 +1,103 @@
-# EngineStarter
+# Engine
 
-Minimal OpenGL 3.3 Core starter project for Windows using CMake, GLFW, and GLAD.
+A relaxing atmospheric adventure about exploring beautiful worlds, meeting strange people, and discovering what connects them all.
 
-The repository now includes vendored GLFW source in `external/glfw` and generated GLAD files in `external/glad`.
-Debug builds can also use Dear ImGui from `external/imgui` for the in-engine debug menu.
+Step into a constantly shifting collection of environments filled with quiet forests, warm sunsets, distant structures, cozy spaces, and hidden places waiting to be explored. Take your time, wander freely, and enjoy a slow-paced experience focused on atmosphere, immersion, and discovery.
 
-## Included systems
+Whether you're walking through fog-covered hills, watching moonlight pass over distant landscapes, or simply sitting quietly in places that feel oddly familiar, `Engine` is designed to be an experience you can get lost in.
 
-- `Application`: window lifecycle, context setup, swap/poll/input handling
-- `core/Renderer`: frame setup and mesh draw submission from caller-provided frame uniforms
-- `core/Shader`: file loading, compilation, program linking, uniform updates
-- `geometry/`: CPU-side geometry types, 2D generators, and geometry operations like extrusion
-- `graphics/`: thin OpenGL wrappers for VAO/VBO/EBO plus `Mesh`
-- `primitives/`: reusable basic shapes including `Triangle`, `Quad`, `Plane`, `Cube`, `Pyramid`, `Sphere`, `Cylinder`, `Cone`, `Capsule`, and `Torus`
-- `math/`: foundational vector, color, matrix, and transform helpers
-- `world/`: camera, free-fly controller, scene container, and atmospheric test-world assembly
-- `assets/shaders/`: external GLSL files discovered at runtime and copied beside the executable under `assets/`
+---
 
-## Dependency setup
+## Features
 
-Dependencies are already present in this workspace. If you need to recreate them elsewhere, follow `external/README.md`. The build expects:
+- Atmospheric first-person exploration
+- Stylized low-poly environments
+- Dynamic lighting and volumetric atmosphere
+- Seamless runtime scene transitions
+- Experimental narrative structure
+- Hybrid exploration and VN-inspired storytelling
+- Minimalist immersive interface
+- Procedural environmental variation
+- Runtime-driven world systems
+- Relaxed exploration-focused pacing
 
-- `external/glfw/`
-- `external/glad/include/`
-- `external/glad/src/glad.c`
-- `external/imgui/` for debug UI builds
+---
 
-## Configure and build with Visual Studio
+## About The Game
 
-```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Debug
-```
+Every place in `Engine` has its own personality.
 
-Run the executable from `build/bin/Debug/EngineStarter.exe`.
+Some are lively and comforting.
+Others are quiet and distant.
+Some places feel strangely familiar.
 
-The Visual Studio 2022 Debug workflow was verified successfully in this workspace.
+As you continue exploring, you'll slowly uncover more about the world, the people connected to it, and the hidden links between places that should never have crossed paths.
 
-## Configure and build with Ninja
+Take your time.
+There’s no rush.
 
-```powershell
-cmake -S . -B build -G Ninja
-cmake --build build
-```
+---
 
-Run the executable from `build/bin/EngineStarter.exe`.
-When sharing a MinGW/Ninja build with another machine, send the whole `build/bin` folder so the staged `assets/` directory and runtime DLLs stay beside the executable.
+## Technical Overview
 
-The Ninja workflow was verified successfully in this workspace.
+`Engine` is built entirely on a custom C++ runtime and rendering framework developed specifically for the game itself.
 
-## Configure and build with presets
+Current engine/runtime systems include:
+
+- Custom OpenGL 3.3 renderer
+- Runtime-mode architecture (`Menu`, `Loading`, `Exploration`)
+- Atmospheric volumetric fog pipeline
+- HDR post-processing and bloom
+- ECS-driven world systems
+- Procedural environment generation
+- Runtime asset loading and lazy shader compilation
+- Metasset-based scene architecture
+- Pause and overlay runtime systems
+- ImGui-based debug and profiling tools
+- Scene-local asset ownership and runtime transitions
+
+The project is intentionally code-authored and runtime-driven rather than editor-centric.
+
+---
+
+## Build
+
+### Configure
 
 ```powershell
 cmake --preset debug-ninja
+```
+
+### Build
+
+```powershell
 cmake --build --preset build-debug-ninja
+```
+
+### Run Tests
+
+```powershell
 ctest --preset test-debug-ninja --output-on-failure
 ```
 
-Single smoke test example:
+---
 
-```powershell
-ctest --preset test-debug-ninja -R shader_assets_exist --output-on-failure
-```
+## Current Development Status
 
-## VS Code setup
+`Engine` is currently in active development.
 
-- Open the repository root in VS Code.
-- Install the recommended extensions when prompted.
-- CMake Tools is configured to use `CMakePresets.json` automatically.
-- The default development workflow uses the `debug-ninja` preset.
-- Shared tasks are available for configure, build, run, full test, and single-test execution.
+The current build contains:
 
-## Runtime behavior
+- atmospheric exploration gameplay
+- runtime scene transitions
+- procedural environments
+- menu and overlay systems
+- interaction foundations
+- dynamic atmosphere rendering
+- experimental narrative systems
 
-- Opens a `1600x900` window
-- Creates an OpenGL 3.3 Core context
-- Disables VSync by default so the frame rate is uncapped
-- Loads GLAD after the context is current
-- Captures the mouse for free-look camera control on startup
-- Builds an atmospheric world-space scene with a large ground plane, distant structures, and fog falloff
-- Uses caller-provided camera view/projection state so world systems stay outside the renderer
-- Applies distance fog in the fragment shader to soften far geometry and hide scene bounds
-- In debug UI builds, `Escape` releases the mouse and a second `Escape` resumes camera capture when the menu is open
-- In release-style builds without the debug UI, `Escape` closes the application
+Additional environments, interactions, characters, and systems are still in development.
 
-## Controls
+---
 
-- `W`, `A`, `S`, `D`: move on the ground plane relative to the camera heading
-- `Space`: move upward
-- `Left Ctrl`: move downward
-- `Left Shift`: sprint
-- Mouse: look around
-- `Escape`: release or recapture the mouse in debug UI builds, or close the app otherwise
-- `F1`: toggle the debug menu in debug builds
-
-## Tests
-
-- `shader_assets_exist`: verifies required GLSL files are present
-- `dependency_layout_exists`: verifies GLFW and GLAD files exist in `external/`
-- `engine_source_layout_exists`: verifies expected starter source files exist, including the world subsystem
-
-## Primitive coverage
-
-- Built-in primitive classes now cover common engine starter shapes: triangle, quad, plane, cube, pyramid, sphere, cylinder, cone, capsule, and torus.
-- Mesh vertices now carry position, normal, UV, and color data so later material and texture work can build on the same format.
-- Core 2D procedural generators are `makeTriangle()`, `makeQuad()`, and `makeCircle(int)`.
-- Core geometry operation is `extrude(const Geometry&, float)`, which is now used to derive 3D solids like cubes and cylinders from 2D source geometry.
-
-## Common issues
-
-- Blank screen: confirm shaders were copied to `build/bin/.../shaders` and check startup logs for shader errors.
-- GLAD failure: verify generated GLAD files target OpenGL 3.3 Core and that `glad.c` is present.
-- Old OpenGL version: ensure the GPU driver supports OpenGL 3.3 and the window hints are not overridden.
-
-## OpenGL version check
-
-The application prints vendor, renderer, and OpenGL version strings on startup. Use that output to verify the expected driver and profile are active.
+This game is not suitable for children or those who are easily disturbed.

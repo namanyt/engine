@@ -6,6 +6,7 @@
 #include <glad/glad.h>
 
 #include <algorithm>
+#include <cmath>
 #include <stdexcept>
 
 namespace
@@ -192,6 +193,17 @@ void PostProcessor::setRuntimeOverlayTexture(unsigned int textureId, int width, 
     m_runtimeOverlayTextureId = textureId;
     m_runtimeOverlayTextureWidth = width;
     m_runtimeOverlayTextureHeight = height;
+    m_runtimeOverlayOptions = RuntimeOverlayOptions{};
+}
+
+void PostProcessor::setRuntimeOverlayTexture(unsigned int textureId, int width, int height,
+                                             const RuntimeOverlayOptions& options) noexcept
+{
+    m_runtimeOverlayTextureId = textureId;
+    m_runtimeOverlayTextureWidth = width;
+    m_runtimeOverlayTextureHeight = height;
+    m_runtimeOverlayOptions.layout = options.layout;
+    m_runtimeOverlayOptions.opacity = std::clamp(options.opacity, 0.0f, 1.0f);
 }
 
 unsigned int PostProcessor::sceneTextureId() const noexcept
@@ -248,7 +260,8 @@ void PostProcessor::drawRuntimeOverlay() const
 {
     ensureOverlayShader();
     if (m_overlayShader == nullptr || m_runtimeOverlayTextureId == 0 ||
-        m_runtimeOverlayTextureWidth <= 0 || m_runtimeOverlayTextureHeight <= 0)
+        m_runtimeOverlayTextureWidth <= 0 || m_runtimeOverlayTextureHeight <= 0 ||
+        m_runtimeOverlayOptions.opacity <= 0.001f)
     {
         return;
     }
@@ -258,19 +271,30 @@ void PostProcessor::drawRuntimeOverlay() const
     constexpr float kMaxWidthPixels = 320.0f;
     constexpr float kMaxHeightPixels = 240.0f;
 
-    const float textureAspect = static_cast<float>(m_runtimeOverlayTextureWidth) /
-                                static_cast<float>(std::max(m_runtimeOverlayTextureHeight, 1));
-    const float maxOverlayWidth =
-        std::min(static_cast<float>(m_width) * kMaxScreenFraction, kMaxWidthPixels);
-    const float maxOverlayHeight =
-        std::min(static_cast<float>(m_height) * kMaxScreenFraction, kMaxHeightPixels);
+    float overlayWidth = static_cast<float>(m_width);
+    float overlayHeight = static_cast<float>(m_height);
+    float overlayMinX = 0.0f;
+    float overlayMinY = 0.0f;
 
-    float overlayWidth = maxOverlayWidth;
-    float overlayHeight = overlayWidth / std::max(textureAspect, 0.0001f);
-    if (overlayHeight > maxOverlayHeight)
+    if (m_runtimeOverlayOptions.layout == RuntimeOverlayLayout::CornerBadge)
     {
-        overlayHeight = maxOverlayHeight;
-        overlayWidth = overlayHeight * textureAspect;
+        const float textureAspect = static_cast<float>(m_runtimeOverlayTextureWidth) /
+                                    static_cast<float>(std::max(m_runtimeOverlayTextureHeight, 1));
+        const float maxOverlayWidth =
+            std::min(static_cast<float>(m_width) * kMaxScreenFraction, kMaxWidthPixels);
+        const float maxOverlayHeight =
+            std::min(static_cast<float>(m_height) * kMaxScreenFraction, kMaxHeightPixels);
+
+        overlayWidth = maxOverlayWidth;
+        overlayHeight = overlayWidth / std::max(textureAspect, 0.0001f);
+        if (overlayHeight > maxOverlayHeight)
+        {
+            overlayHeight = maxOverlayHeight;
+            overlayWidth = overlayHeight * textureAspect;
+        }
+
+        overlayMinX = static_cast<float>(m_width) - kMarginPixels - overlayWidth;
+        overlayMinY = kMarginPixels;
     }
 
     if (overlayWidth <= 1.0f || overlayHeight <= 1.0f)
@@ -292,8 +316,8 @@ void PostProcessor::drawRuntimeOverlay() const
     m_overlayShader->setVec2("uScreenSize", static_cast<float>(m_width),
                              static_cast<float>(m_height));
     m_overlayShader->setVec2("uOverlaySizePixels", overlayWidth, overlayHeight);
-    m_overlayShader->setVec2("uOverlayMarginPixels", kMarginPixels, kMarginPixels);
-    m_overlayShader->setFloat("uOverlayOpacity", 1.0f);
+    m_overlayShader->setVec2("uOverlayMinPixels", overlayMinX, overlayMinY);
+    m_overlayShader->setFloat("uOverlayOpacity", m_runtimeOverlayOptions.opacity);
     m_fullScreenPass.draw();
     glBindTexture(GL_TEXTURE_2D, 0);
 

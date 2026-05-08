@@ -2,14 +2,13 @@
 
 #include "math/Types.h"
 #include "runtime/RuntimeMode.h"
+#include "runtime/SettingsOverlay.h"
+#include "runtime/StartupFlowOverlay.h"
 
 #include <memory>
 
 namespace engine
 {
-class MenuScene;
-class SceneMetasset;
-
 class MenuRuntime final : public RuntimeMode
 {
   public:
@@ -27,26 +26,50 @@ class MenuRuntime final : public RuntimeMode
 #endif
 
   private:
+    enum class View
+    {
+        Main,
+        Settings,
+    };
+
+    enum class Phase
+    {
+        Browsing,
+        FadingOut,
+    };
+
     enum class Selection
     {
+        None,
         StartExploration,
+        Settings,
         Quit,
     };
 
     struct MenuInputState final
     {
-        bool navigatePrevious = false;
-        bool navigateNext = false;
-        bool confirm = false;
         bool cancel = false;
+        bool click = false;
+        bool hoverStart = false;
+        bool hoverSettings = false;
+        bool hoverQuit = false;
     };
 
     MenuInputState interpretInput(const RawInputState& inputState) const;
     Color activeClearColor(float timeSeconds) const;
     void applyOverlayTexture(Renderer& renderer) const;
+    void refreshSettingsOverlay();
+    float fadeProgress() const;
 
-    std::unique_ptr<SceneMetasset> m_sceneMetasset;
-    std::unique_ptr<MenuScene> m_scene;
-    Selection m_selectedAction = Selection::StartExploration;
+    StartupFlowOverlay m_startSelectedOverlay;
+    StartupFlowOverlay m_settingsSelectedOverlay;
+    StartupFlowOverlay m_quitSelectedOverlay;
+    StartupFlowOverlay m_idleOverlay;
+    StartupFlowOverlay m_settingsOverlayTexture;
+    SettingsOverlay m_settingsOverlay;
+    View m_view = View::Main;
+    Phase m_phase = Phase::Browsing;
+    Selection m_selectedAction = Selection::None;
+    float m_phaseElapsedSeconds = 0.0f;
 };
 } // namespace engine

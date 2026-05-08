@@ -7,17 +7,118 @@
 #include <GLFW/glfw3.h>
 
 #include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <stdexcept>
 
 namespace engine
 {
+namespace
+{
+const char* windowModeToString(const Application::WindowMode mode)
+{
+    switch (mode)
+    {
+    case Application::WindowMode::Windowed:
+        return "windowed";
+    case Application::WindowMode::BorderlessFullscreen:
+        return "borderless";
+    case Application::WindowMode::ExclusiveFullscreen:
+        return "exclusive";
+    default:
+        return "windowed";
+    }
+}
+
+Application::WindowMode parseWindowModeSetting(const std::string& value)
+{
+    if (value == "borderless" || value == "windowed_fullscreen")
+    {
+        return Application::WindowMode::BorderlessFullscreen;
+    }
+
+    if (value == "exclusive" || value == "exclusive_fullscreen")
+    {
+        return Application::WindowMode::ExclusiveFullscreen;
+    }
+
+    return Application::WindowMode::Windowed;
+}
+
+Application::DisplaySettings sanitizeDisplaySettings(Application::DisplaySettings settings)
+{
+    constexpr int kMinimumWidth = 640;
+    constexpr int kMinimumHeight = 360;
+    settings.width = std::max(settings.width, kMinimumWidth);
+    settings.height = std::max(settings.height, kMinimumHeight);
+    return settings;
+}
+
+bool parseBoolSetting(const std::string& value)
+{
+    return value == "1" || value == "true" || value == "on" || value == "yes";
+}
+
+Application::DisplaySettings loadDisplaySettings(const std::filesystem::path& settingsPath)
+{
+    Application::DisplaySettings settings{};
+    std::ifstream stream(settingsPath);
+    if (!stream.is_open())
+    {
+        return settings;
+    }
+
+    std::string line;
+    while (std::getline(stream, line))
+    {
+        const std::size_t separator = line.find('=');
+        if (separator == std::string::npos)
+        {
+            continue;
+        }
+
+        const std::string key = line.substr(0, separator);
+        const std::string value = line.substr(separator + 1);
+        if (key == "width")
+        {
+            settings.width = std::max(1, std::stoi(value));
+        }
+        else if (key == "height")
+        {
+            settings.height = std::max(1, std::stoi(value));
+        }
+        else if (key == "fullscreen")
+        {
+            settings.windowMode = parseBoolSetting(value)
+                                      ? Application::WindowMode::ExclusiveFullscreen
+                                      : Application::WindowMode::Windowed;
+        }
+        else if (key == "window_mode")
+        {
+            settings.windowMode = parseWindowModeSetting(value);
+        }
+        else if (key == "vsync")
+        {
+            settings.vSyncEnabled = parseBoolSetting(value);
+        }
+    }
+
+    return sanitizeDisplaySettings(settings);
+}
+} // namespace
+
 Application::Application()
 {
     Log::info("Application", "Starting application bootstrap.");
 
     try
     {
+        m_settingsFilePath = resolveSettingsFilePath();
+        m_displaySettings = loadDisplaySettings(m_settingsFilePath);
+        m_windowWidth = m_displaySettings.width;
+        m_windowHeight = m_displaySettings.height;
+        m_windowedWidth = m_displaySettings.width;
+        m_windowedHeight = m_displaySettings.height;
         initializeWindow();
         m_assetRootDirectory = resolveAssetRootDirectory();
         m_shaderDirectory = resolveShaderDirectory();
@@ -89,7 +190,6 @@ void Application::initializeWindow()
     }
 
     glfwMakeContextCurrent(m_window);
-    glfwSwapInterval(0);
     glfwSetWindowUserPointer(m_window, this);
     glfwSetFramebufferSizeCallback(m_window, &Application::framebufferSizeCallback);
     glfwSetWindowSizeCallback(m_window, &Application::windowSizeCallback);
@@ -115,6 +215,12 @@ void Application::initializeWindow()
         std::ostringstream stream;
         stream << "Initial framebuffer size: " << m_framebufferWidth << 'x' << m_framebufferHeight;
         Log::info("Application", stream.str());
+    }
+
+    setVSyncEnabled(m_displaySettings.vSyncEnabled);
+    if (m_displaySettings.windowMode != WindowMode::Windowed)
+    {
+        setWindowMode(m_displaySettings.windowMode);
     }
 
     setCursorCaptured(true);
@@ -152,7 +258,7 @@ void Application::processInput()
     const bool fullscreenTogglePressed = glfwGetKey(m_window, GLFW_KEY_F11) == GLFW_PRESS;
     if (fullscreenTogglePressed && !m_previousFullscreenTogglePressed)
     {
-        toggleExclusiveFullscreen();
+        toggleBorderlessFullscreen();
     }
     m_previousFullscreenTogglePressed = fullscreenTogglePressed;
 }
@@ -191,6 +297,15 @@ RawInputState Application::consumeRawInputState()
     RawInputState inputState{};
     inputState.cursorCaptured = m_cursorCaptured;
     inputState.mouseDelta = m_pendingMouseDelta;
+    inputState.windowSize =
+        Vec2{static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight)};
+    if (m_window != nullptr)
+    {
+        double cursorX = 0.0;
+        double cursorY = 0.0;
+        glfwGetCursorPos(m_window, &cursorX, &cursorY);
+        inputState.mousePosition = Vec2{static_cast<float>(cursorX), static_cast<float>(cursorY)};
+    }
     updateKeyboardState(inputState);
     m_pendingMouseDelta = Vec2{};
     return inputState;
@@ -264,6 +379,131 @@ void Application::updateWindowTitle(float timeSeconds)
     m_framesSinceLastSample = 0;
 }
 
+void Application::setWindowResolution(int width, int height)
+{
+    const DisplaySettings sanitized = sanitizeDisplaySettings(DisplaySettings{
+        width, height, m_displaySettings.windowMode, m_displaySettings.vSyncEnabled});
+
+    m_displaySettings.width = sanitized.width;
+    m_displaySettings.height = sanitized.height;
+    m_windowedWidth = sanitized.width;
+    m_windowedHeight = sanitized.height;
+
+    if (m_window == nullptr)
+    {
+        persistDisplaySettings();
+        return;
+    }
+
+    if (m_windowMode == WindowMode::ExclusiveFullscreen)
+    {
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        if (monitor != nullptr)
+        {
+            glfwSetWindowMonitor(m_window, monitor, 0, 0, sanitized.width, sanitized.height,
+                                 GLFW_DONT_CARE);
+        }
+    }
+    else if (m_windowMode == WindowMode::Windowed)
+    {
+        glfwSetWindowSize(m_window, sanitized.width, sanitized.height);
+        m_windowWidth = sanitized.width;
+        m_windowHeight = sanitized.height;
+    }
+    persistDisplaySettings();
+
+    std::ostringstream stream;
+    stream << (m_windowMode == WindowMode::BorderlessFullscreen ? "Stored" : "Applied")
+           << " window resolution " << sanitized.width << 'x' << sanitized.height << '.';
+    Log::info("Application", stream.str());
+}
+
+void Application::setWindowMode(WindowMode mode)
+{
+    if (m_windowMode == mode)
+    {
+        return;
+    }
+
+    if (m_window == nullptr)
+    {
+        m_windowMode = mode;
+        m_displaySettings.windowMode = mode;
+        persistDisplaySettings();
+        return;
+    }
+
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* videoMode = monitor != nullptr ? glfwGetVideoMode(monitor) : nullptr;
+    if (mode != WindowMode::Windowed && (monitor == nullptr || videoMode == nullptr))
+    {
+        Log::warning("Application", "Unable to change fullscreen mode: no monitor available.");
+        return;
+    }
+
+    if (m_windowMode == WindowMode::Windowed)
+    {
+        glfwGetWindowPos(m_window, &m_windowedPosX, &m_windowedPosY);
+        glfwGetWindowSize(m_window, &m_windowedWidth, &m_windowedHeight);
+    }
+
+    if (mode == WindowMode::Windowed)
+    {
+        glfwSetWindowAttrib(m_window, GLFW_DECORATED, GLFW_TRUE);
+        glfwSetWindowMonitor(m_window, nullptr, m_windowedPosX, m_windowedPosY,
+                             m_displaySettings.width, m_displaySettings.height, GLFW_DONT_CARE);
+        m_windowWidth = m_displaySettings.width;
+        m_windowHeight = m_displaySettings.height;
+        Log::info("Application", "Returned to windowed mode.");
+    }
+    else if (mode == WindowMode::BorderlessFullscreen)
+    {
+        int monitorX = 0;
+        int monitorY = 0;
+        glfwGetMonitorPos(monitor, &monitorX, &monitorY);
+        glfwSetWindowAttrib(m_window, GLFW_DECORATED, GLFW_FALSE);
+        glfwSetWindowMonitor(m_window, nullptr, monitorX, monitorY, videoMode->width,
+                             videoMode->height, GLFW_DONT_CARE);
+        m_windowWidth = videoMode->width;
+        m_windowHeight = videoMode->height;
+        Log::info("Application", "Entered borderless fullscreen mode.");
+    }
+    else
+    {
+        glfwSetWindowAttrib(m_window, GLFW_DECORATED, GLFW_TRUE);
+        glfwSetWindowMonitor(m_window, monitor, 0, 0, m_displaySettings.width,
+                             m_displaySettings.height, GLFW_DONT_CARE);
+        m_windowWidth = m_displaySettings.width;
+        m_windowHeight = m_displaySettings.height;
+
+        std::ostringstream stream;
+        stream << "Entered exclusive fullscreen at " << m_displaySettings.width << 'x'
+               << m_displaySettings.height << '.';
+        Log::info("Application", stream.str());
+    }
+
+    m_windowMode = mode;
+    m_displaySettings.windowMode = mode;
+    persistDisplaySettings();
+}
+
+void Application::setExclusiveFullscreen(bool enabled)
+{
+    setWindowMode(enabled ? WindowMode::ExclusiveFullscreen : WindowMode::Windowed);
+}
+
+void Application::setVSyncEnabled(bool enabled)
+{
+    m_displaySettings.vSyncEnabled = enabled;
+    if (m_window != nullptr)
+    {
+        glfwSwapInterval(enabled ? 1 : 0);
+    }
+
+    persistDisplaySettings();
+    Log::info("Application", enabled ? "VSync enabled." : "VSync disabled.");
+}
+
 void Application::applyWindowTitle(const std::string& title) const
 {
     if (m_window == nullptr)
@@ -304,59 +544,63 @@ bool Application::isCursorCaptured() const noexcept
     return m_cursorCaptured;
 }
 
+bool Application::isBorderlessFullscreen() const noexcept
+{
+    return m_windowMode == WindowMode::BorderlessFullscreen;
+}
+
+bool Application::isExclusiveFullscreen() const noexcept
+{
+    return m_windowMode == WindowMode::ExclusiveFullscreen;
+}
+
+bool Application::isVSyncEnabled() const noexcept
+{
+    return m_displaySettings.vSyncEnabled;
+}
+
+Application::WindowMode Application::windowMode() const noexcept
+{
+    return m_windowMode;
+}
+
+const Application::DisplaySettings& Application::displaySettings() const noexcept
+{
+    return m_displaySettings;
+}
+
 GLFWwindow* Application::nativeWindow() const noexcept
 {
     return m_window;
 }
 
-void Application::toggleExclusiveFullscreen()
+void Application::toggleBorderlessFullscreen()
 {
-    if (m_window == nullptr)
+    setWindowMode(m_windowMode == WindowMode::Windowed ? WindowMode::BorderlessFullscreen
+                                                       : WindowMode::Windowed);
+}
+
+void Application::persistDisplaySettings() const
+{
+    if (m_settingsFilePath.empty())
     {
         return;
     }
 
-    if (!m_isExclusiveFullscreen)
+    std::ofstream stream(m_settingsFilePath, std::ios::trunc);
+    if (!stream.is_open())
     {
-        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-        if (monitor == nullptr)
-        {
-            Log::warning("Application", "Unable to enter fullscreen: no monitor available.");
-            return;
-        }
-
-        const GLFWvidmode* videoMode = glfwGetVideoMode(monitor);
-        if (videoMode == nullptr)
-        {
-            Log::warning("Application", "Unable to enter fullscreen: no video mode available.");
-            return;
-        }
-
-        glfwGetWindowPos(m_window, &m_windowedPosX, &m_windowedPosY);
-        glfwGetWindowSize(m_window, &m_windowedWidth, &m_windowedHeight);
-
-        glfwSetWindowMonitor(m_window, monitor, 0, 0, videoMode->width, videoMode->height,
-                             videoMode->refreshRate);
-        m_windowWidth = videoMode->width;
-        m_windowHeight = videoMode->height;
-        m_isExclusiveFullscreen = true;
-
-        std::ostringstream stream;
-        stream << "Entered exclusive fullscreen at " << videoMode->width << 'x' << videoMode->height
-               << " @ " << videoMode->refreshRate << " Hz.";
-        Log::info("Application", stream.str());
+        Log::warning("Application",
+                     "Unable to persist display settings to " + m_settingsFilePath.string() + ".");
         return;
     }
 
-    glfwSetWindowMonitor(m_window, nullptr, m_windowedPosX, m_windowedPosY, m_windowedWidth,
-                         m_windowedHeight, GLFW_DONT_CARE);
-    m_windowWidth = m_windowedWidth;
-    m_windowHeight = m_windowedHeight;
-    m_isExclusiveFullscreen = false;
-
-    std::ostringstream stream;
-    stream << "Returned to windowed mode at " << m_windowedWidth << 'x' << m_windowedHeight << '.';
-    Log::info("Application", stream.str());
+    stream << "width=" << m_displaySettings.width << '\n';
+    stream << "height=" << m_displaySettings.height << '\n';
+    stream << "window_mode=" << windowModeToString(m_displaySettings.windowMode) << '\n';
+    stream << "fullscreen="
+           << (m_displaySettings.windowMode == WindowMode::ExclusiveFullscreen ? 1 : 0) << '\n';
+    stream << "vsync=" << (m_displaySettings.vSyncEnabled ? 1 : 0) << '\n';
 }
 
 void Application::shutdown() noexcept
@@ -430,6 +674,9 @@ void Application::updateKeyboardState(RawInputState& inputState) const
                   m_previousDigit8Pressed);
     captureButton(inputState.keyDigit9, glfwGetKey(m_window, GLFW_KEY_9) == GLFW_PRESS,
                   m_previousDigit9Pressed);
+    captureButton(inputState.mouseLeft,
+                  glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS,
+                  m_previousMouseLeftPressed);
 }
 
 void Application::framebufferSizeCallback(GLFWwindow* window, int width, int height)
@@ -459,7 +706,7 @@ void Application::windowSizeCallback(GLFWwindow* window, int width, int height)
     application->m_windowWidth = width;
     application->m_windowHeight = height;
 
-    if (!application->m_isExclusiveFullscreen)
+    if (application->m_windowMode == WindowMode::Windowed)
     {
         application->m_windowedWidth = width;
         application->m_windowedHeight = height;
@@ -508,6 +755,15 @@ void Application::cursorPositionCallback(GLFWwindow* window, double xPosition, d
 std::filesystem::path Application::resolveShaderDirectory()
 {
     return resolveAssetRootDirectory() / "shaders";
+}
+
+std::filesystem::path Application::resolveSettingsFilePath()
+{
+#ifdef ENGINE_SOURCE_DIR
+    return std::filesystem::path(ENGINE_SOURCE_DIR) / "engine_settings.ini";
+#else
+    return std::filesystem::current_path() / "engine_settings.ini";
+#endif
 }
 
 std::filesystem::path Application::resolveAssetRootDirectory()
