@@ -1,8 +1,6 @@
 #include "systems/WorldEcsSystems.h"
 
 #include "components/WorldComponents.h"
-#include "systems/RenderSystem.h"
-#include "systems/TransformSystem.h"
 #include "world/Camera.h"
 #include "world/Player.h"
 #include "world/Scene.h"
@@ -93,12 +91,6 @@ ecs::Entity findWorldObjectEntity(const Scene& scene, WorldObjectId id)
             }
         });
     return match;
-}
-
-void syncLegacySceneFromEcs(Scene& scene)
-{
-    TransformSystem::updateWorldTransforms(scene);
-    syncLegacySceneFromRenderView(scene, buildRenderSceneView(scene));
 }
 
 void syncPlayerEntity(Scene& scene, ecs::Entity entity, const Player& player, bool activeCamera)

@@ -244,9 +244,11 @@ engine::Vec3 orbitingMoonOrbitOffset(float timeSeconds)
                         -74.0f + std::sin(angle) * 76.0f};
 }
 
-engine::Vec3 computeMoonLightDirection(const engine::Scene& scene, float timeSeconds)
+engine::Vec3 computeMoonLightDirection(const engine::AtmosphericRenderSettings& renderSettings,
+                                       float timeSeconds)
 {
-    return engine::normalize(scene.shadow.focusPoint - orbitingMoonOrbitOffset(timeSeconds));
+    return engine::normalize(renderSettings.shadow.focusPoint -
+                             orbitingMoonOrbitOffset(timeSeconds));
 }
 
 engine::Vec3 computeMoonVisualPosition(const engine::Vec3& cameraPosition,
@@ -258,6 +260,15 @@ engine::Vec3 computeMoonVisualPosition(const engine::Vec3& cameraPosition,
 float rayOccluderRadius(const engine::Vec3& scale, float multiplier = 1.0f)
 {
     return std::max(scale.x, std::max(scale.y, scale.z)) * multiplier;
+}
+
+bool hasWorldObjectEntities(const engine::Scene& scene)
+{
+    bool hasWorldObjects = false;
+    scene.registry().forEach<engine::components::WorldObjectComponent>(
+        [&](engine::ecs::Entity, const engine::components::WorldObjectComponent&)
+        { hasWorldObjects = true; });
+    return hasWorldObjects;
 }
 
 void appendRayOccluder(engine::Scene& scene, const engine::Vec3& center, float radius)
@@ -579,50 +590,62 @@ void addLandmarks(engine::Scene& scene, const engine::TestWorldAssets& assets,
     }
 }
 
-void applyWorldDefaults(engine::Scene& scene)
+void applyWorldDefaults(engine::AtmosphericWorldSettings& worldSettings,
+                        engine::AtmosphericRenderSettings& renderSettings)
 {
-    scene.clearColor = engine::Color{0.006f, 0.008f, 0.013f, 1.0f};
-    scene.fog =
+    renderSettings.clearColor = engine::Color{0.006f, 0.008f, 0.013f, 1.0f};
+    renderSettings.fog =
         engine::FogSettings{engine::Vec3{0.046f, 0.054f, 0.072f}, 0.026f, 27.53f, 1.15f, 172.6f};
-    scene.sunLight = engine::DirectionalLight{
+    renderSettings.sunLight = engine::DirectionalLight{
         engine::normalize(engine::Vec3{-0.34f, -1.0f, -0.24f}),
         engine::Vec3{0.54f, 0.62f, 0.78f},
         0.96f,
     };
-    scene.shadow = engine::ShadowSettings{
+    renderSettings.shadow = engine::ShadowSettings{
         2048, 104.0f, 1.0f, 280.0f, 0.00030f, 0.006f, 0.68f, engine::Vec3{0.0f, 8.0f, -84.0f}};
-    scene.skyLight = engine::SkyLight{
+    renderSettings.skyLight = engine::SkyLight{
         engine::Vec3{0.078f, 0.094f, 0.122f},
         engine::Vec3{0.010f, 0.016f, 0.030f},
         engine::Vec3{0.022f, 0.020f, 0.022f},
         0.34f,
     };
-    scene.postProcess.exposure = 1.031f;
-    scene.postProcess.bloomThreshold = 0.90f;
-    scene.postProcess.bloomIntensity = 0.663f;
-    scene.postProcess.gamma = 2.2f;
-    scene.postProcess.contrast = 1.033f;
-    scene.postProcess.vignetteStrength = 0.40f;
-    scene.postProcess.saturation = 1.25f;
-    scene.postProcess.midtoneLift = 0.080f;
+    renderSettings.postProcess.exposure = 1.031f;
+    renderSettings.postProcess.bloomThreshold = 0.90f;
+    renderSettings.postProcess.bloomIntensity = 0.663f;
+    renderSettings.postProcess.gamma = 2.2f;
+    renderSettings.postProcess.contrast = 1.033f;
+    renderSettings.postProcess.vignetteStrength = 0.40f;
+    renderSettings.postProcess.saturation = 1.25f;
+    renderSettings.postProcess.midtoneLift = 0.080f;
 
-    scene.rayEvaluation.shadowStrength = 0.12f;
-    scene.rayEvaluation.scatteringStrength = 2.3f;
-    scene.rayEvaluation.volumetricLightIntensity = 3.6f;
-    scene.rayEvaluation.directionalLightAngularRadius = 0.004f;
-    scene.rayEvaluation.stepLength = 10.0f;
-    scene.rayEvaluation.maxDistance = 1500.0f;
-    scene.rayEvaluation.maxSteps = 256;
-    scene.rayEvaluation.extinctionStrength = 1.8f;
-    scene.rayEvaluation.atmosphericAmbientFloor = 0.050f;
-    scene.rayEvaluation.nearFieldHaze = 0.25f;
-    scene.rayEvaluation.phaseAnisotropy = 0.42f;
-    scene.rayEvaluation.jitterStrength = 1.0f;
-    scene.rayEvaluation.stepDistributionExponent = 3.0f;
-    scene.rayEvaluation.temporalJitterScale = 0.0f;
+    renderSettings.rayEvaluation.shadowStrength = 0.12f;
+    renderSettings.rayEvaluation.scatteringStrength = 2.3f;
+    renderSettings.rayEvaluation.volumetricLightIntensity = 3.6f;
+    renderSettings.rayEvaluation.directionalLightAngularRadius = 0.004f;
+    renderSettings.rayEvaluation.stepLength = 10.0f;
+    renderSettings.rayEvaluation.maxDistance = 1500.0f;
+    renderSettings.rayEvaluation.maxSteps = 256;
+    renderSettings.rayEvaluation.extinctionStrength = 1.8f;
+    renderSettings.rayEvaluation.atmosphericAmbientFloor = 0.050f;
+    renderSettings.rayEvaluation.nearFieldHaze = 0.25f;
+    renderSettings.rayEvaluation.phaseAnisotropy = 0.42f;
+    renderSettings.rayEvaluation.jitterStrength = 1.0f;
+    renderSettings.rayEvaluation.stepDistributionExponent = 3.0f;
+    renderSettings.rayEvaluation.temporalJitterScale = 0.0f;
+
+    worldSettings.proceduralWorld = engine::ProceduralWorldSettings{};
+    worldSettings.moonLightEnabled = true;
+    worldSettings.sphereLightsEnabled = true;
+    worldSettings.coneLightsEnabled = true;
+    worldSettings.moonEmissiveEnabled = true;
+    worldSettings.sphereEmissiveEnabled = true;
+    worldSettings.coneEmissiveEnabled = true;
+    worldSettings.moonMotionEnabled = true;
+    worldSettings.moonTimeOffset = 0.0f;
 }
 
-void rebuildAtmosphericWorld(engine::Scene& scene, const engine::TestWorldAssets& assets)
+void rebuildAtmosphericWorld(engine::Scene& scene, engine::AtmosphericWorldSettings& worldSettings,
+                             const engine::TestWorldAssets& assets)
 {
     scene.resetWorld();
 
@@ -665,7 +688,7 @@ void rebuildAtmosphericWorld(engine::Scene& scene, const engine::TestWorldAssets
     if (assets.shader != nullptr)
     {
         engine::Mesh& terrainMesh = scene.ownMesh(
-            std::make_unique<engine::Mesh>(buildTerrainGeometry(scene.proceduralWorld)));
+            std::make_unique<engine::Mesh>(buildTerrainGeometry(worldSettings.proceduralWorld)));
         addOccludingObject(scene, engine::WorldObjectId::Ground, engine::WorldObjectKind::Terrain,
                            engine::WorldObjectSemantic::Surface |
                                engine::WorldObjectSemantic::RayOccluder,
@@ -673,13 +696,13 @@ void rebuildAtmosphericWorld(engine::Scene& scene, const engine::TestWorldAssets
                            engine::Vec3{0.0f, 0.0f, 0.0f}, engine::Vec3{1.0f, 1.0f, 1.0f});
     }
 
-    addTerrainOccluders(scene, scene.proceduralWorld);
+    addTerrainOccluders(scene, worldSettings.proceduralWorld);
 
-    addTerrainRocks(scene, assets, scene.proceduralWorld, rockMaterial, wetStoneMaterial);
-    addLandmarks(scene, assets, scene.proceduralWorld, rockMaterial, absorptiveMaterial,
+    addTerrainRocks(scene, assets, worldSettings.proceduralWorld, rockMaterial, wetStoneMaterial);
+    addLandmarks(scene, assets, worldSettings.proceduralWorld, rockMaterial, absorptiveMaterial,
                  metallicMaterial, emissiveBeaconMaterial, markerMaterial);
 
-    for (const TreePlacement& tree : buildTreePlacements(scene.proceduralWorld))
+    for (const TreePlacement& tree : buildTreePlacements(worldSettings.proceduralWorld))
     {
         addProceduralTree(scene, assets, tree, trunkMaterial, foliageMaterial, deadTreeMaterial);
     }
@@ -693,8 +716,7 @@ void rebuildAtmosphericWorld(engine::Scene& scene, const engine::TestWorldAssets
             engine::Vec3{kMoonVisualScale, kMoonVisualScale, kMoonVisualScale}, false);
     }
 
-    scene.proceduralWorld.regenerationRequested = false;
-    engine::systems::syncLegacySceneFromEcs(scene);
+    worldSettings.proceduralWorld.regenerationRequested = false;
 }
 } // namespace
 
@@ -720,34 +742,41 @@ Material makeWorldMaterial(const Shader* shader, MaterialCategory category, cons
     return material;
 }
 
-Scene createAtmosphericTestWorld(const TestWorldAssets& assets)
+Scene createAtmosphericTestWorld(AtmosphericWorldSettings& worldSettings,
+                                 AtmosphericRenderSettings& renderSettings,
+                                 const TestWorldAssets& assets)
 {
     Scene scene{};
-    applyWorldDefaults(scene);
-    scene.proceduralWorld.regenerationRequested = true;
-    syncAtmosphericTestWorld(scene, assets);
+    applyWorldDefaults(worldSettings, renderSettings);
+    worldSettings.proceduralWorld.regenerationRequested = true;
+    syncAtmosphericTestWorld(scene, worldSettings, assets);
     return scene;
 }
 
-void syncAtmosphericTestWorld(Scene& scene, const TestWorldAssets& assets)
+void syncAtmosphericTestWorld(Scene& scene, AtmosphericWorldSettings& worldSettings,
+                              const TestWorldAssets& assets)
 {
-    if (!scene.proceduralWorld.regenerationRequested && !scene.objects().empty())
+    if (!worldSettings.proceduralWorld.regenerationRequested && hasWorldObjectEntities(scene))
     {
         return;
     }
 
-    rebuildAtmosphericWorld(scene, assets);
+    rebuildAtmosphericWorld(scene, worldSettings, assets);
 }
 
-void updateAtmosphericWorldLighting(Scene& scene, float timeSeconds)
+void updateAtmosphericWorldLighting(Scene& scene, const AtmosphericWorldSettings& worldSettings,
+                                    AtmosphericRenderSettings& renderSettings, float timeSeconds)
 {
-    const float effectiveTime =
-        scene.moonMotionEnabled ? timeSeconds + scene.moonTimeOffset : scene.moonTimeOffset;
-    const Vec3 moonDirection = computeMoonLightDirection(scene, effectiveTime);
-    const bool anyLightingEnabled =
-        scene.moonLightEnabled || scene.sphereLightsEnabled || scene.coneLightsEnabled;
-    const bool anyEmissiveEnabled =
-        scene.moonEmissiveEnabled || scene.sphereEmissiveEnabled || scene.coneEmissiveEnabled;
+    const float effectiveTime = worldSettings.moonMotionEnabled
+                                    ? timeSeconds + worldSettings.moonTimeOffset
+                                    : worldSettings.moonTimeOffset;
+    const Vec3 moonDirection = computeMoonLightDirection(renderSettings, effectiveTime);
+    const bool anyLightingEnabled = worldSettings.moonLightEnabled ||
+                                    worldSettings.sphereLightsEnabled ||
+                                    worldSettings.coneLightsEnabled;
+    const bool anyEmissiveEnabled = worldSettings.moonEmissiveEnabled ||
+                                    worldSettings.sphereEmissiveEnabled ||
+                                    worldSettings.coneEmissiveEnabled;
 
     if (const ecs::Entity moonEntity = systems::findWorldObjectEntity(scene, WorldObjectId::Moon);
         moonEntity != ecs::kInvalidEntity)
@@ -757,7 +786,7 @@ void updateAtmosphericWorldLighting(Scene& scene, float timeSeconds)
             material != nullptr)
         {
             material->material.emissiveStrength =
-                scene.moonEmissiveEnabled ? material->material.baseEmissiveStrength : 0.0f;
+                worldSettings.moonEmissiveEnabled ? material->material.baseEmissiveStrength : 0.0f;
         }
     }
 
@@ -767,13 +796,15 @@ void updateAtmosphericWorldLighting(Scene& scene, float timeSeconds)
         {
             if (object.kind == WorldObjectKind::Beacon)
             {
-                material.material.emissiveStrength =
-                    scene.sphereEmissiveEnabled ? material.material.baseEmissiveStrength : 0.0f;
+                material.material.emissiveStrength = worldSettings.sphereEmissiveEnabled
+                                                         ? material.material.baseEmissiveStrength
+                                                         : 0.0f;
             }
             else if (object.kind == WorldObjectKind::Marker)
             {
-                material.material.emissiveStrength =
-                    scene.coneEmissiveEnabled ? material.material.baseEmissiveStrength : 0.0f;
+                material.material.emissiveStrength = worldSettings.coneEmissiveEnabled
+                                                         ? material.material.baseEmissiveStrength
+                                                         : 0.0f;
             }
         });
 
@@ -784,10 +815,11 @@ void updateAtmosphericWorldLighting(Scene& scene, float timeSeconds)
             {
             case LocalLightGroup::Sphere:
                 light.light.intensity =
-                    scene.sphereLightsEnabled ? light.light.baseIntensity : 0.0f;
+                    worldSettings.sphereLightsEnabled ? light.light.baseIntensity : 0.0f;
                 break;
             case LocalLightGroup::Cone:
-                light.light.intensity = scene.coneLightsEnabled ? light.light.baseIntensity : 0.0f;
+                light.light.intensity =
+                    worldSettings.coneLightsEnabled ? light.light.baseIntensity : 0.0f;
                 break;
             case LocalLightGroup::Moon:
                 light.light.intensity = 0.0f;
@@ -796,36 +828,32 @@ void updateAtmosphericWorldLighting(Scene& scene, float timeSeconds)
             }
         });
 
-    scene.sunLight.direction = normalize(moonDirection);
-    scene.sunLight.color = Vec3{0.58f, 0.66f, 0.84f};
-    scene.sunLight.intensity = scene.moonLightEnabled ? 0.96f : 0.0f;
-    scene.skyLight.intensity = scene.moonLightEnabled ? 0.34f : 0.0f;
-    scene.clearColor = (anyLightingEnabled || anyEmissiveEnabled)
-                           ? Color{0.006f, 0.008f, 0.013f, 1.0f}
-                           : Color{0.0f, 0.0f, 0.0f, 1.0f};
-    scene.fog.color = anyLightingEnabled ? Vec3{0.046f, 0.054f, 0.072f} : Vec3{0.0f, 0.0f, 0.0f};
-    scene.rayEvaluation.shadowStrength = anyLightingEnabled ? 0.12f : 0.0f;
-    if (!scene.moonLightEnabled && !scene.sphereLightsEnabled && !scene.coneLightsEnabled)
+    renderSettings.sunLight.direction = normalize(moonDirection);
+    renderSettings.sunLight.color = Vec3{0.58f, 0.66f, 0.84f};
+    renderSettings.sunLight.intensity = worldSettings.moonLightEnabled ? 0.96f : 0.0f;
+    renderSettings.skyLight.intensity = worldSettings.moonLightEnabled ? 0.34f : 0.0f;
+    renderSettings.clearColor = (anyLightingEnabled || anyEmissiveEnabled)
+                                    ? Color{0.006f, 0.008f, 0.013f, 1.0f}
+                                    : Color{0.0f, 0.0f, 0.0f, 1.0f};
+    renderSettings.fog.color =
+        anyLightingEnabled ? Vec3{0.046f, 0.054f, 0.072f} : Vec3{0.0f, 0.0f, 0.0f};
+    renderSettings.rayEvaluation.shadowStrength = anyLightingEnabled ? 0.12f : 0.0f;
+    if (!worldSettings.moonLightEnabled && !worldSettings.sphereLightsEnabled &&
+        !worldSettings.coneLightsEnabled)
     {
-        scene.skyLight.intensity = 0.0f;
-    }
-
-    systems::syncLegacySceneFromEcs(scene);
-
-    if (scene.localLights.size() > 8)
-    {
-        scene.localLights.resize(8);
+        renderSettings.skyLight.intensity = 0.0f;
     }
 }
 
-void syncAtmosphericMoonVisual(Scene& scene, const Vec3& cameraPosition)
+void syncAtmosphericMoonVisual(Scene& scene, const AtmosphericRenderSettings& renderSettings,
+                               AtmosphericRuntimeState& runtimeState, const Vec3& cameraPosition)
 {
     const Vec3 derivedMoonPosition =
-        computeMoonVisualPosition(cameraPosition, scene.sunLight.direction);
-    const Vec3 moonPosition = scene.debugMoonVisualOverrideEnabled
-                                  ? scene.debugMoonVisualOverridePosition
+        computeMoonVisualPosition(cameraPosition, renderSettings.sunLight.direction);
+    const Vec3 moonPosition = runtimeState.debugMoonVisualOverrideEnabled
+                                  ? runtimeState.debugMoonVisualOverridePosition
                                   : derivedMoonPosition;
-    scene.moonVisualPosition = moonPosition;
+    runtimeState.moonVisualPosition = moonPosition;
 
     if (const ecs::Entity moonEntity = systems::findWorldObjectEntity(scene, WorldObjectId::Moon);
         moonEntity != ecs::kInvalidEntity)
@@ -838,86 +866,5 @@ void syncAtmosphericMoonVisual(Scene& scene, const Vec3& cameraPosition)
             transform->scale = Vec3{kMoonVisualScale, kMoonVisualScale, kMoonVisualScale};
         }
     }
-
-    if (WorldObject* moonObject = scene.findObject(WorldObjectId::Moon); moonObject != nullptr)
-    {
-        moonObject->transform.position = moonPosition;
-        moonObject->transform.scale = Vec3{kMoonVisualScale, kMoonVisualScale, kMoonVisualScale};
-    }
-}
-
-void setMoonLightEnabled(Scene& scene, bool enabled)
-{
-    scene.moonLightEnabled = enabled;
-}
-
-void setSphereLightsEnabled(Scene& scene, bool enabled)
-{
-    scene.sphereLightsEnabled = enabled;
-}
-
-void setConeLightsEnabled(Scene& scene, bool enabled)
-{
-    scene.coneLightsEnabled = enabled;
-}
-
-void setMoonMotionEnabled(Scene& scene, bool enabled)
-{
-    scene.moonMotionEnabled = enabled;
-}
-
-void setMoonEmissiveEnabled(Scene& scene, bool enabled)
-{
-    scene.moonEmissiveEnabled = enabled;
-}
-
-void setSphereEmissiveEnabled(Scene& scene, bool enabled)
-{
-    scene.sphereEmissiveEnabled = enabled;
-}
-
-void setConeEmissiveEnabled(Scene& scene, bool enabled)
-{
-    scene.coneEmissiveEnabled = enabled;
-}
-
-void stepMoonTime(Scene& scene, float offsetSeconds)
-{
-    scene.moonTimeOffset += offsetSeconds;
-}
-
-bool isMoonLightEnabled(const Scene& scene)
-{
-    return scene.moonLightEnabled;
-}
-
-bool areSphereLightsEnabled(const Scene& scene)
-{
-    return scene.sphereLightsEnabled;
-}
-
-bool areConeLightsEnabled(const Scene& scene)
-{
-    return scene.coneLightsEnabled;
-}
-
-bool isMoonEmissiveEnabled(const Scene& scene)
-{
-    return scene.moonEmissiveEnabled;
-}
-
-bool areSphereEmissiveEnabled(const Scene& scene)
-{
-    return scene.sphereEmissiveEnabled;
-}
-
-bool areConeEmissiveEnabled(const Scene& scene)
-{
-    return scene.coneEmissiveEnabled;
-}
-
-bool isMoonMotionEnabled(const Scene& scene)
-{
-    return scene.moonMotionEnabled;
 }
 } // namespace engine

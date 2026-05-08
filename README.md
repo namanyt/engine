@@ -15,7 +15,7 @@ Debug builds can also use Dear ImGui from `external/imgui` for the in-engine deb
 - `primitives/`: reusable basic shapes including `Triangle`, `Quad`, `Plane`, `Cube`, `Pyramid`, `Sphere`, `Cylinder`, `Cone`, `Capsule`, and `Torus`
 - `math/`: foundational vector, color, matrix, and transform helpers
 - `world/`: camera, free-fly controller, scene container, and atmospheric test-world assembly
-- `shaders/`: external GLSL files copied next to the executable after build
+- `assets/shaders/`: external GLSL files discovered at runtime and copied beside the executable under `assets/`
 
 ## Dependency setup
 
@@ -45,7 +45,7 @@ cmake --build build
 ```
 
 Run the executable from `build/bin/EngineStarter.exe`.
-When sharing a MinGW/Ninja build with another machine, send the whole `build/bin` folder so the copied `shaders/` directory and staged runtime DLLs stay beside the executable.
+When sharing a MinGW/Ninja build with another machine, send the whole `build/bin` folder so the staged `assets/` directory and runtime DLLs stay beside the executable.
 
 The Ninja workflow was verified successfully in this workspace.
 

@@ -1,5 +1,8 @@
 #pragma once
 
+#include "world/Lighting.h"
+#include "world/Material.h"
+#include "world/RayTracing.h"
 #include "world/Scene.h"
 
 namespace engine
@@ -19,29 +22,52 @@ struct TestWorldAssets final
     const Shader* shader = nullptr;
 };
 
+struct AtmosphericWorldSettings final
+{
+    ProceduralWorldSettings proceduralWorld{};
+    bool moonLightEnabled = true;
+    bool sphereLightsEnabled = true;
+    bool coneLightsEnabled = true;
+    bool moonEmissiveEnabled = true;
+    bool sphereEmissiveEnabled = true;
+    bool coneEmissiveEnabled = true;
+    bool moonMotionEnabled = true;
+    float moonTimeOffset = 0.0f;
+};
+
+struct AtmosphericRenderSettings final
+{
+    FogSettings fog{};
+    DirectionalLight sunLight{};
+    ShadowSettings shadow{};
+    SkyLight skyLight{};
+    PostProcessSettings postProcess{};
+    RayEvaluationSettings rayEvaluation{};
+    DebugViewSettings debugView{};
+    Color clearColor{0.05f, 0.08f, 0.11f, 1.0f};
+};
+
+struct AtmosphericRuntimeState final
+{
+    MovementDebugState movementDebug{};
+    Vec3 moonVisualPosition{};
+    bool debugMoonVisualOverrideEnabled = false;
+    Vec3 debugMoonVisualOverridePosition{};
+};
+
 Material makeWorldMaterial(const Shader* shader, MaterialCategory category, const Vec3& albedo,
                            const Vec3& emissiveColor = Vec3{}, float emissiveStrength = 0.0f,
                            float roughness = 0.72f, float metallic = 0.0f,
                            float specularStrength = 0.28f, float softness = 0.0f,
                            float atmosphericResponse = 1.0f);
 
-Scene createAtmosphericTestWorld(const TestWorldAssets& assets);
-void syncAtmosphericTestWorld(Scene& scene, const TestWorldAssets& assets);
-void updateAtmosphericWorldLighting(Scene& scene, float timeSeconds);
-void syncAtmosphericMoonVisual(Scene& scene, const Vec3& cameraPosition);
-void setMoonLightEnabled(Scene& scene, bool enabled);
-void setSphereLightsEnabled(Scene& scene, bool enabled);
-void setConeLightsEnabled(Scene& scene, bool enabled);
-void setMoonEmissiveEnabled(Scene& scene, bool enabled);
-void setSphereEmissiveEnabled(Scene& scene, bool enabled);
-void setConeEmissiveEnabled(Scene& scene, bool enabled);
-void setMoonMotionEnabled(Scene& scene, bool enabled);
-void stepMoonTime(Scene& scene, float offsetSeconds);
-bool isMoonLightEnabled(const Scene& scene);
-bool areSphereLightsEnabled(const Scene& scene);
-bool areConeLightsEnabled(const Scene& scene);
-bool isMoonEmissiveEnabled(const Scene& scene);
-bool areSphereEmissiveEnabled(const Scene& scene);
-bool areConeEmissiveEnabled(const Scene& scene);
-bool isMoonMotionEnabled(const Scene& scene);
+Scene createAtmosphericTestWorld(AtmosphericWorldSettings& worldSettings,
+                                 AtmosphericRenderSettings& renderSettings,
+                                 const TestWorldAssets& assets);
+void syncAtmosphericTestWorld(Scene& scene, AtmosphericWorldSettings& worldSettings,
+                              const TestWorldAssets& assets);
+void updateAtmosphericWorldLighting(Scene& scene, const AtmosphericWorldSettings& worldSettings,
+                                    AtmosphericRenderSettings& renderSettings, float timeSeconds);
+void syncAtmosphericMoonVisual(Scene& scene, const AtmosphericRenderSettings& renderSettings,
+                               AtmosphericRuntimeState& runtimeState, const Vec3& cameraPosition);
 } // namespace engine

@@ -21,10 +21,14 @@ class PostProcessor final
     PostProcessor(PostProcessor&&) = delete;
     PostProcessor& operator=(PostProcessor&&) = delete;
 
+    void prepareOverlayResources();
+    void prepareWorldResources();
     void resize(int width, int height);
     void beginScene() const;
     void composeLighting(unsigned int atmosphereTextureId, float bloomThreshold) const;
     void endScene(const PostProcessSettings& settings, const DebugViewSettings& debugView) const;
+    void endOverlayScene() const;
+    void setRuntimeOverlayTexture(unsigned int textureId, int width, int height) noexcept;
     void presentSceneTexture() const;
     void presentDebugView(const PostProcessSettings& settings, const DebugViewSettings& debugView,
                           unsigned int bloomTextureId) const;
@@ -35,6 +39,9 @@ class PostProcessor final
   private:
     void createBuffers(int width, int height);
     void destroyBuffers() noexcept;
+    void ensureOverlayShader() const;
+    void ensureWorldShaders() const;
+    void drawRuntimeOverlay() const;
 
     int m_width = 1;
     int m_height = 1;
@@ -48,8 +55,12 @@ class PostProcessor final
     unsigned int m_pingPongTextureIds[2] = {0, 0};
     FullScreenPass m_fullScreenPass;
     std::shared_ptr<ShaderLibrary> m_shaderLibrary;
-    std::unique_ptr<Shader> m_blurShader;
-    std::unique_ptr<Shader> m_compositionShader;
-    std::unique_ptr<Shader> m_tonemapShader;
+    mutable const Shader* m_blurShader = nullptr;
+    mutable const Shader* m_compositionShader = nullptr;
+    mutable const Shader* m_tonemapShader = nullptr;
+    mutable const Shader* m_overlayShader = nullptr;
+    unsigned int m_runtimeOverlayTextureId = 0;
+    int m_runtimeOverlayTextureWidth = 0;
+    int m_runtimeOverlayTextureHeight = 0;
 };
 } // namespace engine

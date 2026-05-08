@@ -3,6 +3,8 @@
 ## Purpose
 
 - This repository is a Windows-first C++ OpenGL engine starter.
+- The project name for this repository is `Engine`.
+- Do not refer to this project as `CASCADE`, `Project BONK`, or `BONK` in code, docs, tests, or generated content.
 - Treat it as a long-lived foundation, not a tutorial throwaway.
 - Optimize for maintainability, readable architecture, and low-risk iteration.
 - Preserve the split between app lifecycle, rendering, and shader management.
@@ -25,7 +27,7 @@
 - `src/primitives/` contains reusable geometry sources such as `Triangle`, `Quad`, `Plane`, `Cube`, `Pyramid`, `Sphere`, `Cylinder`, `Cone`, `Capsule`, and `Torus`.
 - `src/math/Types.*` contains foundational vector, color, and matrix helpers.
 - `src/math/Transform.*` contains transform composition helpers.
-- `shaders/` contains runtime GLSL assets and must stay file-based.
+- `assets/shaders/` contains runtime GLSL assets and must stay file-based.
 - `tests/` contains lightweight smoke tests registered through CTest.
 - `external/glfw/` is vendored GLFW source.
 - `external/glad/` contains generated GLAD loader files.
@@ -60,7 +62,7 @@
 
 - Ninja runtime path: `out/build/debug-ninja/bin/EngineStarter.exe`
 - Visual Studio runtime path: `out/build/vs2022-x64/bin/Debug/EngineStarter.exe`
-- Shader files are copied post-build; if the window opens but nothing draws, verify `shaders/` exists next to the executable.
+- Shader files are copied post-build; if the window opens but nothing draws, verify `assets/shaders/` exists next to the executable.
 
 ## Test Commands
 
@@ -161,7 +163,7 @@
 
 ## Shader Rules
 
-- Store shaders under `shaders/`.
+- Store shaders under `assets/shaders/`.
 - Keep shader filenames stable unless all call sites and docs are updated.
 - Prefer small, composable uniforms over magic constants scattered in code.
 - Keep visual experiments readable and deterministic enough for debugging.

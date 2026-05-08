@@ -1,6 +1,6 @@
 #pragma once
 
-#include "world/Scene.h"
+#include "world/TestWorld.h"
 
 struct GLFWwindow;
 
@@ -10,6 +10,13 @@ struct FramePerformanceStats;
 struct RendererDebugTextures;
 class Player;
 class PlayerController;
+
+struct ExplorationRuntimeStats final
+{
+    int entityCount = 0;
+    int componentTypeCount = 0;
+    int componentCount = 0;
+};
 
 class DebugUi final
 {
@@ -23,8 +30,10 @@ class DebugUi final
     DebugUi& operator=(DebugUi&&) = delete;
 
     void beginFrame() const;
-    void draw(Scene& scene, Player& player, PlayerController& playerController,
-              bool& debugFreeCameraEnabled, const FramePerformanceStats& performanceStats,
+    void draw(AtmosphericWorldSettings& worldSettings, AtmosphericRenderSettings& renderSettings,
+              AtmosphericRuntimeState& runtimeState, const ExplorationRuntimeStats& stats,
+              Player& player, PlayerController& playerController, bool& debugFreeCameraEnabled,
+              const FramePerformanceStats& performanceStats,
               const RendererDebugTextures& debugTextures);
     void endFrame() const;
     bool consumeResumeCameraRequest() noexcept;

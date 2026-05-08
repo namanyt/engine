@@ -1,5 +1,6 @@
 #include "core/Renderer.h"
 
+#include "assets/AssetManager.h"
 #include "core/Log.h"
 #include "core/PostProcessor.h"
 #include "core/RayEvaluationPass.h"
@@ -16,8 +17,9 @@
 
 namespace engine
 {
-Renderer::Renderer(const std::filesystem::path& shaderDirectory)
-    : m_shaderLibrary(std::make_shared<ShaderLibrary>(shaderDirectory))
+Renderer::Renderer(const std::shared_ptr<AssetManager>& assetManager,
+                   const std::filesystem::path& shaderDirectory)
+    : m_shaderLibrary(std::make_shared<ShaderLibrary>(assetManager, shaderDirectory))
 {
     glEnable(GL_DEPTH_TEST);
     m_postProcessor = std::make_unique<PostProcessor>(m_shaderLibrary);
@@ -55,6 +57,32 @@ void Renderer::setViewport(int width, int height)
     }
 
     glViewport(0, 0, m_framebufferWidth, m_framebufferHeight);
+}
+
+void Renderer::prepareOverlayRenderingResources()
+{
+    if (m_postProcessor != nullptr)
+    {
+        m_postProcessor->prepareOverlayResources();
+    }
+}
+
+void Renderer::prepareWorldRenderingResources()
+{
+    if (m_postProcessor != nullptr)
+    {
+        m_postProcessor->prepareWorldResources();
+    }
+
+    if (m_rayEvaluationPass != nullptr)
+    {
+        m_rayEvaluationPass->prepareWorldResources();
+    }
+
+    if (m_shadowMapPass != nullptr)
+    {
+        m_shadowMapPass->prepareWorldResources();
+    }
 }
 
 void Renderer::beginFrame(const Color& clearColor)
@@ -98,6 +126,16 @@ void Renderer::endFrame(const PostProcessSettings& postProcessSettings,
         const auto postGpuScope = m_profiler.makeGpuScope("Post Processing Pass");
         m_postProcessor->endScene(postProcessSettings, frameUniforms.debugView);
     }
+}
+
+void Renderer::endOverlayFrame() const
+{
+    if (m_postProcessor == nullptr)
+    {
+        return;
+    }
+
+    m_postProcessor->endOverlayScene();
 }
 
 void Renderer::beginShadowPass(const FrameUniforms& frameUniforms) const
@@ -210,6 +248,21 @@ RendererDebugTextures Renderer::debugTextures() const noexcept
     }
 
     return textures;
+}
+
+void Renderer::setRuntimeOverlayTexture(unsigned int textureId, int width, int height)
+{
+    if (m_postProcessor == nullptr)
+    {
+        return;
+    }
+
+    m_postProcessor->setRuntimeOverlayTexture(textureId, width, height);
+}
+
+void Renderer::clearRuntimeOverlayTexture()
+{
+    setRuntimeOverlayTexture(0, 0, 0);
 }
 
 void Renderer::applyFrameState(const Shader& shader, const FrameUniforms& frameUniforms) const

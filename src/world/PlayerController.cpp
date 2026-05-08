@@ -210,8 +210,10 @@ void yawBasis(float yawDegrees, engine::Vec3& forward, engine::Vec3& right)
 
 namespace engine
 {
-void PlayerController::update(Player& player, Scene& scene, ecs::Entity playerEntity,
-                              const InputState& inputState, float deltaSeconds)
+void PlayerController::update(Player& player, Scene& scene,
+                              const ProceduralWorldSettings& worldSettings,
+                              MovementDebugState& movementDebugState, ecs::Entity playerEntity,
+                              const ExplorationInputState& inputState, float deltaSeconds)
 {
     if (!scene.registry().isAlive(playerEntity))
     {
@@ -236,7 +238,7 @@ void PlayerController::update(Player& player, Scene& scene, ecs::Entity playerEn
     int fixedSteps = 0;
     while (m_accumulatorSeconds >= fixedDeltaSeconds && fixedSteps < kMaxFixedStepsPerFrame)
     {
-        stepSimulation(scene, playerEntity, fixedDeltaSeconds, debugState);
+        stepSimulation(scene, worldSettings, playerEntity, fixedDeltaSeconds, debugState);
         m_accumulatorSeconds -= fixedDeltaSeconds;
         ++fixedSteps;
     }
@@ -252,7 +254,7 @@ void PlayerController::update(Player& player, Scene& scene, ecs::Entity playerEn
 
     updatePresentation(scene, playerEntity, deltaSeconds, debugState);
     syncPlayerFromEcs(scene, playerEntity, player, debugState.presentationAlpha);
-    scene.movementDebug = debugState;
+    movementDebugState = debugState;
 }
 
 float PlayerController::walkSpeed() const noexcept
@@ -539,7 +541,7 @@ void PlayerController::applyTuning(Scene& scene, ecs::Entity playerEntity) const
 }
 
 void PlayerController::writeInput(Scene& scene, ecs::Entity playerEntity,
-                                  const InputState& inputState) const
+                                  const ExplorationInputState& inputState) const
 {
     ecs::Registry& registry = scene.registry();
     components::PlayerInputComponent& input =
@@ -567,8 +569,9 @@ void PlayerController::writeInput(Scene& scene, ecs::Entity playerEntity,
     }
 }
 
-void PlayerController::stepSimulation(Scene& scene, ecs::Entity playerEntity,
-                                      float fixedDeltaSeconds, MovementDebugState& debugState)
+void PlayerController::stepSimulation(Scene& scene, const ProceduralWorldSettings& worldSettings,
+                                      ecs::Entity playerEntity, float fixedDeltaSeconds,
+                                      MovementDebugState& debugState)
 {
     ecs::Registry& registry = scene.registry();
     components::TransformComponent& transform =
@@ -594,7 +597,7 @@ void PlayerController::stepSimulation(Scene& scene, ecs::Entity playerEntity,
         presentation.currentBodyPosition = transform.position;
     }
 
-    const CollisionWorld& world = collisionWorld(scene);
+    const CollisionWorld& world = collisionWorld(scene, worldSettings);
     debugState.collisionCacheRebuilt = m_collisionCacheRebuilt;
     debugState.staleColliderDetected = m_staleColliderDetected;
 
@@ -821,7 +824,7 @@ void PlayerController::stepSimulation(Scene& scene, ecs::Entity playerEntity,
     debugState.supportNormal = grounding.supportNormal;
     debugState.supportPoint = grounding.supportPoint;
     debugState.terrainNormal =
-        sampleAtmosphericTerrainNormal(scene, transform.position.x, transform.position.z);
+        sampleAtmosphericTerrainNormal(worldSettings, transform.position.x, transform.position.z);
     debugState.lastCollisionNormal = motion.lastCollisionNormal;
     debugState.lastSurfaceMotion = motion.lastSurfaceMotion;
     debugState.acceleration = (velocity.value - previousVelocity) / fixedDeltaSeconds;
@@ -830,7 +833,7 @@ void PlayerController::stepSimulation(Scene& scene, ecs::Entity playerEntity,
     debugState.postCollisionPosition = transform.position;
     debugState.velocity = velocity.value;
     debugState.terrainHeight =
-        sampleAtmosphericTerrainHeight(scene, transform.position.x, transform.position.z);
+        sampleAtmosphericTerrainHeight(worldSettings, transform.position.x, transform.position.z);
     debugState.supportHeight = grounding.supportHeight;
     debugState.supportDistance = grounding.supportDistance;
     debugState.slopeAngleDegrees = grounding.slopeAngleDegrees;
@@ -945,9 +948,9 @@ void PlayerController::syncPlayerFromEcs(const Scene& scene, ecs::Entity playerE
     player.camera().setPosition(basePosition + offset);
 }
 
-const CollisionWorld& PlayerController::collisionWorld(const Scene& scene)
+const CollisionWorld& PlayerController::collisionWorld(const Scene& scene,
+                                                       const ProceduralWorldSettings& worldSettings)
 {
-    const ProceduralWorldSettings& worldSettings = scene.proceduralWorld;
     const std::size_t worldSignature = collisionWorldSignature(scene);
     const bool settingsChanged =
         !m_collisionCache.valid || m_collisionCache.terrainSeed != worldSettings.seed ||

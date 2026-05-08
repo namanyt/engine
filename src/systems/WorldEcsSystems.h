@@ -35,7 +35,6 @@ ecs::Entity spawnRayOccluderEntity(Scene& scene, std::string_view debugName, con
                                    float radius, const Vec3& centerOffset = Vec3{});
 
 ecs::Entity findWorldObjectEntity(const Scene& scene, WorldObjectId id);
-void syncLegacySceneFromEcs(Scene& scene);
 void syncPlayerEntity(Scene& scene, ecs::Entity entity, const Player& player, bool activeCamera);
 void syncCameraEntity(Scene& scene, ecs::Entity entity, const Camera& camera, bool activeCamera,
                       bool debugFreeCamera);

@@ -13,6 +13,7 @@
 
 namespace engine
 {
+class AssetManager;
 class Mesh;
 class PostProcessor;
 class RayEvaluationPass;
@@ -68,7 +69,8 @@ struct RendererDebugTextures final
 class Renderer final
 {
   public:
-    explicit Renderer(const std::filesystem::path& shaderDirectory);
+    Renderer(const std::shared_ptr<AssetManager>& assetManager,
+             const std::filesystem::path& shaderDirectory);
     ~Renderer();
 
     Renderer(const Renderer&) = delete;
@@ -77,9 +79,12 @@ class Renderer final
     Renderer& operator=(Renderer&&) = delete;
 
     void setViewport(int width, int height);
+    void prepareOverlayRenderingResources();
+    void prepareWorldRenderingResources();
     void beginFrame(const Color& clearColor);
     void endFrame(const PostProcessSettings& postProcessSettings,
                   const FrameUniforms& frameUniforms, float timeSeconds) const;
+    void endOverlayFrame() const;
     void beginShadowPass(const FrameUniforms& frameUniforms) const;
     void drawShadow(const Mesh& mesh, const Mat4& modelMatrix) const;
     void drawShadow(const Mesh& mesh, const Transform& transform) const;
@@ -93,6 +98,8 @@ class Renderer final
     RenderProfiler& profiler() noexcept;
     const RenderProfiler& profiler() const noexcept;
     RendererDebugTextures debugTextures() const noexcept;
+    void setRuntimeOverlayTexture(unsigned int textureId, int width, int height);
+    void clearRuntimeOverlayTexture();
 
   private:
     void applyFrameState(const Shader& shader, const FrameUniforms& frameUniforms) const;

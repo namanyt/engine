@@ -115,6 +115,29 @@ find_package(OpenGL REQUIRED)
 set(ENGINE_SOURCES
     src/main.cpp
     src/Application.cpp
+    src/metassets/LoadingScene.metasset.cpp
+    src/metassets/Metasset.cpp
+    src/metassets/MenuScene.metasset.cpp
+    src/metassets/SceneMetasset.cpp
+    src/metassets/TestWorldScene.metasset.cpp
+    src/runtime/LoadingRuntime.cpp
+    src/runtime/MenuRuntime.cpp
+    src/runtime/RuntimeMode.cpp
+    src/runtime/ExplorationRuntime.cpp
+    src/runtime/SceneRuntime.cpp
+    src/runtime/SceneAssetScope.cpp
+    src/runtime/EngineRuntime.cpp
+    src/scenes/LoadingScene.cpp
+    src/scenes/MenuScene.cpp
+    src/scenes/TestWorldScene.cpp
+    src/assets/Asset.cpp
+    src/assets/AudioAsset.cpp
+    src/assets/AssetManager.cpp
+    src/assets/AssetMeta.cpp
+    src/assets/AssetRegistry.cpp
+    src/assets/ModelAsset.cpp
+    src/assets/ShaderAsset.cpp
+    src/assets/TextureAsset.cpp
     src/core/Log.cpp
     src/core/RenderDebug.cpp
     src/core/RenderProfiler.cpp
@@ -160,6 +183,31 @@ set(ENGINE_SOURCES
 
 set(ENGINE_HEADERS
     src/Application.h
+    src/metassets/LoadingScene.metasset.h
+    src/metassets/Metasset.h
+    src/metassets/MenuScene.metasset.h
+    src/metassets/SceneMetasset.h
+    src/metassets/TestWorldScene.metasset.h
+    src/runtime/ExplorationInput.h
+    src/runtime/RuntimeMode.h
+    src/runtime/ExplorationRuntime.h
+    src/runtime/LoadingRuntime.h
+    src/runtime/MenuRuntime.h
+    src/runtime/SceneRuntime.h
+    src/runtime/SceneAssetScope.h
+    src/runtime/EngineRuntime.h
+    src/scenes/LoadingScene.h
+    src/scenes/MenuScene.h
+    src/scenes/TestWorldScene.h
+    src/assets/Asset.h
+    src/assets/AudioAsset.h
+    src/assets/AssetHandle.h
+    src/assets/AssetManager.h
+    src/assets/AssetMeta.h
+    src/assets/AssetRegistry.h
+    src/assets/ModelAsset.h
+    src/assets/ShaderAsset.h
+    src/assets/TextureAsset.h
     src/core/Log.h
     src/core/RenderDebug.h
     src/core/RenderProfiler.h
@@ -210,18 +258,28 @@ set(ENGINE_HEADERS
 )
 
 set(ENGINE_SHADERS
-    shaders/vertex.glsl
-    shaders/fragment.glsl
-    shaders/post_blur.vert
-    shaders/post_blur.frag
-    shaders/ray_eval.vert
-    shaders/ray_eval.frag
-    shaders/post_tonemap.vert
-    shaders/post_tonemap.frag
-    shaders/post_compose.frag
-    shaders/shadow_depth.vert
-    shaders/shadow_depth.frag
-    shaders/volumetric_upscale.frag
+    assets/shaders/vertex.glsl
+    assets/shaders/fragment.glsl
+    assets/shaders/post_blur.vert
+    assets/shaders/post_blur.frag
+    assets/shaders/ui_overlay.frag
+    assets/shaders/ray_eval.vert
+    assets/shaders/ray_eval.frag
+    assets/shaders/post_tonemap.vert
+    assets/shaders/post_tonemap.frag
+    assets/shaders/post_compose.frag
+    assets/shaders/shadow_depth.vert
+    assets/shaders/shadow_depth.frag
+    assets/shaders/volumetric_upscale.frag
+)
+
+set(ENGINE_ASSET_PLACEHOLDERS
+    assets/textures/.gitkeep
+    assets/audio/.gitkeep
+    assets/models/.gitkeep
+    assets/videos/.gitkeep
+    assets/fonts/.gitkeep
+    assets/test/.gitkeep
 )
 
 set(ENGINE_DEBUG_UI_SOURCES)
@@ -236,7 +294,7 @@ if(TARGET imgui)
     )
 endif()
 
-set_source_files_properties(${ENGINE_SHADERS} PROPERTIES HEADER_FILE_ONLY TRUE)
+set_source_files_properties(${ENGINE_SHADERS} ${ENGINE_ASSET_PLACEHOLDERS} PROPERTIES HEADER_FILE_ONLY TRUE)
 
 add_executable(EngineStarter
     ${ENGINE_SOURCES}
@@ -244,6 +302,7 @@ add_executable(EngineStarter
     ${ENGINE_HEADERS}
     ${ENGINE_DEBUG_UI_HEADERS}
     ${ENGINE_SHADERS}
+    ${ENGINE_ASSET_PLACEHOLDERS}
 )
 
 target_include_directories(EngineStarter
@@ -265,6 +324,10 @@ target_link_libraries(EngineStarter
         OpenGL::GL
 )
 
+if(WIN32)
+    target_link_libraries(EngineStarter PRIVATE ole32 windowscodecs)
+endif()
+
 if(TARGET imgui)
     target_link_libraries(EngineStarter PRIVATE imgui)
     target_compile_definitions(EngineStarter PRIVATE ENGINE_ENABLE_DEBUG_UI=1)
@@ -279,37 +342,41 @@ set_target_properties(EngineStarter PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:EngineStarter>"
 )
 
-set(ENGINE_SHADER_COPY_COMMANDS
-    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:EngineStarter>/shaders"
+add_custom_target(EngineStarterAssets ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:EngineStarter>/assets"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/assets"
+            "$<TARGET_FILE_DIR:EngineStarter>/assets"
+    DEPENDS ${ENGINE_SHADERS} ${ENGINE_ASSET_PLACEHOLDERS}
+    COMMENT "Copying engine assets"
 )
 
-foreach(shader_file IN LISTS ENGINE_SHADERS)
-    get_filename_component(shader_name "${shader_file}" NAME)
-    list(APPEND ENGINE_SHADER_COPY_COMMANDS
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_SOURCE_DIR}/${shader_file}"
-                "$<TARGET_FILE_DIR:EngineStarter>/shaders/${shader_name}"
-    )
-endforeach()
-
-add_custom_target(EngineStarterShaders ALL
-    ${ENGINE_SHADER_COPY_COMMANDS}
-    DEPENDS ${ENGINE_SHADERS}
-    COMMENT "Copying shader assets"
-)
-
-add_dependencies(EngineStarter EngineStarterShaders)
+add_dependencies(EngineStarter EngineStarterAssets)
 engine_stage_runtime_dependencies(EngineStarter)
 
 source_group(TREE "${CMAKE_SOURCE_DIR}" FILES
     ${ENGINE_SOURCES}
     ${ENGINE_HEADERS}
     ${ENGINE_SHADERS}
+    ${ENGINE_ASSET_PLACEHOLDERS}
 )
 
 if(BUILD_TESTING)
     add_executable(EngineStarterTests
         tests/SmokeTests.cpp
+        src/assets/Asset.cpp
+        src/assets/AudioAsset.cpp
+        src/assets/AssetManager.cpp
+        src/assets/AssetMeta.cpp
+        src/assets/AssetRegistry.cpp
+        src/assets/ModelAsset.cpp
+        src/assets/ShaderAsset.cpp
+        src/assets/TextureAsset.cpp
+        src/core/RenderDebug.cpp
+        src/core/Log.cpp
+        src/core/Shader.cpp
+        src/core/ShaderLibrary.cpp
+        src/math/Types.cpp
     )
 
     set_target_properties(EngineStarterTests PROPERTIES
@@ -317,6 +384,22 @@ if(BUILD_TESTING)
     )
 
     engine_stage_runtime_dependencies(EngineStarterTests)
+
+    target_include_directories(EngineStarterTests
+        PRIVATE
+            "${CMAKE_SOURCE_DIR}/src"
+            "${GLAD_INCLUDE_DIR}"
+    )
+
+    target_link_libraries(EngineStarterTests
+        PRIVATE
+            glad
+            OpenGL::GL
+    )
+
+    if(WIN32)
+        target_link_libraries(EngineStarterTests PRIVATE ole32 windowscodecs)
+    endif()
 
     target_compile_definitions(EngineStarterTests
         PRIVATE
@@ -326,13 +409,17 @@ if(BUILD_TESTING)
     engine_apply_target_defaults(EngineStarterTests)
 
     add_test(NAME shader_assets_exist COMMAND EngineStarterTests shader_assets_exist)
+    add_test(NAME asset_directory_layout_exists COMMAND EngineStarterTests asset_directory_layout_exists)
     add_test(NAME dependency_layout_exists COMMAND EngineStarterTests dependency_layout_exists)
     add_test(NAME engine_source_layout_exists COMMAND EngineStarterTests engine_source_layout_exists)
+    add_test(NAME asset_manager_round_trip COMMAND EngineStarterTests asset_manager_round_trip)
 
     set_tests_properties(
         shader_assets_exist
+        asset_directory_layout_exists
         dependency_layout_exists
         engine_source_layout_exists
+        asset_manager_round_trip
         PROPERTIES
             LABELS "smoke"
     )

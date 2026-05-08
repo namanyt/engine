@@ -5,6 +5,7 @@
 
 #include <glad/glad.h>
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace
@@ -39,19 +40,23 @@ namespace engine
 PostProcessor::PostProcessor(const std::shared_ptr<ShaderLibrary>& shaderLibrary)
     : m_fullScreenPass(), m_shaderLibrary(shaderLibrary)
 {
-    m_blurShader = std::make_unique<Shader>(m_shaderLibrary->shaderPath("post_blur.vert"),
-                                            m_shaderLibrary->shaderPath("post_blur.frag"));
-    m_compositionShader =
-        std::make_unique<Shader>(m_shaderLibrary->shaderPath("post_tonemap.vert"),
-                                 m_shaderLibrary->shaderPath("post_compose.frag"));
-    m_tonemapShader = std::make_unique<Shader>(m_shaderLibrary->shaderPath("post_tonemap.vert"),
-                                               m_shaderLibrary->shaderPath("post_tonemap.frag"));
     createBuffers(m_width, m_height);
 }
 
 PostProcessor::~PostProcessor()
 {
     destroyBuffers();
+}
+
+void PostProcessor::prepareOverlayResources()
+{
+    ensureOverlayShader();
+}
+
+void PostProcessor::prepareWorldResources()
+{
+    ensureWorldShaders();
+    ensureOverlayShader();
 }
 
 void PostProcessor::resize(int width, int height)
@@ -76,6 +81,7 @@ void PostProcessor::beginScene() const
 
 void PostProcessor::composeLighting(unsigned int atmosphereTextureId, float bloomThreshold) const
 {
+    ensureWorldShaders();
     ScopedRenderDebugGroup lightingScope("Lighting Pass");
     glBindFramebuffer(GL_FRAMEBUFFER, m_compositeFramebufferId);
     glViewport(0, 0, m_width, m_height);
@@ -98,6 +104,7 @@ void PostProcessor::composeLighting(unsigned int atmosphereTextureId, float bloo
 void PostProcessor::endScene(const PostProcessSettings& settings,
                              const DebugViewSettings& debugView) const
 {
+    ensureWorldShaders();
     ScopedRenderDebugGroup postScope("Post Processing Pass");
     unsigned int activeBloomTextureId = m_compositeBrightTextureId;
 
@@ -133,6 +140,7 @@ void PostProcessor::endScene(const PostProcessSettings& settings,
         if (!debugView.postProcessingEnabled)
         {
             presentSceneTexture();
+            drawRuntimeOverlay();
             return;
         }
 
@@ -161,10 +169,29 @@ void PostProcessor::endScene(const PostProcessSettings& settings,
                                   static_cast<float>(PostDebugViewMode::FinalImage));
         m_tonemapShader->setFloat("uDebugExposureScale", debugExposureScale(settings.exposure));
         m_fullScreenPass.draw();
+        drawRuntimeOverlay();
         return;
     }
 
     presentDebugView(settings, debugView, activeBloomTextureId);
+    drawRuntimeOverlay();
+}
+
+void PostProcessor::endOverlayScene() const
+{
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_sceneFramebufferId);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT,
+                      GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    drawRuntimeOverlay();
+}
+
+void PostProcessor::setRuntimeOverlayTexture(unsigned int textureId, int width, int height) noexcept
+{
+    m_runtimeOverlayTextureId = textureId;
+    m_runtimeOverlayTextureWidth = width;
+    m_runtimeOverlayTextureHeight = height;
 }
 
 unsigned int PostProcessor::sceneTextureId() const noexcept
@@ -190,6 +217,7 @@ void PostProcessor::presentDebugView(const PostProcessSettings& settings,
                                      const DebugViewSettings& debugView,
                                      unsigned int bloomTextureId) const
 {
+    ensureWorldShaders();
     ScopedRenderDebugGroup toneMapScope("Tone Mapping Pass");
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, m_width, m_height);
@@ -214,6 +242,106 @@ void PostProcessor::presentDebugView(const PostProcessSettings& settings,
                               static_cast<float>(debugView.postDebugViewMode));
     m_tonemapShader->setFloat("uDebugExposureScale", debugExposureScale(settings.exposure));
     m_fullScreenPass.draw();
+}
+
+void PostProcessor::drawRuntimeOverlay() const
+{
+    ensureOverlayShader();
+    if (m_overlayShader == nullptr || m_runtimeOverlayTextureId == 0 ||
+        m_runtimeOverlayTextureWidth <= 0 || m_runtimeOverlayTextureHeight <= 0)
+    {
+        return;
+    }
+
+    constexpr float kMarginPixels = 24.0f;
+    constexpr float kMaxScreenFraction = 0.24f;
+    constexpr float kMaxWidthPixels = 320.0f;
+    constexpr float kMaxHeightPixels = 240.0f;
+
+    const float textureAspect = static_cast<float>(m_runtimeOverlayTextureWidth) /
+                                static_cast<float>(std::max(m_runtimeOverlayTextureHeight, 1));
+    const float maxOverlayWidth =
+        std::min(static_cast<float>(m_width) * kMaxScreenFraction, kMaxWidthPixels);
+    const float maxOverlayHeight =
+        std::min(static_cast<float>(m_height) * kMaxScreenFraction, kMaxHeightPixels);
+
+    float overlayWidth = maxOverlayWidth;
+    float overlayHeight = overlayWidth / std::max(textureAspect, 0.0001f);
+    if (overlayHeight > maxOverlayHeight)
+    {
+        overlayHeight = maxOverlayHeight;
+        overlayWidth = overlayHeight * textureAspect;
+    }
+
+    if (overlayWidth <= 1.0f || overlayHeight <= 1.0f)
+    {
+        return;
+    }
+
+    const GLboolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+    const GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    m_overlayShader->use();
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_runtimeOverlayTextureId);
+    m_overlayShader->setInt("uOverlayTexture", 0);
+    m_overlayShader->setVec2("uScreenSize", static_cast<float>(m_width),
+                             static_cast<float>(m_height));
+    m_overlayShader->setVec2("uOverlaySizePixels", overlayWidth, overlayHeight);
+    m_overlayShader->setVec2("uOverlayMarginPixels", kMarginPixels, kMarginPixels);
+    m_overlayShader->setFloat("uOverlayOpacity", 1.0f);
+    m_fullScreenPass.draw();
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    if (!blendWasEnabled)
+    {
+        glDisable(GL_BLEND);
+    }
+
+    if (depthTestWasEnabled)
+    {
+        glEnable(GL_DEPTH_TEST);
+    }
+}
+
+void PostProcessor::ensureOverlayShader() const
+{
+    if (m_overlayShader != nullptr)
+    {
+        return;
+    }
+
+    m_overlayShader = &m_shaderLibrary->loadGraphicsProgram(
+        "renderer.post.overlay", std::filesystem::path("post_tonemap.vert"),
+        std::filesystem::path("ui_overlay.frag"));
+}
+
+void PostProcessor::ensureWorldShaders() const
+{
+    if (m_blurShader == nullptr)
+    {
+        m_blurShader = &m_shaderLibrary->loadGraphicsProgram(
+            "renderer.post.blur", std::filesystem::path("post_blur.vert"),
+            std::filesystem::path("post_blur.frag"));
+    }
+
+    if (m_compositionShader == nullptr)
+    {
+        m_compositionShader = &m_shaderLibrary->loadGraphicsProgram(
+            "renderer.post.compose", std::filesystem::path("post_tonemap.vert"),
+            std::filesystem::path("post_compose.frag"));
+    }
+
+    if (m_tonemapShader == nullptr)
+    {
+        m_tonemapShader = &m_shaderLibrary->loadGraphicsProgram(
+            "renderer.post.tonemap", std::filesystem::path("post_tonemap.vert"),
+            std::filesystem::path("post_tonemap.frag"));
+    }
 }
 
 void PostProcessor::createBuffers(int width, int height)

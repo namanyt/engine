@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Application.h"
+#include "runtime/ExplorationInput.h"
 
 namespace engine
 {
@@ -9,7 +9,7 @@ class Camera;
 class FreeCameraController final
 {
   public:
-    void update(Camera& camera, const InputState& inputState, float deltaSeconds) const;
+    void update(Camera& camera, const ExplorationInputState& inputState, float deltaSeconds) const;
 
     void setMoveSpeed(float moveSpeed) noexcept;
     void setSprintMultiplier(float sprintMultiplier) noexcept;

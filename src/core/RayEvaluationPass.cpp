@@ -40,17 +40,17 @@ namespace engine
 RayEvaluationPass::RayEvaluationPass(const std::shared_ptr<ShaderLibrary>& shaderLibrary)
     : m_fullScreenPass(), m_shaderLibrary(shaderLibrary)
 {
-    m_evaluateShader = std::make_unique<Shader>(m_shaderLibrary->shaderPath("ray_eval.vert"),
-                                                m_shaderLibrary->shaderPath("ray_eval.frag"));
-    m_resolveShader =
-        std::make_unique<Shader>(m_shaderLibrary->shaderPath("ray_eval.vert"),
-                                 m_shaderLibrary->shaderPath("volumetric_upscale.frag"));
     createResources(m_fullWidth, m_fullHeight);
 }
 
 RayEvaluationPass::~RayEvaluationPass()
 {
     destroyResources();
+}
+
+void RayEvaluationPass::prepareWorldResources()
+{
+    ensureShaders();
 }
 
 void RayEvaluationPass::resize(int width, int height)
@@ -70,6 +70,7 @@ void RayEvaluationPass::resize(int width, int height)
 void RayEvaluationPass::evaluate(unsigned int sceneDepthTextureId,
                                  const FrameUniforms& frameUniforms) const
 {
+    ensureShaders();
     const unsigned int writeIndex = m_historyWriteIndex;
     const unsigned int readIndex = (m_historyWriteIndex + 1u) % 2u;
 
@@ -259,6 +260,23 @@ int RayEvaluationPass::renderWidth() const noexcept
 int RayEvaluationPass::renderHeight() const noexcept
 {
     return m_halfHeight;
+}
+
+void RayEvaluationPass::ensureShaders() const
+{
+    if (m_evaluateShader == nullptr)
+    {
+        m_evaluateShader = &m_shaderLibrary->loadGraphicsProgram(
+            "renderer.volumetric.evaluate", std::filesystem::path("ray_eval.vert"),
+            std::filesystem::path("ray_eval.frag"));
+    }
+
+    if (m_resolveShader == nullptr)
+    {
+        m_resolveShader = &m_shaderLibrary->loadGraphicsProgram(
+            "renderer.volumetric.resolve", std::filesystem::path("ray_eval.vert"),
+            std::filesystem::path("volumetric_upscale.frag"));
+    }
 }
 
 void RayEvaluationPass::createResources(int width, int height)

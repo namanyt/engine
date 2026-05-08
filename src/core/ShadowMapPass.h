@@ -22,6 +22,7 @@ class ShadowMapPass final
     ShadowMapPass(ShadowMapPass&&) = delete;
     ShadowMapPass& operator=(ShadowMapPass&&) = delete;
 
+    void prepareWorldResources();
     void resize(int size);
     void begin(const Mat4& lightViewProjection) const;
     void draw(const Mesh& mesh, const Mat4& modelMatrix) const;
@@ -33,12 +34,13 @@ class ShadowMapPass final
   private:
     void createResources(int size);
     void destroyResources() noexcept;
+    void ensureShader() const;
 
     int m_size = 1024;
     unsigned int m_framebufferId = 0;
     unsigned int m_depthTextureId = 0;
     std::shared_ptr<ShaderLibrary> m_shaderLibrary;
-    std::unique_ptr<Shader> m_shadowShader;
+    mutable const Shader* m_shadowShader = nullptr;
     Mat4 m_lightViewProjection = Mat4::identity();
 };
 } // namespace engine

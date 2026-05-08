@@ -4,7 +4,7 @@
 
 namespace engine
 {
-void FreeCameraController::update(Camera& camera, const InputState& inputState,
+void FreeCameraController::update(Camera& camera, const ExplorationInputState& inputState,
                                   float deltaSeconds) const
 {
     if (deltaSeconds <= 0.0f)

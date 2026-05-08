@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Application.h"
 #include "ecs/Entity.h"
+#include "runtime/ExplorationInput.h"
 #include "world/WorldNavigation.h"
 
 namespace engine
@@ -12,8 +12,9 @@ class Scene;
 class PlayerController final
 {
   public:
-    void update(Player& player, Scene& scene, ecs::Entity playerEntity,
-                const InputState& inputState, float deltaSeconds);
+    void update(Player& player, Scene& scene, const ProceduralWorldSettings& worldSettings,
+                MovementDebugState& movementDebugState, ecs::Entity playerEntity,
+                const ExplorationInputState& inputState, float deltaSeconds);
 
     float walkSpeed() const noexcept;
     float sprintMultiplier() const noexcept;
@@ -78,14 +79,17 @@ class PlayerController final
     };
 
     void applyTuning(Scene& scene, ecs::Entity playerEntity) const;
-    void writeInput(Scene& scene, ecs::Entity playerEntity, const InputState& inputState) const;
-    void stepSimulation(Scene& scene, ecs::Entity playerEntity, float fixedDeltaSeconds,
+    void writeInput(Scene& scene, ecs::Entity playerEntity,
+                    const ExplorationInputState& inputState) const;
+    void stepSimulation(Scene& scene, const ProceduralWorldSettings& worldSettings,
+                        ecs::Entity playerEntity, float fixedDeltaSeconds,
                         MovementDebugState& debugState);
     void updatePresentation(Scene& scene, ecs::Entity playerEntity, float deltaSeconds,
                             MovementDebugState& debugState);
     void syncPlayerFromEcs(const Scene& scene, ecs::Entity playerEntity, Player& player,
                            float presentationAlpha) const;
-    const CollisionWorld& collisionWorld(const Scene& scene);
+    const CollisionWorld& collisionWorld(const Scene& scene,
+                                         const ProceduralWorldSettings& worldSettings);
 
     CollisionCache m_collisionCache{};
     bool m_collisionCacheRebuilt = false;

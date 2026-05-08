@@ -58,10 +58,8 @@ struct MotionResult final
 };
 
 float sampleAtmosphericTerrainHeight(const ProceduralWorldSettings& settings, float x, float z);
-float sampleAtmosphericTerrainHeight(const Scene& scene, float x, float z);
 float sampleAtmosphericTerrainSlope(const ProceduralWorldSettings& settings, float x, float z);
 Vec3 sampleAtmosphericTerrainNormal(const ProceduralWorldSettings& settings, float x, float z);
-Vec3 sampleAtmosphericTerrainNormal(const Scene& scene, float x, float z);
 
 CollisionWorld buildCollisionWorld(const Scene& scene);
 bool collisionWorldCanOccupy(const CollisionWorld& world, const Vec3& feetPosition,

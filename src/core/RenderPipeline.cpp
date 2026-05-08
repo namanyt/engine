@@ -63,4 +63,10 @@ void RenderPipeline::renderFrame(const systems::RenderSceneView& renderSceneView
 
     m_renderer.endFrame(postProcessSettings, frameUniforms, timeSeconds);
 }
+
+void RenderPipeline::renderOverlayFrame(const Color& clearColor) const
+{
+    m_renderer.beginFrame(clearColor);
+    m_renderer.endOverlayFrame();
+}
 } // namespace engine

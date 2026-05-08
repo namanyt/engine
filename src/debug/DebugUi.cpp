@@ -114,137 +114,138 @@ const char* volumetricPresetLabel(VolumetricTuningPreset preset)
     return "Unknown";
 }
 
-void applyVolumetricPreset(engine::Scene& scene, VolumetricTuningPreset preset)
+void applyVolumetricPreset(engine::AtmosphericRenderSettings& renderSettings,
+                           VolumetricTuningPreset preset)
 {
-    scene.debugView.volumetricDebugViewMode =
+    renderSettings.debugView.volumetricDebugViewMode =
         static_cast<int>(engine::VolumetricDebugViewMode::FinalImage);
 
     switch (preset)
     {
     case VolumetricTuningPreset::RealisticNight:
-        scene.fog.density = 0.015f;
-        scene.fog.heightFalloff = 0.80f;
-        scene.rayEvaluation.scatteringStrength = 1.20f;
-        scene.rayEvaluation.extinctionStrength = 1.50f;
-        scene.rayEvaluation.phaseAnisotropy = 0.35f;
-        scene.rayEvaluation.volumetricLightIntensity = 2.0f;
-        scene.rayEvaluation.directionalLightAngularRadius = 0.004f;
-        scene.rayEvaluation.stepLength = 1.0f;
-        scene.rayEvaluation.maxSteps = 64;
-        scene.rayEvaluation.atmosphericAmbientFloor = 0.015f;
-        scene.rayEvaluation.maxDistance = 760.0f;
-        scene.rayEvaluation.temporalBlend = 0.84f;
-        scene.rayEvaluation.bilateralDepthFactor = 42.0f;
-        scene.rayEvaluation.temporalDepthThreshold = 0.16f;
-        scene.rayEvaluation.temporalNormalThreshold = 0.84f;
-        scene.rayEvaluation.temporalVelocityThreshold = 4.0f;
-        scene.rayEvaluation.nearFieldHaze = 0.0f;
-        scene.rayEvaluation.jitterStrength = 0.14f;
-        scene.rayEvaluation.stepDistributionExponent = 1.12f;
-        scene.postProcess.exposure = 1.0f;
-        scene.postProcess.bloomThreshold = 1.2f;
-        scene.postProcess.bloomIntensity = 0.12f;
+        renderSettings.fog.density = 0.015f;
+        renderSettings.fog.heightFalloff = 0.80f;
+        renderSettings.rayEvaluation.scatteringStrength = 1.20f;
+        renderSettings.rayEvaluation.extinctionStrength = 1.50f;
+        renderSettings.rayEvaluation.phaseAnisotropy = 0.35f;
+        renderSettings.rayEvaluation.volumetricLightIntensity = 2.0f;
+        renderSettings.rayEvaluation.directionalLightAngularRadius = 0.004f;
+        renderSettings.rayEvaluation.stepLength = 1.0f;
+        renderSettings.rayEvaluation.maxSteps = 64;
+        renderSettings.rayEvaluation.atmosphericAmbientFloor = 0.015f;
+        renderSettings.rayEvaluation.maxDistance = 760.0f;
+        renderSettings.rayEvaluation.temporalBlend = 0.84f;
+        renderSettings.rayEvaluation.bilateralDepthFactor = 42.0f;
+        renderSettings.rayEvaluation.temporalDepthThreshold = 0.16f;
+        renderSettings.rayEvaluation.temporalNormalThreshold = 0.84f;
+        renderSettings.rayEvaluation.temporalVelocityThreshold = 4.0f;
+        renderSettings.rayEvaluation.nearFieldHaze = 0.0f;
+        renderSettings.rayEvaluation.jitterStrength = 0.14f;
+        renderSettings.rayEvaluation.stepDistributionExponent = 1.12f;
+        renderSettings.postProcess.exposure = 1.0f;
+        renderSettings.postProcess.bloomThreshold = 1.2f;
+        renderSettings.postProcess.bloomIntensity = 0.12f;
         break;
     case VolumetricTuningPreset::CinematicHorror:
-        scene.fog.density = 0.026f;
-        scene.fog.heightFalloff = 1.15f;
-        scene.rayEvaluation.scatteringStrength = 2.30f;
-        scene.rayEvaluation.extinctionStrength = 1.80f;
-        scene.rayEvaluation.phaseAnisotropy = 0.42f;
-        scene.rayEvaluation.volumetricLightIntensity = 3.60f;
-        scene.rayEvaluation.directionalLightAngularRadius = 0.004f;
-        scene.rayEvaluation.stepLength = 10.0f;
-        scene.rayEvaluation.maxSteps = 256;
-        scene.rayEvaluation.atmosphericAmbientFloor = 0.050f;
-        scene.rayEvaluation.maxDistance = 1500.0f;
-        scene.rayEvaluation.temporalBlend = 0.88f;
-        scene.rayEvaluation.bilateralDepthFactor = 48.0f;
-        scene.rayEvaluation.temporalDepthThreshold = 0.22f;
-        scene.rayEvaluation.temporalNormalThreshold = 0.80f;
-        scene.rayEvaluation.temporalVelocityThreshold = 5.0f;
-        scene.rayEvaluation.nearFieldHaze = 0.25f;
-        scene.rayEvaluation.jitterStrength = 0.40f;
-        scene.rayEvaluation.stepDistributionExponent = 3.0f;
-        scene.postProcess.exposure = 1.031f;
-        scene.postProcess.bloomThreshold = 0.90f;
-        scene.postProcess.bloomIntensity = 0.663f;
+        renderSettings.fog.density = 0.026f;
+        renderSettings.fog.heightFalloff = 1.15f;
+        renderSettings.rayEvaluation.scatteringStrength = 2.30f;
+        renderSettings.rayEvaluation.extinctionStrength = 1.80f;
+        renderSettings.rayEvaluation.phaseAnisotropy = 0.42f;
+        renderSettings.rayEvaluation.volumetricLightIntensity = 3.60f;
+        renderSettings.rayEvaluation.directionalLightAngularRadius = 0.004f;
+        renderSettings.rayEvaluation.stepLength = 10.0f;
+        renderSettings.rayEvaluation.maxSteps = 256;
+        renderSettings.rayEvaluation.atmosphericAmbientFloor = 0.050f;
+        renderSettings.rayEvaluation.maxDistance = 1500.0f;
+        renderSettings.rayEvaluation.temporalBlend = 0.88f;
+        renderSettings.rayEvaluation.bilateralDepthFactor = 48.0f;
+        renderSettings.rayEvaluation.temporalDepthThreshold = 0.22f;
+        renderSettings.rayEvaluation.temporalNormalThreshold = 0.80f;
+        renderSettings.rayEvaluation.temporalVelocityThreshold = 5.0f;
+        renderSettings.rayEvaluation.nearFieldHaze = 0.25f;
+        renderSettings.rayEvaluation.jitterStrength = 0.40f;
+        renderSettings.rayEvaluation.stepDistributionExponent = 3.0f;
+        renderSettings.postProcess.exposure = 1.031f;
+        renderSettings.postProcess.bloomThreshold = 0.90f;
+        renderSettings.postProcess.bloomIntensity = 0.663f;
         break;
     case VolumetricTuningPreset::HeavyMist:
-        scene.fog.density = 0.038f;
-        scene.fog.heightFalloff = 0.45f;
-        scene.rayEvaluation.scatteringStrength = 1.00f;
-        scene.rayEvaluation.extinctionStrength = 1.15f;
-        scene.rayEvaluation.phaseAnisotropy = 0.08f;
-        scene.rayEvaluation.volumetricLightIntensity = 1.25f;
-        scene.rayEvaluation.directionalLightAngularRadius = 0.004f;
-        scene.rayEvaluation.stepLength = 1.20f;
-        scene.rayEvaluation.maxSteps = 72;
-        scene.rayEvaluation.atmosphericAmbientFloor = 0.060f;
-        scene.rayEvaluation.maxDistance = 680.0f;
-        scene.rayEvaluation.temporalBlend = 0.82f;
-        scene.rayEvaluation.bilateralDepthFactor = 44.0f;
-        scene.rayEvaluation.temporalDepthThreshold = 0.14f;
-        scene.rayEvaluation.temporalNormalThreshold = 0.86f;
-        scene.rayEvaluation.temporalVelocityThreshold = 3.5f;
-        scene.rayEvaluation.nearFieldHaze = 0.18f;
-        scene.rayEvaluation.jitterStrength = 0.10f;
-        scene.rayEvaluation.stepDistributionExponent = 1.04f;
-        scene.postProcess.exposure = 0.95f;
-        scene.postProcess.bloomThreshold = 1.50f;
-        scene.postProcess.bloomIntensity = 0.08f;
+        renderSettings.fog.density = 0.038f;
+        renderSettings.fog.heightFalloff = 0.45f;
+        renderSettings.rayEvaluation.scatteringStrength = 1.00f;
+        renderSettings.rayEvaluation.extinctionStrength = 1.15f;
+        renderSettings.rayEvaluation.phaseAnisotropy = 0.08f;
+        renderSettings.rayEvaluation.volumetricLightIntensity = 1.25f;
+        renderSettings.rayEvaluation.directionalLightAngularRadius = 0.004f;
+        renderSettings.rayEvaluation.stepLength = 1.20f;
+        renderSettings.rayEvaluation.maxSteps = 72;
+        renderSettings.rayEvaluation.atmosphericAmbientFloor = 0.060f;
+        renderSettings.rayEvaluation.maxDistance = 680.0f;
+        renderSettings.rayEvaluation.temporalBlend = 0.82f;
+        renderSettings.rayEvaluation.bilateralDepthFactor = 44.0f;
+        renderSettings.rayEvaluation.temporalDepthThreshold = 0.14f;
+        renderSettings.rayEvaluation.temporalNormalThreshold = 0.86f;
+        renderSettings.rayEvaluation.temporalVelocityThreshold = 3.5f;
+        renderSettings.rayEvaluation.nearFieldHaze = 0.18f;
+        renderSettings.rayEvaluation.jitterStrength = 0.10f;
+        renderSettings.rayEvaluation.stepDistributionExponent = 1.04f;
+        renderSettings.postProcess.exposure = 0.95f;
+        renderSettings.postProcess.bloomThreshold = 1.50f;
+        renderSettings.postProcess.bloomIntensity = 0.08f;
         break;
     case VolumetricTuningPreset::MoonlitValley:
-        scene.fog.density = 0.022f;
-        scene.fog.heightFalloff = 0.70f;
-        scene.rayEvaluation.scatteringStrength = 1.35f;
-        scene.rayEvaluation.extinctionStrength = 1.55f;
-        scene.rayEvaluation.phaseAnisotropy = 0.45f;
-        scene.rayEvaluation.volumetricLightIntensity = 2.40f;
-        scene.rayEvaluation.directionalLightAngularRadius = 0.004f;
-        scene.rayEvaluation.stepLength = 0.95f;
-        scene.rayEvaluation.maxSteps = 80;
-        scene.rayEvaluation.atmosphericAmbientFloor = 0.020f;
-        scene.rayEvaluation.maxDistance = 820.0f;
-        scene.rayEvaluation.temporalBlend = 0.85f;
-        scene.rayEvaluation.bilateralDepthFactor = 46.0f;
-        scene.rayEvaluation.temporalDepthThreshold = 0.18f;
-        scene.rayEvaluation.temporalNormalThreshold = 0.84f;
-        scene.rayEvaluation.temporalVelocityThreshold = 4.2f;
-        scene.rayEvaluation.nearFieldHaze = 0.08f;
-        scene.rayEvaluation.jitterStrength = 0.14f;
-        scene.rayEvaluation.stepDistributionExponent = 1.16f;
-        scene.postProcess.exposure = 0.95f;
-        scene.postProcess.bloomThreshold = 1.10f;
-        scene.postProcess.bloomIntensity = 0.12f;
+        renderSettings.fog.density = 0.022f;
+        renderSettings.fog.heightFalloff = 0.70f;
+        renderSettings.rayEvaluation.scatteringStrength = 1.35f;
+        renderSettings.rayEvaluation.extinctionStrength = 1.55f;
+        renderSettings.rayEvaluation.phaseAnisotropy = 0.45f;
+        renderSettings.rayEvaluation.volumetricLightIntensity = 2.40f;
+        renderSettings.rayEvaluation.directionalLightAngularRadius = 0.004f;
+        renderSettings.rayEvaluation.stepLength = 0.95f;
+        renderSettings.rayEvaluation.maxSteps = 80;
+        renderSettings.rayEvaluation.atmosphericAmbientFloor = 0.020f;
+        renderSettings.rayEvaluation.maxDistance = 820.0f;
+        renderSettings.rayEvaluation.temporalBlend = 0.85f;
+        renderSettings.rayEvaluation.bilateralDepthFactor = 46.0f;
+        renderSettings.rayEvaluation.temporalDepthThreshold = 0.18f;
+        renderSettings.rayEvaluation.temporalNormalThreshold = 0.84f;
+        renderSettings.rayEvaluation.temporalVelocityThreshold = 4.2f;
+        renderSettings.rayEvaluation.nearFieldHaze = 0.08f;
+        renderSettings.rayEvaluation.jitterStrength = 0.14f;
+        renderSettings.rayEvaluation.stepDistributionExponent = 1.16f;
+        renderSettings.postProcess.exposure = 0.95f;
+        renderSettings.postProcess.bloomThreshold = 1.10f;
+        renderSettings.postProcess.bloomIntensity = 0.12f;
         break;
     case VolumetricTuningPreset::VolumetricShowcase:
-        scene.fog.density = 0.065f;
-        scene.fog.heightFalloff = 1.30f;
-        scene.rayEvaluation.scatteringStrength = 3.50f;
-        scene.rayEvaluation.extinctionStrength = 1.10f;
-        scene.rayEvaluation.phaseAnisotropy = 0.85f;
-        scene.rayEvaluation.volumetricLightIntensity = 7.0f;
-        scene.rayEvaluation.directionalLightAngularRadius = 0.004f;
-        scene.rayEvaluation.stepLength = 0.70f;
-        scene.rayEvaluation.maxSteps = 128;
-        scene.rayEvaluation.atmosphericAmbientFloor = 0.035f;
-        scene.rayEvaluation.maxDistance = 900.0f;
-        scene.rayEvaluation.temporalBlend = 0.90f;
-        scene.rayEvaluation.bilateralDepthFactor = 52.0f;
-        scene.rayEvaluation.temporalDepthThreshold = 0.20f;
-        scene.rayEvaluation.temporalNormalThreshold = 0.78f;
-        scene.rayEvaluation.temporalVelocityThreshold = 5.5f;
-        scene.rayEvaluation.nearFieldHaze = 0.12f;
-        scene.rayEvaluation.jitterStrength = 0.18f;
-        scene.rayEvaluation.stepDistributionExponent = 1.28f;
-        scene.postProcess.exposure = 0.68f;
-        scene.postProcess.bloomThreshold = 0.85f;
-        scene.postProcess.bloomIntensity = 0.26f;
+        renderSettings.fog.density = 0.065f;
+        renderSettings.fog.heightFalloff = 1.30f;
+        renderSettings.rayEvaluation.scatteringStrength = 3.50f;
+        renderSettings.rayEvaluation.extinctionStrength = 1.10f;
+        renderSettings.rayEvaluation.phaseAnisotropy = 0.85f;
+        renderSettings.rayEvaluation.volumetricLightIntensity = 7.0f;
+        renderSettings.rayEvaluation.directionalLightAngularRadius = 0.004f;
+        renderSettings.rayEvaluation.stepLength = 0.70f;
+        renderSettings.rayEvaluation.maxSteps = 128;
+        renderSettings.rayEvaluation.atmosphericAmbientFloor = 0.035f;
+        renderSettings.rayEvaluation.maxDistance = 900.0f;
+        renderSettings.rayEvaluation.temporalBlend = 0.90f;
+        renderSettings.rayEvaluation.bilateralDepthFactor = 52.0f;
+        renderSettings.rayEvaluation.temporalDepthThreshold = 0.20f;
+        renderSettings.rayEvaluation.temporalNormalThreshold = 0.78f;
+        renderSettings.rayEvaluation.temporalVelocityThreshold = 5.5f;
+        renderSettings.rayEvaluation.nearFieldHaze = 0.12f;
+        renderSettings.rayEvaluation.jitterStrength = 0.18f;
+        renderSettings.rayEvaluation.stepDistributionExponent = 1.28f;
+        renderSettings.postProcess.exposure = 0.68f;
+        renderSettings.postProcess.bloomThreshold = 0.85f;
+        renderSettings.postProcess.bloomIntensity = 0.26f;
         break;
     }
 
-    scene.rayEvaluation.phaseAnisotropy =
-        std::clamp(scene.rayEvaluation.phaseAnisotropy, -0.95f, 0.95f);
+    renderSettings.rayEvaluation.phaseAnisotropy =
+        std::clamp(renderSettings.rayEvaluation.phaseAnisotropy, -0.95f, 0.95f);
 }
 
 const char* materialDebugModeLabel(int mode)
@@ -330,8 +331,11 @@ void DebugUi::beginFrame() const
     ImGui::NewFrame();
 }
 
-void DebugUi::draw(Scene& scene, Player& player, PlayerController& playerController,
-                   bool& debugFreeCameraEnabled, const FramePerformanceStats& performanceStats,
+void DebugUi::draw(AtmosphericWorldSettings& worldSettings,
+                   AtmosphericRenderSettings& renderSettings, AtmosphericRuntimeState& runtimeState,
+                   const ExplorationRuntimeStats& stats, Player& player,
+                   PlayerController& playerController, bool& debugFreeCameraEnabled,
+                   const FramePerformanceStats& performanceStats,
                    const RendererDebugTextures& debugTextures)
 {
     if (!m_enabled)
@@ -344,46 +348,47 @@ void DebugUi::draw(Scene& scene, Player& player, PlayerController& playerControl
     ImGui::Begin("Lighting / Moon");
 
     ImGui::TextUnformatted("Light Sources");
-    ImGui::Checkbox("Moon Light", &scene.moonLightEnabled);
-    ImGui::Checkbox("Sphere Lights", &scene.sphereLightsEnabled);
-    ImGui::Checkbox("Cone Lights", &scene.coneLightsEnabled);
+    ImGui::Checkbox("Moon Light", &worldSettings.moonLightEnabled);
+    ImGui::Checkbox("Sphere Lights", &worldSettings.sphereLightsEnabled);
+    ImGui::Checkbox("Cone Lights", &worldSettings.coneLightsEnabled);
     ImGui::Separator();
 
     ImGui::TextUnformatted("Emissive Visibility");
-    ImGui::Checkbox("Moon Emissive", &scene.moonEmissiveEnabled);
-    ImGui::Checkbox("Sphere Emissive", &scene.sphereEmissiveEnabled);
-    ImGui::Checkbox("Cone Emissive", &scene.coneEmissiveEnabled);
+    ImGui::Checkbox("Moon Emissive", &worldSettings.moonEmissiveEnabled);
+    ImGui::Checkbox("Sphere Emissive", &worldSettings.sphereEmissiveEnabled);
+    ImGui::Checkbox("Cone Emissive", &worldSettings.coneEmissiveEnabled);
     ImGui::Separator();
 
     ImGui::TextUnformatted("Moon Motion");
-    ImGui::Checkbox("Animate Moon", &scene.moonMotionEnabled);
-    ImGui::SliderFloat("Moon Time Offset", &scene.moonTimeOffset, -120.0f, 120.0f);
+    ImGui::Checkbox("Animate Moon", &worldSettings.moonMotionEnabled);
+    ImGui::SliderFloat("Moon Time Offset", &worldSettings.moonTimeOffset, -120.0f, 120.0f);
     ImGui::Separator();
 
     ImGui::TextUnformatted("Moon Alignment");
-    ImGui::Text("Light Direction: %.4f %.4f %.4f", scene.sunLight.direction.x,
-                scene.sunLight.direction.y, scene.sunLight.direction.z);
-    ImGui::Text("Current Moon Pos: %.3f %.3f %.3f", scene.moonVisualPosition.x,
-                scene.moonVisualPosition.y, scene.moonVisualPosition.z);
-    if (ImGui::Checkbox("Override Moon Visual Position", &scene.debugMoonVisualOverrideEnabled) &&
-        scene.debugMoonVisualOverrideEnabled)
+    ImGui::Text("Light Direction: %.4f %.4f %.4f", renderSettings.sunLight.direction.x,
+                renderSettings.sunLight.direction.y, renderSettings.sunLight.direction.z);
+    ImGui::Text("Current Moon Pos: %.3f %.3f %.3f", runtimeState.moonVisualPosition.x,
+                runtimeState.moonVisualPosition.y, runtimeState.moonVisualPosition.z);
+    if (ImGui::Checkbox("Override Moon Visual Position",
+                        &runtimeState.debugMoonVisualOverrideEnabled) &&
+        runtimeState.debugMoonVisualOverrideEnabled)
     {
-        scene.debugMoonVisualOverridePosition = scene.moonVisualPosition;
+        runtimeState.debugMoonVisualOverridePosition = runtimeState.moonVisualPosition;
     }
     if (ImGui::Button("Copy Current To Override"))
     {
-        scene.debugMoonVisualOverridePosition = scene.moonVisualPosition;
+        runtimeState.debugMoonVisualOverridePosition = runtimeState.moonVisualPosition;
     }
-    if (scene.debugMoonVisualOverrideEnabled)
+    if (runtimeState.debugMoonVisualOverrideEnabled)
     {
-        ImGui::InputFloat3("Moon Override Position", &scene.debugMoonVisualOverridePosition.x,
-                           "%.3f");
-        ImGui::DragFloat3("Moon Override Nudge", &scene.debugMoonVisualOverridePosition.x, 0.1f,
-                          -2000.0f, 2000.0f, "%.3f");
+        ImGui::InputFloat3("Moon Override Position",
+                           &runtimeState.debugMoonVisualOverridePosition.x, "%.3f");
+        ImGui::DragFloat3("Moon Override Nudge", &runtimeState.debugMoonVisualOverridePosition.x,
+                          0.1f, -2000.0f, 2000.0f, "%.3f");
         if (ImGui::Button("Use Derived Moon Position"))
         {
-            scene.debugMoonVisualOverrideEnabled = false;
-            scene.debugMoonVisualOverridePosition = scene.moonVisualPosition;
+            runtimeState.debugMoonVisualOverrideEnabled = false;
+            runtimeState.debugMoonVisualOverridePosition = runtimeState.moonVisualPosition;
         }
     }
     else
@@ -397,7 +402,7 @@ void DebugUi::draw(Scene& scene, Player& player, PlayerController& playerControl
     ImGui::TextUnformatted("Exploration");
     ImGui::Separator();
     ImGui::TextUnformatted("F1 toggles menu visibility. Esc toggles cursor capture.");
-    ImGui::Text("Cursor Captured: %s", scene.movementDebug.cursorCaptured ? "yes" : "no");
+    ImGui::Text("Cursor Captured: %s", runtimeState.movementDebug.cursorCaptured ? "yes" : "no");
 
     ImGui::Checkbox("Debug Freecam", &debugFreeCameraEnabled);
     ImGui::Text("Player Mode: %s", debugFreeCameraEnabled ? "Debug Freecam" : "Grounded FPS");
@@ -406,65 +411,80 @@ void DebugUi::draw(Scene& scene, Player& player, PlayerController& playerControl
                 player.position().z);
     ImGui::Text("Player Velocity: %.2f %.2f %.2f", player.velocity().x, player.velocity().y,
                 player.velocity().z);
-    ImGui::Text("Frame Delta: %.3f ms", scene.movementDebug.deltaSeconds * 1000.0f);
+    ImGui::Text("Frame Delta: %.3f ms", runtimeState.movementDebug.deltaSeconds * 1000.0f);
     ImGui::Text("Fixed Step / Steps / Accumulator: %.3f ms / %d / %.3f ms",
-                scene.movementDebug.simulationStepSeconds * 1000.0f, scene.movementDebug.fixedSteps,
-                scene.movementDebug.accumulatorSeconds * 1000.0f);
+                runtimeState.movementDebug.simulationStepSeconds * 1000.0f,
+                runtimeState.movementDebug.fixedSteps,
+                runtimeState.movementDebug.accumulatorSeconds * 1000.0f);
     ImGui::Text("Dropped Sim / Present Alpha / Clamped: %.3f ms / %.2f / %s",
-                scene.movementDebug.droppedSimulationSeconds * 1000.0f,
-                scene.movementDebug.presentationAlpha,
-                scene.movementDebug.simulationClamped ? "yes" : "no");
-    ImGui::Text("Terrain Height / Support Height: %.2f / %.2f", scene.movementDebug.terrainHeight,
-                scene.movementDebug.supportHeight);
+                runtimeState.movementDebug.droppedSimulationSeconds * 1000.0f,
+                runtimeState.movementDebug.presentationAlpha,
+                runtimeState.movementDebug.simulationClamped ? "yes" : "no");
+    ImGui::Text("Terrain Height / Support Height: %.2f / %.2f",
+                runtimeState.movementDebug.terrainHeight, runtimeState.movementDebug.supportHeight);
     ImGui::Text("Slope Angle / Support Distance: %.2f deg / %.3f",
-                scene.movementDebug.slopeAngleDegrees, scene.movementDebug.supportDistance);
+                runtimeState.movementDebug.slopeAngleDegrees,
+                runtimeState.movementDebug.supportDistance);
     ImGui::Text("Support Persist / Retained: %.3f / %s",
-                scene.movementDebug.supportPersistenceRemaining,
-                scene.movementDebug.supportRetained ? "yes" : "no");
-    ImGui::Text("Input Direction: %.2f %.2f %.2f", scene.movementDebug.inputDirection.x,
-                scene.movementDebug.inputDirection.y, scene.movementDebug.inputDirection.z);
-    ImGui::Text("Desired Velocity: %.2f %.2f %.2f", scene.movementDebug.desiredVelocity.x,
-                scene.movementDebug.desiredVelocity.y, scene.movementDebug.desiredVelocity.z);
-    ImGui::Text("Projected Velocity: %.2f %.2f %.2f", scene.movementDebug.projectedVelocity.x,
-                scene.movementDebug.projectedVelocity.y, scene.movementDebug.projectedVelocity.z);
-    ImGui::Text("Collision Count / Sweep Iterations: %d / %d", scene.movementDebug.collisionCount,
-                scene.movementDebug.sweepIterations);
+                runtimeState.movementDebug.supportPersistenceRemaining,
+                runtimeState.movementDebug.supportRetained ? "yes" : "no");
+    ImGui::Text("Input Direction: %.2f %.2f %.2f", runtimeState.movementDebug.inputDirection.x,
+                runtimeState.movementDebug.inputDirection.y,
+                runtimeState.movementDebug.inputDirection.z);
+    ImGui::Text("Desired Velocity: %.2f %.2f %.2f", runtimeState.movementDebug.desiredVelocity.x,
+                runtimeState.movementDebug.desiredVelocity.y,
+                runtimeState.movementDebug.desiredVelocity.z);
+    ImGui::Text("Projected Velocity: %.2f %.2f %.2f",
+                runtimeState.movementDebug.projectedVelocity.x,
+                runtimeState.movementDebug.projectedVelocity.y,
+                runtimeState.movementDebug.projectedVelocity.z);
+    ImGui::Text("Collision Count / Sweep Iterations: %d / %d",
+                runtimeState.movementDebug.collisionCount,
+                runtimeState.movementDebug.sweepIterations);
     ImGui::Text("Collision Triangles / Penetration Recoveries: %d / %d",
-                scene.movementDebug.collisionTriangleCount,
-                scene.movementDebug.penetrationRecoveries);
+                runtimeState.movementDebug.collisionTriangleCount,
+                runtimeState.movementDebug.penetrationRecoveries);
     ImGui::Text("Cache Rebuilt / Stale Collider Change: %s / %s",
-                scene.movementDebug.collisionCacheRebuilt ? "yes" : "no",
-                scene.movementDebug.staleColliderDetected ? "yes" : "no");
-    ImGui::Text("Last Collision Normal: %.2f %.2f %.2f", scene.movementDebug.lastCollisionNormal.x,
-                scene.movementDebug.lastCollisionNormal.y,
-                scene.movementDebug.lastCollisionNormal.z);
-    ImGui::Text("Last Surface Motion: %.3f %.3f %.3f", scene.movementDebug.lastSurfaceMotion.x,
-                scene.movementDebug.lastSurfaceMotion.y, scene.movementDebug.lastSurfaceMotion.z);
-    ImGui::Text("Support Normal: %.2f %.2f %.2f", scene.movementDebug.supportNormal.x,
-                scene.movementDebug.supportNormal.y, scene.movementDebug.supportNormal.z);
-    ImGui::Text("Support Point: %.2f %.2f %.2f", scene.movementDebug.supportPoint.x,
-                scene.movementDebug.supportPoint.y, scene.movementDebug.supportPoint.z);
+                runtimeState.movementDebug.collisionCacheRebuilt ? "yes" : "no",
+                runtimeState.movementDebug.staleColliderDetected ? "yes" : "no");
+    ImGui::Text("Last Collision Normal: %.2f %.2f %.2f",
+                runtimeState.movementDebug.lastCollisionNormal.x,
+                runtimeState.movementDebug.lastCollisionNormal.y,
+                runtimeState.movementDebug.lastCollisionNormal.z);
+    ImGui::Text("Last Surface Motion: %.3f %.3f %.3f",
+                runtimeState.movementDebug.lastSurfaceMotion.x,
+                runtimeState.movementDebug.lastSurfaceMotion.y,
+                runtimeState.movementDebug.lastSurfaceMotion.z);
+    ImGui::Text("Support Normal: %.2f %.2f %.2f", runtimeState.movementDebug.supportNormal.x,
+                runtimeState.movementDebug.supportNormal.y,
+                runtimeState.movementDebug.supportNormal.z);
+    ImGui::Text("Support Point: %.2f %.2f %.2f", runtimeState.movementDebug.supportPoint.x,
+                runtimeState.movementDebug.supportPoint.y,
+                runtimeState.movementDebug.supportPoint.z);
     ImGui::Text("Camera Offset / Landing Dip: %.3f %.3f %.3f / %.3f",
-                scene.movementDebug.cameraOffset.x, scene.movementDebug.cameraOffset.y,
-                scene.movementDebug.cameraOffset.z, scene.movementDebug.landingDip);
-    ImGui::Text("Capsule Radius / Height: %.2f / %.2f", scene.movementDebug.capsuleRadius,
-                scene.movementDebug.capsuleHeight);
+                runtimeState.movementDebug.cameraOffset.x,
+                runtimeState.movementDebug.cameraOffset.y,
+                runtimeState.movementDebug.cameraOffset.z, runtimeState.movementDebug.landingDip);
+    ImGui::Text("Capsule Radius / Height: %.2f / %.2f", runtimeState.movementDebug.capsuleRadius,
+                runtimeState.movementDebug.capsuleHeight);
     ImGui::Text("Traversal: crouch=%s step-up=%s support=%s",
-                scene.movementDebug.crouching ? "yes" : "no",
-                scene.movementDebug.stepUpApplied ? "yes" : "no",
-                scene.movementDebug.supportHit ? "yes" : "no");
+                runtimeState.movementDebug.crouching ? "yes" : "no",
+                runtimeState.movementDebug.stepUpApplied ? "yes" : "no",
+                runtimeState.movementDebug.supportHit ? "yes" : "no");
     ImGui::Text("Grounded Duration / Coyote / Jump Buffer: %.3f / %.3f / %.3f",
-                scene.movementDebug.groundedDuration, scene.movementDebug.coyoteTimeRemaining,
-                scene.movementDebug.jumpBufferRemaining);
+                runtimeState.movementDebug.groundedDuration,
+                runtimeState.movementDebug.coyoteTimeRemaining,
+                runtimeState.movementDebug.jumpBufferRemaining);
     ImGui::Text("Support Acquisitions / Ground->Air / Air->Ground: %d / %d / %d",
-                scene.movementDebug.supportAcquisitionCount,
-                scene.movementDebug.airborneTransitionCount,
-                scene.movementDebug.groundedTransitionCount);
+                runtimeState.movementDebug.supportAcquisitionCount,
+                runtimeState.movementDebug.airborneTransitionCount,
+                runtimeState.movementDebug.groundedTransitionCount);
     ImGui::Text("Friction Impulse / Horizontal Momentum: %.3f / %.3f",
-                scene.movementDebug.frictionImpulse, scene.movementDebug.horizontalMomentumRatio);
+                runtimeState.movementDebug.frictionImpulse,
+                runtimeState.movementDebug.horizontalMomentumRatio);
     ImGui::Text("Residual Motion / Sweep Failure: %.4f / %s",
-                scene.movementDebug.residualMotionLength,
-                scene.movementDebug.sweepFailureDetected ? "yes" : "no");
+                runtimeState.movementDebug.residualMotionLength,
+                runtimeState.movementDebug.sweepFailureDetected ? "yes" : "no");
     float walkSpeed = playerController.walkSpeed();
     if (ImGui::SliderFloat("Walk Speed", &walkSpeed, 2.0f, 12.0f))
     {
@@ -605,45 +625,43 @@ void DebugUi::draw(Scene& scene, Player& player, PlayerController& playerControl
 
     ImGui::TextUnformatted("World Generation");
     regenerateWorld |=
-        ImGui::SliderInt("Terrain Density", &scene.proceduralWorld.terrainDensity, 20, 96);
+        ImGui::SliderInt("Terrain Density", &worldSettings.proceduralWorld.terrainDensity, 20, 96);
+    regenerateWorld |= ImGui::SliderFloat(
+        "Terrain Scale", &worldSettings.proceduralWorld.terrainScale, 24.0f, 96.0f);
+    regenerateWorld |= ImGui::SliderFloat(
+        "Terrain Height", &worldSettings.proceduralWorld.terrainHeight, 4.0f, 24.0f);
     regenerateWorld |=
-        ImGui::SliderFloat("Terrain Scale", &scene.proceduralWorld.terrainScale, 24.0f, 96.0f);
+        ImGui::SliderInt("Tree Count", &worldSettings.proceduralWorld.treeCount, 0, 180);
     regenerateWorld |=
-        ImGui::SliderFloat("Terrain Height", &scene.proceduralWorld.terrainHeight, 4.0f, 24.0f);
-    regenerateWorld |= ImGui::SliderInt("Tree Count", &scene.proceduralWorld.treeCount, 0, 180);
-    regenerateWorld |= ImGui::SliderInt("Generation Seed", &scene.proceduralWorld.seed, 1, 4096);
+        ImGui::SliderInt("Generation Seed", &worldSettings.proceduralWorld.seed, 1, 4096);
     if (ImGui::Button("Rebuild World"))
     {
         regenerateWorld = true;
     }
 
-    ImGui::SameLine();
-    ImGui::Text("Objects: %d", static_cast<int>(scene.objects().size()));
-    ImGui::Text("ECS: %d entities / %d component types / %d components",
-                static_cast<int>(scene.registry().entityCount()),
-                static_cast<int>(scene.registry().componentTypeCount()),
-                static_cast<int>(scene.registry().totalComponentCount()));
-    scene.proceduralWorld.regenerationRequested =
-        scene.proceduralWorld.regenerationRequested || regenerateWorld;
+    ImGui::Text("ECS: %d entities / %d component types / %d components", stats.entityCount,
+                stats.componentTypeCount, stats.componentCount);
+    worldSettings.proceduralWorld.regenerationRequested =
+        worldSettings.proceduralWorld.regenerationRequested || regenerateWorld;
     ImGui::End();
 
     ImGui::Begin("Debug Visibility");
 
     ImGui::TextUnformatted("Debug Visibility Paths");
-    ImGui::Checkbox("Ambient", &scene.debugView.ambientEnabled);
-    ImGui::Checkbox("Fog", &scene.debugView.fogEnabled);
-    ImGui::Checkbox("Sky Lighting", &scene.debugView.skyLightingEnabled);
-    ImGui::Checkbox("Emissive Propagation", &scene.debugView.emissivePropagationEnabled);
+    ImGui::Checkbox("Ambient", &renderSettings.debugView.ambientEnabled);
+    ImGui::Checkbox("Fog", &renderSettings.debugView.fogEnabled);
+    ImGui::Checkbox("Sky Lighting", &renderSettings.debugView.skyLightingEnabled);
+    ImGui::Checkbox("Emissive Propagation", &renderSettings.debugView.emissivePropagationEnabled);
     if (ImGui::BeginCombo("Material Debug View",
-                          materialDebugModeLabel(scene.debugView.materialDebugViewMode)))
+                          materialDebugModeLabel(renderSettings.debugView.materialDebugViewMode)))
     {
         for (int mode = static_cast<int>(MaterialDebugViewMode::Shaded);
              mode <= static_cast<int>(MaterialDebugViewMode::ShadowFactor); ++mode)
         {
-            const bool selected = scene.debugView.materialDebugViewMode == mode;
+            const bool selected = renderSettings.debugView.materialDebugViewMode == mode;
             if (ImGui::Selectable(materialDebugModeLabel(mode), selected))
             {
-                scene.debugView.materialDebugViewMode = mode;
+                renderSettings.debugView.materialDebugViewMode = mode;
             }
 
             if (selected)
@@ -654,17 +672,18 @@ void DebugUi::draw(Scene& scene, Player& player, PlayerController& playerControl
 
         ImGui::EndCombo();
     }
-    ImGui::Checkbox("Tone Mapping", &scene.debugView.toneMappingEnabled);
-    ImGui::Checkbox("Post Processing", &scene.debugView.postProcessingEnabled);
-    if (ImGui::BeginCombo("Post Debug View", postDebugModeLabel(scene.debugView.postDebugViewMode)))
+    ImGui::Checkbox("Tone Mapping", &renderSettings.debugView.toneMappingEnabled);
+    ImGui::Checkbox("Post Processing", &renderSettings.debugView.postProcessingEnabled);
+    if (ImGui::BeginCombo("Post Debug View",
+                          postDebugModeLabel(renderSettings.debugView.postDebugViewMode)))
     {
         for (int mode = static_cast<int>(PostDebugViewMode::FinalImage);
              mode <= static_cast<int>(PostDebugViewMode::ToneMapped); ++mode)
         {
-            const bool selected = scene.debugView.postDebugViewMode == mode;
+            const bool selected = renderSettings.debugView.postDebugViewMode == mode;
             if (ImGui::Selectable(postDebugModeLabel(mode), selected))
             {
-                scene.debugView.postDebugViewMode = mode;
+                renderSettings.debugView.postDebugViewMode = mode;
             }
 
             if (selected)
@@ -731,76 +750,86 @@ void DebugUi::draw(Scene& scene, Player& player, PlayerController& playerControl
 
     if (ImGui::Button("Apply Atmosphere Preset"))
     {
-        applyVolumetricPreset(scene, static_cast<VolumetricTuningPreset>(selectedPreset));
+        applyVolumetricPreset(renderSettings, static_cast<VolumetricTuningPreset>(selectedPreset));
     }
 
     ImGui::Separator();
     ImGui::TextUnformatted("Participating Media");
-    ImGui::SliderFloat("Atmospheric Density", &scene.fog.density, 0.0f, 0.2f, "%.4f");
-    ImGui::SliderFloat("Height Falloff", &scene.fog.heightFalloff, 0.0f, 4.0f, "%.3f");
-    ImGui::SliderFloat("Scattering Strength", &scene.rayEvaluation.scatteringStrength, 0.0f, 8.0f,
+    ImGui::SliderFloat("Atmospheric Density", &renderSettings.fog.density, 0.0f, 0.2f, "%.4f");
+    ImGui::SliderFloat("Height Falloff", &renderSettings.fog.heightFalloff, 0.0f, 4.0f, "%.3f");
+    ImGui::SliderFloat("Scattering Strength", &renderSettings.rayEvaluation.scatteringStrength,
+                       0.0f, 8.0f, "%.3f");
+    ImGui::SliderFloat("Extinction Strength", &renderSettings.rayEvaluation.extinctionStrength,
+                       0.0f, 8.0f, "%.3f");
+    ImGui::SliderFloat("Phase Anisotropy", &renderSettings.rayEvaluation.phaseAnisotropy, -0.95f,
+                       0.95f, "%.3f");
+    ImGui::SliderFloat("Atmosphere Ambient Floor",
+                       &renderSettings.rayEvaluation.atmosphericAmbientFloor, 0.0f, 0.2f, "%.4f");
+    ImGui::SliderFloat("Fog Base Height", &renderSettings.fog.baseHeight, -16.0f, 32.0f, "%.2f");
+    ImGui::SliderFloat("Fog Max Height", &renderSettings.fog.maxHeight, 8.0f, 240.0f, "%.1f");
+    ImGui::SliderFloat("Near Field Haze", &renderSettings.rayEvaluation.nearFieldHaze, 0.0f, 1.0f,
                        "%.3f");
-    ImGui::SliderFloat("Extinction Strength", &scene.rayEvaluation.extinctionStrength, 0.0f, 8.0f,
-                       "%.3f");
-    ImGui::SliderFloat("Phase Anisotropy", &scene.rayEvaluation.phaseAnisotropy, -0.95f, 0.95f,
-                       "%.3f");
-    ImGui::SliderFloat("Atmosphere Ambient Floor", &scene.rayEvaluation.atmosphericAmbientFloor,
-                       0.0f, 0.2f, "%.4f");
-    ImGui::SliderFloat("Fog Base Height", &scene.fog.baseHeight, -16.0f, 32.0f, "%.2f");
-    ImGui::SliderFloat("Fog Max Height", &scene.fog.maxHeight, 8.0f, 240.0f, "%.1f");
-    ImGui::SliderFloat("Near Field Haze", &scene.rayEvaluation.nearFieldHaze, 0.0f, 1.0f, "%.3f");
 
     ImGui::Separator();
     ImGui::TextUnformatted("Lighting Response");
-    ImGui::SliderFloat("Light Intensity Multiplier", &scene.rayEvaluation.volumetricLightIntensity,
-                       0.0f, 16.0f, "%.3f");
+    ImGui::SliderFloat("Light Intensity Multiplier",
+                       &renderSettings.rayEvaluation.volumetricLightIntensity, 0.0f, 16.0f, "%.3f");
     ImGui::SliderFloat("Directional Angular Radius",
-                       &scene.rayEvaluation.directionalLightAngularRadius, 0.0f, 0.02f, "%.4f rad");
-    ImGui::SliderFloat("Shadow Strength", &scene.rayEvaluation.shadowStrength, 0.0f, 1.0f, "%.3f");
+                       &renderSettings.rayEvaluation.directionalLightAngularRadius, 0.0f, 0.02f,
+                       "%.4f rad");
+    ImGui::SliderFloat("Shadow Strength", &renderSettings.rayEvaluation.shadowStrength, 0.0f, 1.0f,
+                       "%.3f");
 
     ImGui::Separator();
     ImGui::TextUnformatted("Raymarch Integration");
-    ImGui::SliderInt("Raymarch Step Count", &scene.rayEvaluation.maxSteps, 8, 256);
-    ImGui::SliderFloat("Raymarch Step Length", &scene.rayEvaluation.stepLength, 0.1f, 10.0f,
+    ImGui::SliderInt("Raymarch Step Count", &renderSettings.rayEvaluation.maxSteps, 8, 256);
+    ImGui::SliderFloat("Raymarch Step Length", &renderSettings.rayEvaluation.stepLength, 0.1f,
+                       10.0f, "%.3f");
+    ImGui::SliderFloat("Max March Distance", &renderSettings.rayEvaluation.maxDistance, 16.0f,
+                       1500.0f, "%.1f");
+    ImGui::SliderFloat("Step Distribution", &renderSettings.rayEvaluation.stepDistributionExponent,
+                       0.35f, 3.0f, "%.3f");
+    ImGui::SliderFloat("Jitter Strength", &renderSettings.rayEvaluation.jitterStrength, 0.0f, 1.0f,
                        "%.3f");
-    ImGui::SliderFloat("Max March Distance", &scene.rayEvaluation.maxDistance, 16.0f, 1500.0f,
-                       "%.1f");
-    ImGui::SliderFloat("Step Distribution", &scene.rayEvaluation.stepDistributionExponent, 0.35f,
-                       3.0f, "%.3f");
-    ImGui::SliderFloat("Jitter Strength", &scene.rayEvaluation.jitterStrength, 0.0f, 1.0f, "%.3f");
-    ImGui::SliderFloat("Temporal Blend", &scene.rayEvaluation.temporalBlend, 0.0f, 0.98f, "%.3f");
-    ImGui::SliderFloat("Depth Reject", &scene.rayEvaluation.temporalDepthThreshold, 0.05f, 4.0f,
+    ImGui::SliderFloat("Temporal Blend", &renderSettings.rayEvaluation.temporalBlend, 0.0f, 0.98f,
                        "%.3f");
-    ImGui::SliderFloat("Normal Reject", &scene.rayEvaluation.temporalNormalThreshold, 0.1f, 0.99f,
-                       "%.3f");
-    ImGui::SliderFloat("Velocity Reject", &scene.rayEvaluation.temporalVelocityThreshold, 1.0f,
-                       32.0f, "%.2f px");
-    ImGui::SliderFloat("Bilateral Depth", &scene.rayEvaluation.bilateralDepthFactor, 1.0f, 64.0f,
-                       "%.2f");
+    ImGui::SliderFloat("Depth Reject", &renderSettings.rayEvaluation.temporalDepthThreshold, 0.05f,
+                       4.0f, "%.3f");
+    ImGui::SliderFloat("Normal Reject", &renderSettings.rayEvaluation.temporalNormalThreshold, 0.1f,
+                       0.99f, "%.3f");
+    ImGui::SliderFloat("Velocity Reject", &renderSettings.rayEvaluation.temporalVelocityThreshold,
+                       1.0f, 32.0f, "%.2f px");
+    ImGui::SliderFloat("Bilateral Depth", &renderSettings.rayEvaluation.bilateralDepthFactor, 1.0f,
+                       64.0f, "%.2f");
 
     ImGui::Separator();
     ImGui::TextUnformatted("Display Response");
-    ImGui::SliderFloat("Exposure", &scene.postProcess.exposure, 0.1f, 5.0f, "%.3f");
-    ImGui::SliderFloat("Bloom Threshold", &scene.postProcess.bloomThreshold, 0.0f, 10.0f, "%.3f");
-    ImGui::SliderFloat("Bloom Intensity", &scene.postProcess.bloomIntensity, 0.0f, 3.0f, "%.3f");
-    ImGui::SliderFloat("Contrast", &scene.postProcess.contrast, 0.8f, 1.4f, "%.3f");
-    ImGui::SliderFloat("Saturation", &scene.postProcess.saturation, 0.0f, 1.25f, "%.3f");
-    ImGui::SliderFloat("Midtone Lift", &scene.postProcess.midtoneLift, 0.0f, 0.12f, "%.3f");
-    ImGui::SliderFloat("Vignette", &scene.postProcess.vignetteStrength, 0.0f, 0.5f, "%.3f");
+    ImGui::SliderFloat("Exposure", &renderSettings.postProcess.exposure, 0.1f, 5.0f, "%.3f");
+    ImGui::SliderFloat("Bloom Threshold", &renderSettings.postProcess.bloomThreshold, 0.0f, 10.0f,
+                       "%.3f");
+    ImGui::SliderFloat("Bloom Intensity", &renderSettings.postProcess.bloomIntensity, 0.0f, 3.0f,
+                       "%.3f");
+    ImGui::SliderFloat("Contrast", &renderSettings.postProcess.contrast, 0.8f, 1.4f, "%.3f");
+    ImGui::SliderFloat("Saturation", &renderSettings.postProcess.saturation, 0.0f, 1.25f, "%.3f");
+    ImGui::SliderFloat("Midtone Lift", &renderSettings.postProcess.midtoneLift, 0.0f, 0.12f,
+                       "%.3f");
+    ImGui::SliderFloat("Vignette", &renderSettings.postProcess.vignetteStrength, 0.0f, 0.5f,
+                       "%.3f");
 
     ImGui::Separator();
     ImGui::TextUnformatted("Debug Visualization");
-    if (ImGui::BeginCombo("Volumetric Debug View",
-                          volumetricDebugModeLabel(scene.debugView.volumetricDebugViewMode)))
+    if (ImGui::BeginCombo(
+            "Volumetric Debug View",
+            volumetricDebugModeLabel(renderSettings.debugView.volumetricDebugViewMode)))
     {
         for (int mode = static_cast<int>(VolumetricDebugViewMode::FinalImage);
              mode <= static_cast<int>(VolumetricDebugViewMode::TemporalAccumulationConfidence);
              ++mode)
         {
-            const bool selected = scene.debugView.volumetricDebugViewMode == mode;
+            const bool selected = renderSettings.debugView.volumetricDebugViewMode == mode;
             if (ImGui::Selectable(volumetricDebugModeLabel(mode), selected))
             {
-                scene.debugView.volumetricDebugViewMode = mode;
+                renderSettings.debugView.volumetricDebugViewMode = mode;
             }
 
             if (selected)
@@ -812,8 +841,8 @@ void DebugUi::draw(Scene& scene, Player& player, PlayerController& playerControl
         ImGui::EndCombo();
     }
 
-    scene.rayEvaluation.phaseAnisotropy =
-        std::clamp(scene.rayEvaluation.phaseAnisotropy, -0.95f, 0.95f);
+    renderSettings.rayEvaluation.phaseAnisotropy =
+        std::clamp(renderSettings.rayEvaluation.phaseAnisotropy, -0.95f, 0.95f);
 
     ImGui::End();
 

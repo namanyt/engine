@@ -4,20 +4,21 @@
 #include "systems/TransformSystem.h"
 #include "world/Camera.h"
 
-#include <utility>
-
 namespace
 {
-engine::Mat4 makeDirectionalLightViewProjection(const engine::Scene& scene)
+engine::Mat4
+makeDirectionalLightViewProjection(const engine::AtmosphericRenderSettings& renderSettings)
 {
-    const engine::Vec3 lightDirection = engine::normalize(scene.sunLight.direction);
-    const engine::Vec3 focusPoint = scene.shadow.focusPoint;
-    const engine::Vec3 eye = focusPoint - lightDirection * (scene.shadow.projectionRadius * 0.8f);
+    const engine::Vec3 lightDirection = engine::normalize(renderSettings.sunLight.direction);
+    const engine::Vec3 focusPoint = renderSettings.shadow.focusPoint;
+    const engine::Vec3 eye =
+        focusPoint - lightDirection * (renderSettings.shadow.projectionRadius * 0.8f);
     const engine::Mat4 lightView =
         engine::makeLookAt(eye, focusPoint, engine::Vec3{0.0f, 1.0f, 0.0f});
-    const float radius = scene.shadow.projectionRadius;
-    const engine::Mat4 lightProjection = engine::makeOrthographic(
-        -radius, radius, -radius, radius, scene.shadow.nearPlane, scene.shadow.farPlane);
+    const float radius = renderSettings.shadow.projectionRadius;
+    const engine::Mat4 lightProjection =
+        engine::makeOrthographic(-radius, radius, -radius, radius, renderSettings.shadow.nearPlane,
+                                 renderSettings.shadow.farPlane);
     return lightProjection * lightView;
 }
 
@@ -106,36 +107,9 @@ RenderSceneView buildRenderSceneView(const Scene& scene)
     return renderSceneView;
 }
 
-void syncLegacySceneFromRenderView(Scene& scene, const RenderSceneView& renderSceneView)
-{
-    scene.clearRuntimeViews();
-
-    auto appendObjects = [&](const std::vector<RenderItem>& items)
-    {
-        for (const RenderItem& item : items)
-        {
-            WorldObject object{};
-            object.debugName = item.debugName;
-            object.id = item.id;
-            object.kind = item.kind;
-            object.semantics = item.semantics;
-            object.mesh = item.mesh;
-            object.transform = item.transform;
-            object.material = item.material;
-            object.castsShadows = item.castsShadows;
-            scene.addObject(std::move(object));
-        }
-    };
-
-    appendObjects(renderSceneView.terrainItems);
-    appendObjects(renderSceneView.geometryItems);
-    scene.localLights = renderSceneView.localLights;
-    scene.rayTracingScene = renderSceneView.rayTracingScene;
-}
-
-FrameUniforms buildFrameUniforms(const Scene& scene, const Camera& camera, int framebufferWidth,
-                                 int framebufferHeight, float timeSeconds,
-                                 const FrameHistory& frameHistory,
+FrameUniforms buildFrameUniforms(const AtmosphericRenderSettings& renderSettings,
+                                 const Camera& camera, int framebufferWidth, int framebufferHeight,
+                                 float timeSeconds, const FrameHistory& frameHistory,
                                  const RenderSceneView& renderSceneView)
 {
     const int safeHeight = framebufferHeight > 0 ? framebufferHeight : 1;
@@ -168,23 +142,23 @@ FrameUniforms buildFrameUniforms(const Scene& scene, const Camera& camera, int f
     frameUniforms.aspectRatio = aspectRatio;
     frameUniforms.verticalFieldOfViewRadians = camera.fieldOfViewRadians();
     frameUniforms.nearPlane = camera.nearPlane();
-    frameUniforms.fogColor = scene.fog.color;
-    frameUniforms.fogDensity = scene.fog.density;
-    frameUniforms.fogBaseHeight = scene.fog.baseHeight;
-    frameUniforms.fogHeightFalloff = scene.fog.heightFalloff;
-    frameUniforms.fogMaxHeight = scene.fog.maxHeight;
-    frameUniforms.directionalLight = scene.sunLight;
-    frameUniforms.previousLightDirection =
-        frameHistory.valid ? frameHistory.previousLightDirection : scene.sunLight.direction;
+    frameUniforms.fogColor = renderSettings.fog.color;
+    frameUniforms.fogDensity = renderSettings.fog.density;
+    frameUniforms.fogBaseHeight = renderSettings.fog.baseHeight;
+    frameUniforms.fogHeightFalloff = renderSettings.fog.heightFalloff;
+    frameUniforms.fogMaxHeight = renderSettings.fog.maxHeight;
+    frameUniforms.directionalLight = renderSettings.sunLight;
+    frameUniforms.previousLightDirection = frameHistory.valid ? frameHistory.previousLightDirection
+                                                              : renderSettings.sunLight.direction;
     frameUniforms.localLights = renderSceneView.localLights;
-    frameUniforms.shadowSettings = scene.shadow;
-    frameUniforms.skyLight = scene.skyLight;
-    frameUniforms.rayEvaluation = scene.rayEvaluation;
-    frameUniforms.debugView = scene.debugView;
+    frameUniforms.shadowSettings = renderSettings.shadow;
+    frameUniforms.skyLight = renderSettings.skyLight;
+    frameUniforms.rayEvaluation = renderSettings.rayEvaluation;
+    frameUniforms.debugView = renderSettings.debugView;
     frameUniforms.rayTracingScene = renderSceneView.rayTracingScene;
-    frameUniforms.exposure = scene.postProcess.exposure;
-    frameUniforms.bloomThreshold = scene.postProcess.bloomThreshold;
-    frameUniforms.lightViewProjectionMatrix = makeDirectionalLightViewProjection(scene);
+    frameUniforms.exposure = renderSettings.postProcess.exposure;
+    frameUniforms.bloomThreshold = renderSettings.postProcess.bloomThreshold;
+    frameUniforms.lightViewProjectionMatrix = makeDirectionalLightViewProjection(renderSettings);
     return frameUniforms;
 }
 

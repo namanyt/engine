@@ -4,7 +4,7 @@ Date: 2026-05-08
 Repository / workspace name: `Engine`  
 Primary executable target: `EngineStarter`  
 Scope: engine code, associated in-repo game/runtime code, shader stack, build/test configuration, and current project organization  
-Validation basis: direct source inspection across `src/`, `shaders/`, `tests/`, `CMakeLists.txt`, and `CMakePresets.json`, plus a passing `ctest --preset test-debug-ninja --output-on-failure` run with 3/3 smoke tests passing.
+Validation basis: direct source inspection across `src/`, `assets/shaders/`, `tests/`, `CMakeLists.txt`, and `CMakePresets.json`, plus a passing `ctest --preset test-debug-ninja --output-on-failure` run with 3/3 smoke tests passing.
 
 ---
 
@@ -107,7 +107,7 @@ The repository is organized around a straightforward but increasingly specialize
 - `src/world/*` owns the current game-side runtime, including player logic, camera, scene state, world generation, and navigation/collision.
 - `src/geometry/*`, `src/primitives/*`, and `src/graphics/*` own CPU geometry generation and GPU upload.
 - `src/debug/*` provides a strong in-runtime diagnostic and tuning surface.
-- `shaders/*` contains all visual behavior as external GLSL files.
+- `assets/shaders/*` contains all visual behavior as external GLSL files.
 
 This is a good prototype layout because the top-level ownership domains are obvious. It is not yet a fully matured engine layout because game code, engine code, world state, and render-facing state are still partially entangled.
 
@@ -545,11 +545,11 @@ Appropriate for current scope, but not a long-term frame-management solution if 
 
 - `src/core/PostProcessor.h`
 - `src/core/PostProcessor.cpp`
-- `shaders/post_blur.vert`
-- `shaders/post_blur.frag`
-- `shaders/post_compose.frag`
-- `shaders/post_tonemap.vert`
-- `shaders/post_tonemap.frag`
+- `assets/shaders/post_blur.vert`
+- `assets/shaders/post_blur.frag`
+- `assets/shaders/post_compose.frag`
+- `assets/shaders/post_tonemap.vert`
+- `assets/shaders/post_tonemap.frag`
 
 ### Responsibilities
 
@@ -586,9 +586,9 @@ Solid prototype post stack.
 
 - `src/core/RayEvaluationPass.h`
 - `src/core/RayEvaluationPass.cpp`
-- `shaders/ray_eval.vert`
-- `shaders/ray_eval.frag`
-- `shaders/volumetric_upscale.frag`
+- `assets/shaders/ray_eval.vert`
+- `assets/shaders/ray_eval.frag`
+- `assets/shaders/volumetric_upscale.frag`
 
 ### Responsibilities
 
@@ -638,8 +638,8 @@ Experimental but substantial.
 
 - `src/core/ShadowMapPass.h`
 - `src/core/ShadowMapPass.cpp`
-- `shaders/shadow_depth.vert`
-- `shaders/shadow_depth.frag`
+- `assets/shaders/shadow_depth.vert`
+- `assets/shaders/shadow_depth.frag`
 
 ### Responsibilities
 
@@ -1571,24 +1571,24 @@ This section translates the previous analysis into a maturity snapshot.
 
 ## 7.1 Maturity matrix
 
-| Area | Rating | Notes |
-| --- | --- | --- |
-| Build configuration | 4/5 | CMake presets, warnings, shader staging, and dependency checks are solid for project scale |
-| Platform bootstrap | 4/5 | Clean ownership, practical implementation |
-| Core renderer | 4/5 | Strong for current target, narrow in scope |
-| Volumetric atmosphere | 4/5 | Experimental but substantial and differentiated |
-| Shadowing | 2/5 | Functional, limited, not scalable |
-| Post-processing | 3/5 | Good prototype stack, not broad |
-| ECS foundation | 2/5 | Usable, readable, not deeply scalable |
-| Scene ownership model | 2/5 | Works, but overloaded and transitional |
-| Movement controller | 4/5 | Good feel-oriented foundation |
-| Navigation/collision | 3/5 | Real implementation, weak long-term architecture |
-| Procedural world generation | 3/5 | Effective for current prototype, code-authored |
-| Resource management | 1/5 | Minimal beyond shader caching |
-| Content pipeline | 1/5 | Almost entirely absent |
-| Tooling/debug surface | 4/5 | Strong runtime introspection and tuning |
-| Automated validation | 1/5 | Smoke checks only |
-| Production readiness | 1/5 | Pre-production prototype only |
+| Area                        | Rating | Notes                                                                                      |
+| --------------------------- | ------ | ------------------------------------------------------------------------------------------ |
+| Build configuration         | 4/5    | CMake presets, warnings, shader staging, and dependency checks are solid for project scale |
+| Platform bootstrap          | 4/5    | Clean ownership, practical implementation                                                  |
+| Core renderer               | 4/5    | Strong for current target, narrow in scope                                                 |
+| Volumetric atmosphere       | 4/5    | Experimental but substantial and differentiated                                            |
+| Shadowing                   | 2/5    | Functional, limited, not scalable                                                          |
+| Post-processing             | 3/5    | Good prototype stack, not broad                                                            |
+| ECS foundation              | 2/5    | Usable, readable, not deeply scalable                                                      |
+| Scene ownership model       | 2/5    | Works, but overloaded and transitional                                                     |
+| Movement controller         | 4/5    | Good feel-oriented foundation                                                              |
+| Navigation/collision        | 3/5    | Real implementation, weak long-term architecture                                           |
+| Procedural world generation | 3/5    | Effective for current prototype, code-authored                                             |
+| Resource management         | 1/5    | Minimal beyond shader caching                                                              |
+| Content pipeline            | 1/5    | Almost entirely absent                                                                     |
+| Tooling/debug surface       | 4/5    | Strong runtime introspection and tuning                                                    |
+| Automated validation        | 1/5    | Smoke checks only                                                                          |
+| Production readiness        | 1/5    | Pre-production prototype only                                                              |
 
 ## 7.2 What is complete enough to rely on now
 
@@ -1648,18 +1648,18 @@ This section focuses on structural liabilities rather than generic "missing feat
 
 ## 8.1 Debt register
 
-| Debt item | Description | Impact | Severity |
-| --- | --- | --- | --- |
-| Overloaded `Scene` | `Scene` mixes ECS ownership, runtime world state, render settings, debug state, and project-specific flags | High coupling, future refactor cost, hard-to-reason ownership | High |
-| Dual representation of runtime state | Render extraction and legacy scene/object/light views coexist | Risk of divergence, sync complexity, architectural ambiguity | High |
-| Engine/game fusion | `TestWorld` and `main.cpp` still act as both engine composition and game/project logic | Blocks scalable content and project separation | High |
-| Code-authored content pipeline | Landmarks, lights, and atmospheric defaults live directly in C++ | Slow iteration for non-programmers, no authoring scalability | High |
-| Primitive resource model | Assets are mostly raw pointers and shader cache entries | Unsafe as soon as ownership and lifetime get more complex | High |
-| No visibility pipeline | No culling, no LOD, no instancing | Render scale ceiling is low | High |
-| Smoke-test-only validation | Tests only verify files and layout | Refactors are unsafe and regressions will be easy | High |
-| Unfinished step-up support | Tuned and exposed in UI, but seemingly not implemented in movement resolution | Misleading feature surface, hidden gameplay bug risk | Medium |
-| Misleading `RayTracing` naming | The subsystem is really proxy occluders for volumetrics | Semantic confusion and false abstraction weight | Low |
-| Build minimum mismatch | `CMakeLists.txt` and `CMakePresets.json` disagree on minimum version expectations | Small tooling inconsistency | Low |
+| Debt item                            | Description                                                                                                | Impact                                                        | Severity |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------- |
+| Overloaded `Scene`                   | `Scene` mixes ECS ownership, runtime world state, render settings, debug state, and project-specific flags | High coupling, future refactor cost, hard-to-reason ownership | High     |
+| Dual representation of runtime state | Render extraction and legacy scene/object/light views coexist                                              | Risk of divergence, sync complexity, architectural ambiguity  | High     |
+| Engine/game fusion                   | `TestWorld` and `main.cpp` still act as both engine composition and game/project logic                     | Blocks scalable content and project separation                | High     |
+| Code-authored content pipeline       | Landmarks, lights, and atmospheric defaults live directly in C++                                           | Slow iteration for non-programmers, no authoring scalability  | High     |
+| Primitive resource model             | Assets are mostly raw pointers and shader cache entries                                                    | Unsafe as soon as ownership and lifetime get more complex     | High     |
+| No visibility pipeline               | No culling, no LOD, no instancing                                                                          | Render scale ceiling is low                                   | High     |
+| Smoke-test-only validation           | Tests only verify files and layout                                                                         | Refactors are unsafe and regressions will be easy             | High     |
+| Unfinished step-up support           | Tuned and exposed in UI, but seemingly not implemented in movement resolution                              | Misleading feature surface, hidden gameplay bug risk          | Medium   |
+| Misleading `RayTracing` naming       | The subsystem is really proxy occluders for volumetrics                                                    | Semantic confusion and false abstraction weight               | Low      |
+| Build minimum mismatch               | `CMakeLists.txt` and `CMakePresets.json` disagree on minimum version expectations                          | Small tooling inconsistency                                   | Low      |
 
 ## 8.2 Structural debt vs missing features
 
@@ -1712,18 +1712,18 @@ That means:
 
 ## 9.2 Domain-by-domain readiness
 
-| Domain | Readiness | Reality |
-| --- | --- | --- |
-| Local build workflow | Good | Reliable enough for a small team |
-| Debug/runtime introspection | Good | Better than average for a prototype |
-| Visual target development | Good | One of the strongest aspects |
-| Traversal-feel iteration | Good | Strong controller and diagnostics |
-| Content creation workflow | Poor | Code-authored only |
-| Asset ingestion | Poor | No real pipeline |
-| Gameplay feature expansion | Poor | Very little framework beyond movement/world |
-| QA safety net | Poor | Smoke tests only |
-| Team scaling | Poor | Not designed for many non-programmer contributors |
-| Shipping readiness | Poor | Too many missing production systems |
+| Domain                      | Readiness | Reality                                           |
+| --------------------------- | --------- | ------------------------------------------------- |
+| Local build workflow        | Good      | Reliable enough for a small team                  |
+| Debug/runtime introspection | Good      | Better than average for a prototype               |
+| Visual target development   | Good      | One of the strongest aspects                      |
+| Traversal-feel iteration    | Good      | Strong controller and diagnostics                 |
+| Content creation workflow   | Poor      | Code-authored only                                |
+| Asset ingestion             | Poor      | No real pipeline                                  |
+| Gameplay feature expansion  | Poor      | Very little framework beyond movement/world       |
+| QA safety net               | Poor      | Smoke tests only                                  |
+| Team scaling                | Poor      | Not designed for many non-programmer contributors |
+| Shipping readiness          | Poor      | Too many missing production systems               |
 
 ## 9.3 What could realistically ship from this foundation
 
@@ -1962,7 +1962,7 @@ Additional earlier repo inspection established the surrounding context of:
 - `TransformSystem`
 - geometry and primitive builders
 - debug UI support files
-- shader files in `shaders/`
+- shader files in `assets/shaders/`
 
 ## 12.2 Concrete validation performed
 
@@ -2045,30 +2045,30 @@ This appendix makes the negative-space findings explicit.
 
 This appendix summarizes the most important files by role.
 
-| Path | Role | Notes |
-| --- | --- | --- |
-| `src/main.cpp` | Runtime orchestrator | Still does real game-loop work and wires active runtime behavior |
-| `src/Application.cpp` | Platform boundary | GLFW, GLAD, input, timing, shader path resolution |
-| `src/core/Renderer.cpp` | Render facade | Draw submission, pass ownership, frame binding |
-| `src/core/RenderPipeline.cpp` | Frame sequencing | Hardcoded pass order |
-| `src/core/PostProcessor.cpp` | Post stack | HDR buffers, compose, bloom, tone map |
-| `src/core/RayEvaluationPass.cpp` | Atmosphere pass | Half-res volumetrics, temporal history, resolve |
-| `src/core/ShadowMapPass.cpp` | Shadow pass | Directional light depth pass |
-| `src/core/Shader.cpp` | Shader management | File load, compile, link, uniforms |
-| `src/core/ShaderLibrary.cpp` | Shader cache | Program lookup and reuse |
-| `src/ecs/Registry.h` | ECS storage | Type-indexed sparse storage |
-| `src/components/WorldComponents.h` | Component schema | Defines runtime ECS vocabulary |
-| `src/systems/TransformSystem.cpp` | Transform propagation | World-matrix updates |
-| `src/systems/RenderSystem.cpp` | Render extraction | Builds `RenderSceneView` and `FrameUniforms` |
-| `src/systems/WorldEcsSystems.cpp` | Sync helpers | Bridges runtime objects and ECS |
-| `src/world/Scene.h` | Runtime container | Overloaded central state bag |
-| `src/world/PlayerController.cpp` | Traversal core | Strongest gameplay-side subsystem |
-| `src/world/WorldNavigation.cpp` | Collision/navigation | Geometry-based support and sweep logic |
-| `src/world/TestWorld.cpp` | Current project layer | Procedural and authored world assembly |
-| `src/debug/DebugUi.cpp` | Runtime tuning | One of the repo's strongest tools |
-| `tests/SmokeTests.cpp` | Validation | Layout smoke tests only |
-| `CMakeLists.txt` | Build definition | Dependencies, targets, shader staging, tests |
-| `CMakePresets.json` | Workflow entrypoints | Ninja and VS presets |
+| Path                               | Role                  | Notes                                                            |
+| ---------------------------------- | --------------------- | ---------------------------------------------------------------- |
+| `src/main.cpp`                     | Runtime orchestrator  | Still does real game-loop work and wires active runtime behavior |
+| `src/Application.cpp`              | Platform boundary     | GLFW, GLAD, input, timing, shader path resolution                |
+| `src/core/Renderer.cpp`            | Render facade         | Draw submission, pass ownership, frame binding                   |
+| `src/core/RenderPipeline.cpp`      | Frame sequencing      | Hardcoded pass order                                             |
+| `src/core/PostProcessor.cpp`       | Post stack            | HDR buffers, compose, bloom, tone map                            |
+| `src/core/RayEvaluationPass.cpp`   | Atmosphere pass       | Half-res volumetrics, temporal history, resolve                  |
+| `src/core/ShadowMapPass.cpp`       | Shadow pass           | Directional light depth pass                                     |
+| `src/core/Shader.cpp`              | Shader management     | File load, compile, link, uniforms                               |
+| `src/core/ShaderLibrary.cpp`       | Shader cache          | Program lookup and reuse                                         |
+| `src/ecs/Registry.h`               | ECS storage           | Type-indexed sparse storage                                      |
+| `src/components/WorldComponents.h` | Component schema      | Defines runtime ECS vocabulary                                   |
+| `src/systems/TransformSystem.cpp`  | Transform propagation | World-matrix updates                                             |
+| `src/systems/RenderSystem.cpp`     | Render extraction     | Builds `RenderSceneView` and `FrameUniforms`                     |
+| `src/systems/WorldEcsSystems.cpp`  | Sync helpers          | Bridges runtime objects and ECS                                  |
+| `src/world/Scene.h`                | Runtime container     | Overloaded central state bag                                     |
+| `src/world/PlayerController.cpp`   | Traversal core        | Strongest gameplay-side subsystem                                |
+| `src/world/WorldNavigation.cpp`    | Collision/navigation  | Geometry-based support and sweep logic                           |
+| `src/world/TestWorld.cpp`          | Current project layer | Procedural and authored world assembly                           |
+| `src/debug/DebugUi.cpp`            | Runtime tuning        | One of the repo's strongest tools                                |
+| `tests/SmokeTests.cpp`             | Validation            | Layout smoke tests only                                          |
+| `CMakeLists.txt`                   | Build definition      | Dependencies, targets, shader staging, tests                     |
+| `CMakePresets.json`                | Workflow entrypoints  | Ninja and VS presets                                             |
 
 ## 14.1 Short file-map verdict
 

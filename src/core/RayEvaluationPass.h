@@ -22,6 +22,7 @@ class RayEvaluationPass final
     RayEvaluationPass(RayEvaluationPass&&) = delete;
     RayEvaluationPass& operator=(RayEvaluationPass&&) = delete;
 
+    void prepareWorldResources();
     void resize(int width, int height);
     void evaluate(unsigned int sceneDepthTextureId, const FrameUniforms& frameUniforms) const;
     unsigned int atmosphereTextureId() const noexcept;
@@ -31,6 +32,7 @@ class RayEvaluationPass final
   private:
     void createResources(int width, int height);
     void destroyResources() noexcept;
+    void ensureShaders() const;
     void invalidateHistory() noexcept;
 
     int m_fullWidth = 1;
@@ -47,8 +49,8 @@ class RayEvaluationPass final
     unsigned int m_atmosphereTextureId = 0;
     FullScreenPass m_fullScreenPass;
     std::shared_ptr<ShaderLibrary> m_shaderLibrary;
-    std::unique_ptr<Shader> m_evaluateShader;
-    std::unique_ptr<Shader> m_resolveShader;
+    mutable const Shader* m_evaluateShader = nullptr;
+    mutable const Shader* m_resolveShader = nullptr;
     mutable unsigned int m_historyWriteIndex = 0;
     mutable bool m_historyValid = false;
 };

@@ -18,17 +18,9 @@ Mesh& Scene::ownMesh(std::unique_ptr<Mesh> mesh)
     return *m_ownedMeshes.back();
 }
 
-void Scene::clearRuntimeViews()
-{
-    m_objects.clear();
-    localLights.clear();
-    rayTracingScene.bounds.clear();
-}
-
 void Scene::resetWorld()
 {
     m_registry.clear();
-    clearRuntimeViews();
     m_ownedMeshes.clear();
 }
 } // namespace engine

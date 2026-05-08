@@ -14,14 +14,17 @@ namespace engine
 ShadowMapPass::ShadowMapPass(const std::shared_ptr<ShaderLibrary>& shaderLibrary)
     : m_shaderLibrary(shaderLibrary)
 {
-    m_shadowShader = std::make_unique<Shader>(m_shaderLibrary->shaderPath("shadow_depth.vert"),
-                                              m_shaderLibrary->shaderPath("shadow_depth.frag"));
     createResources(m_size);
 }
 
 ShadowMapPass::~ShadowMapPass()
 {
     destroyResources();
+}
+
+void ShadowMapPass::prepareWorldResources()
+{
+    ensureShader();
 }
 
 void ShadowMapPass::resize(int size)
@@ -38,6 +41,7 @@ void ShadowMapPass::resize(int size)
 
 void ShadowMapPass::begin(const Mat4& lightViewProjection) const
 {
+    ensureShader();
     pushRenderDebugGroup("Shadow Pass");
     glViewport(0, 0, m_size, m_size);
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebufferId);
@@ -109,5 +113,17 @@ void ShadowMapPass::destroyResources() noexcept
     glDeleteFramebuffers(1, &m_framebufferId);
     m_depthTextureId = 0;
     m_framebufferId = 0;
+}
+
+void ShadowMapPass::ensureShader() const
+{
+    if (m_shadowShader != nullptr)
+    {
+        return;
+    }
+
+    m_shadowShader = &m_shaderLibrary->loadGraphicsProgram(
+        "renderer.shadow.depth", std::filesystem::path("shadow_depth.vert"),
+        std::filesystem::path("shadow_depth.frag"));
 }
 } // namespace engine

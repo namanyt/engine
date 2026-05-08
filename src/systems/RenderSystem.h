@@ -6,6 +6,7 @@
 #include "world/Material.h"
 #include "world/RayTracing.h"
 #include "world/Scene.h"
+#include "world/TestWorld.h"
 
 #include <vector>
 
@@ -54,10 +55,9 @@ struct RenderSceneView final
 };
 
 RenderSceneView buildRenderSceneView(const Scene& scene);
-void syncLegacySceneFromRenderView(Scene& scene, const RenderSceneView& renderSceneView);
-FrameUniforms buildFrameUniforms(const Scene& scene, const Camera& camera, int framebufferWidth,
-                                 int framebufferHeight, float timeSeconds,
-                                 const FrameHistory& frameHistory,
+FrameUniforms buildFrameUniforms(const AtmosphericRenderSettings& renderSettings,
+                                 const Camera& camera, int framebufferWidth, int framebufferHeight,
+                                 float timeSeconds, const FrameHistory& frameHistory,
                                  const RenderSceneView& renderSceneView);
 void advanceFrameHistory(const FrameUniforms& frameUniforms, FrameHistory& frameHistory);
 } // namespace engine::systems

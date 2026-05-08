@@ -13,6 +13,7 @@ class RenderPipeline final
     void renderFrame(const systems::RenderSceneView& renderSceneView, const Color& clearColor,
                      const PostProcessSettings& postProcessSettings,
                      const FrameUniforms& frameUniforms, float timeSeconds) const;
+    void renderOverlayFrame(const Color& clearColor) const;
 
   private:
     Renderer& m_renderer;

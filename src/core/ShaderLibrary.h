@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/Shader.h"
+
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -7,12 +9,13 @@
 
 namespace engine
 {
-class Shader;
+class AssetManager;
 
 class ShaderLibrary final
 {
   public:
-    explicit ShaderLibrary(std::filesystem::path shaderDirectory);
+    ShaderLibrary(std::shared_ptr<AssetManager> assetManager,
+                  std::filesystem::path shaderDirectory);
 
     ShaderLibrary(const ShaderLibrary&) = delete;
     ShaderLibrary& operator=(const ShaderLibrary&) = delete;
@@ -21,10 +24,16 @@ class ShaderLibrary final
 
     const Shader& loadGraphicsProgram(const std::string& key, const std::string& vertexShaderName,
                                       const std::string& fragmentShaderName);
-    std::filesystem::path shaderPath(const std::string& shaderName) const;
+    const Shader& loadGraphicsProgram(const std::string& key,
+                                      const std::filesystem::path& vertexShaderPath,
+                                      const std::filesystem::path& fragmentShaderPath);
+    void unloadGraphicsProgram(const std::string& key) noexcept;
+    bool hasGraphicsProgram(const std::string& key) const noexcept;
+    std::filesystem::path shaderPath(const std::filesystem::path& shaderPath) const;
     const std::filesystem::path& shaderDirectory() const noexcept;
 
   private:
+    std::shared_ptr<AssetManager> m_assetManager;
     std::filesystem::path m_shaderDirectory;
     std::unordered_map<std::string, std::unique_ptr<Shader>> m_programs;
 };

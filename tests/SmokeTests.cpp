@@ -1,4 +1,9 @@
+#include "assets/AssetManager.h"
+#include "assets/ShaderAsset.h"
+#include "core/ShaderLibrary.h"
+
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string_view>
 #include <vector>
@@ -29,23 +34,53 @@ int shaderAssetsExist()
 {
     const std::filesystem::path root = repoRoot();
 
-    const bool hasVertexShader = requirePath(root / "shaders" / "vertex.glsl");
-    const bool hasFragmentShader = requirePath(root / "shaders" / "fragment.glsl");
-    const bool hasPostBlurVertexShader = requirePath(root / "shaders" / "post_blur.vert");
-    const bool hasPostBlurFragmentShader = requirePath(root / "shaders" / "post_blur.frag");
-    const bool hasPostComposeFragmentShader = requirePath(root / "shaders" / "post_compose.frag");
-    const bool hasRayEvalVertexShader = requirePath(root / "shaders" / "ray_eval.vert");
-    const bool hasRayEvalFragmentShader = requirePath(root / "shaders" / "ray_eval.frag");
-    const bool hasPostTonemapVertexShader = requirePath(root / "shaders" / "post_tonemap.vert");
-    const bool hasPostTonemapFragmentShader = requirePath(root / "shaders" / "post_tonemap.frag");
-    const bool hasShadowDepthVertexShader = requirePath(root / "shaders" / "shadow_depth.vert");
-    const bool hasShadowDepthFragmentShader = requirePath(root / "shaders" / "shadow_depth.frag");
+    const bool hasVertexShader = requirePath(root / "assets" / "shaders" / "vertex.glsl");
+    const bool hasFragmentShader = requirePath(root / "assets" / "shaders" / "fragment.glsl");
+    const bool hasPostBlurVertexShader =
+        requirePath(root / "assets" / "shaders" / "post_blur.vert");
+    const bool hasPostBlurFragmentShader =
+        requirePath(root / "assets" / "shaders" / "post_blur.frag");
+    const bool hasPostComposeFragmentShader =
+        requirePath(root / "assets" / "shaders" / "post_compose.frag");
+    const bool hasRayEvalVertexShader = requirePath(root / "assets" / "shaders" / "ray_eval.vert");
+    const bool hasRayEvalFragmentShader =
+        requirePath(root / "assets" / "shaders" / "ray_eval.frag");
+    const bool hasPostTonemapVertexShader =
+        requirePath(root / "assets" / "shaders" / "post_tonemap.vert");
+    const bool hasPostTonemapFragmentShader =
+        requirePath(root / "assets" / "shaders" / "post_tonemap.frag");
+    const bool hasUiOverlayFragmentShader =
+        requirePath(root / "assets" / "shaders" / "ui_overlay.frag");
+    const bool hasShadowDepthVertexShader =
+        requirePath(root / "assets" / "shaders" / "shadow_depth.vert");
+    const bool hasShadowDepthFragmentShader =
+        requirePath(root / "assets" / "shaders" / "shadow_depth.frag");
 
     return hasVertexShader && hasFragmentShader && hasPostBlurVertexShader &&
                    hasPostBlurFragmentShader && hasPostComposeFragmentShader &&
                    hasRayEvalVertexShader && hasRayEvalFragmentShader &&
                    hasPostTonemapVertexShader && hasPostTonemapFragmentShader &&
-                   hasShadowDepthVertexShader && hasShadowDepthFragmentShader
+                   hasUiOverlayFragmentShader && hasShadowDepthVertexShader &&
+                   hasShadowDepthFragmentShader
+               ? 0
+               : 1;
+}
+
+int assetDirectoryLayoutExists()
+{
+    const std::filesystem::path root = repoRoot();
+
+    const bool hasAssets = requirePath(root / "assets");
+    const bool hasTextures = requirePath(root / "assets" / "textures");
+    const bool hasAudio = requirePath(root / "assets" / "audio");
+    const bool hasModels = requirePath(root / "assets" / "models");
+    const bool hasShaders = requirePath(root / "assets" / "shaders");
+    const bool hasVideos = requirePath(root / "assets" / "videos");
+    const bool hasFonts = requirePath(root / "assets" / "fonts");
+    const bool hasTest = requirePath(root / "assets" / "test");
+
+    return hasAssets && hasTextures && hasAudio && hasModels && hasShaders && hasVideos &&
+                   hasFonts && hasTest
                ? 0
                : 1;
 }
@@ -70,6 +105,23 @@ int engineSourceLayoutExists()
         root / "src" / "main.cpp",
         root / "src" / "Application.h",
         root / "src" / "Application.cpp",
+        root / "src" / "assets" / "Asset.h",
+        root / "src" / "assets" / "Asset.cpp",
+        root / "src" / "assets" / "AssetHandle.h",
+        root / "src" / "assets" / "AssetManager.h",
+        root / "src" / "assets" / "AssetManager.cpp",
+        root / "src" / "assets" / "AssetMeta.h",
+        root / "src" / "assets" / "AssetMeta.cpp",
+        root / "src" / "assets" / "AssetRegistry.h",
+        root / "src" / "assets" / "AssetRegistry.cpp",
+        root / "src" / "assets" / "ShaderAsset.h",
+        root / "src" / "assets" / "ShaderAsset.cpp",
+        root / "src" / "assets" / "TextureAsset.h",
+        root / "src" / "assets" / "TextureAsset.cpp",
+        root / "src" / "assets" / "AudioAsset.h",
+        root / "src" / "assets" / "AudioAsset.cpp",
+        root / "src" / "assets" / "ModelAsset.h",
+        root / "src" / "assets" / "ModelAsset.cpp",
         root / "src" / "core" / "Log.h",
         root / "src" / "core" / "Log.cpp",
         root / "src" / "core" / "Renderer.h",
@@ -148,6 +200,159 @@ int engineSourceLayoutExists()
     return success ? 0 : 1;
 }
 
+void writeTextFile(const std::filesystem::path& path, std::string_view content)
+{
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream file(path, std::ios::binary);
+    file << content;
+}
+
+void writeBinaryFile(const std::filesystem::path& path, const std::vector<unsigned char>& bytes)
+{
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream file(path, std::ios::binary);
+    file.write(reinterpret_cast<const char*>(bytes.data()),
+               static_cast<std::streamsize>(bytes.size()));
+}
+
+int assetManagerRoundTrip()
+{
+    namespace fs = std::filesystem;
+
+    const fs::path tempRoot = fs::temp_directory_path() / "engine_asset_manager_smoke";
+    std::error_code removeError;
+    fs::remove_all(tempRoot, removeError);
+
+    const fs::path audioPath = tempRoot / "assets" / "audio" / "wind.wav";
+    const fs::path modelPath = tempRoot / "assets" / "models" / "spire.obj";
+    const fs::path shaderRoot = tempRoot / "assets" / "shaders";
+    const fs::path vertexShaderPath = shaderRoot / "test_surface.vert";
+    const fs::path fragmentShaderPath = shaderRoot / "test_surface.frag";
+
+    writeBinaryFile(audioPath, {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E'});
+    writeTextFile(modelPath, "o Spire\nv 0 0 0\nv 0 1 0\nv 1 0 0\nf 1 2 3\n");
+    writeTextFile(vertexShaderPath,
+                  "#version 330 core\nlayout (location = 0) in vec3 aPosition;\nvoid main()\n{\n   "
+                  " gl_Position = vec4(aPosition, 1.0);\n}\n");
+    writeTextFile(
+        fragmentShaderPath,
+        "#version 330 core\nout vec4 FragColor;\nvoid main()\n{\n    FragColor = vec4(1.0);\n}\n");
+    writeTextFile(audioPath.string() + ".meta", "uuid=wind-audio-smoke\n"
+                                                "asset_type=audio\n"
+                                                "tags=ambient, wind\n"
+                                                "preload=true\n");
+
+    engine::AssetManager manager;
+    const std::size_t discoveredCount = manager.discover(tempRoot / "assets");
+    if (discoveredCount != 4)
+    {
+        std::cerr << "Expected 4 discovered assets, found " << discoveredCount << '\n';
+        return 1;
+    }
+
+    const auto audioHandle = manager.findByPath<engine::AudioAsset>(audioPath);
+    if (!audioHandle || audioHandle.uuid() != "wind-audio-smoke")
+    {
+        std::cerr << "Audio asset lookup by path failed.\n";
+        return 1;
+    }
+
+    if (!manager.isLoaded(audioHandle.uuid()))
+    {
+        std::cerr << "Preload flag did not keep the audio asset resident.\n";
+        return 1;
+    }
+
+    const std::shared_ptr<engine::AudioAsset> audio = manager.load(audioHandle);
+    if (audio == nullptr || audio->sizeInBytes() == 0 || audio->formatName() != "wav")
+    {
+        std::cerr << "Audio placeholder asset failed to load.\n";
+        return 1;
+    }
+
+    const auto audioLookupByUuid = manager.findByUuid<engine::AudioAsset>(audioHandle.uuid());
+    if (audioLookupByUuid != audioHandle)
+    {
+        std::cerr << "Audio asset lookup by UUID did not round-trip.\n";
+        return 1;
+    }
+
+    const auto modelHandle = manager.findByPath<engine::ModelAsset>(modelPath);
+    if (!modelHandle || manager.isLoaded(modelHandle.uuid()))
+    {
+        std::cerr << "Model asset should be discoverable but lazily unloaded.\n";
+        return 1;
+    }
+
+    const std::shared_ptr<engine::ModelAsset> model = manager.load(modelHandle);
+    if (model == nullptr || model->sizeInBytes() == 0 || model->formatName() != "obj")
+    {
+        std::cerr << "Model placeholder asset failed to load.\n";
+        return 1;
+    }
+
+    const auto modelLookupByUuid = manager.findByUuid<engine::ModelAsset>(modelHandle.uuid());
+    if (modelLookupByUuid != modelHandle)
+    {
+        std::cerr << "Model asset lookup by UUID did not round-trip.\n";
+        return 1;
+    }
+
+    const fs::path generatedModelMetaPath = modelPath.string() + ".meta";
+    const fs::path generatedVertexMetaPath = vertexShaderPath.string() + ".meta";
+    const fs::path generatedFragmentMetaPath = fragmentShaderPath.string() + ".meta";
+    if (!fs::exists(generatedModelMetaPath) || !fs::exists(generatedVertexMetaPath) ||
+        !fs::exists(generatedFragmentMetaPath))
+    {
+        std::cerr << "Missing generated metadata sidecars for discovered assets.\n";
+        return 1;
+    }
+
+    const auto vertexHandle = manager.findByPath<engine::ShaderAsset>(vertexShaderPath);
+    const auto fragmentHandle = manager.findByPath<engine::ShaderAsset>(fragmentShaderPath);
+    if (!vertexHandle || !fragmentHandle)
+    {
+        std::cerr << "Shader assets should be discoverable through the asset manager.\n";
+        return 1;
+    }
+
+    const std::shared_ptr<engine::ShaderAsset> vertexShader = manager.load(vertexHandle);
+    if (vertexShader == nullptr || vertexShader->stage() != engine::ShaderStage::Vertex ||
+        vertexShader->source().empty())
+    {
+        std::cerr << "Vertex shader asset failed to load through the asset manager.\n";
+        return 1;
+    }
+
+    const std::shared_ptr<engine::ShaderAsset> fragmentShader = manager.load(fragmentHandle);
+    if (fragmentShader == nullptr || fragmentShader->stage() != engine::ShaderStage::Fragment ||
+        fragmentShader->source().empty())
+    {
+        std::cerr << "Fragment shader asset failed to load through the asset manager.\n";
+        return 1;
+    }
+
+    auto sharedManager = std::make_shared<engine::AssetManager>();
+    sharedManager->discover(tempRoot / "assets");
+    engine::ShaderLibrary shaderLibrary(sharedManager, shaderRoot);
+    if (shaderLibrary.shaderPath("test_surface.vert") != vertexShaderPath ||
+        shaderLibrary.shaderPath("test_surface.frag") != fragmentShaderPath)
+    {
+        std::cerr << "ShaderLibrary did not resolve shader assets through the asset manager.\n";
+        return 1;
+    }
+
+    manager.unload(modelHandle.uuid());
+    if (manager.isLoaded(modelHandle.uuid()))
+    {
+        std::cerr << "Model asset should be unloadable.\n";
+        return 1;
+    }
+
+    fs::remove_all(tempRoot, removeError);
+    return 0;
+}
+
 struct NamedTest
 {
     std::string_view name;
@@ -159,8 +364,10 @@ int main(int argc, char** argv)
 {
     const std::vector<NamedTest> tests = {
         {"shader_assets_exist", &shaderAssetsExist},
+        {"asset_directory_layout_exists", &assetDirectoryLayoutExists},
         {"dependency_layout_exists", &dependencyLayoutExists},
-        {"engine_source_layout_exists", &engineSourceLayoutExists}};
+        {"engine_source_layout_exists", &engineSourceLayoutExists},
+        {"asset_manager_round_trip", &assetManagerRoundTrip}};
 
     if (argc != 2)
     {

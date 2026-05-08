@@ -534,11 +534,6 @@ float sampleAtmosphericTerrainHeight(const ProceduralWorldSettings& settings, fl
     return shapedHeight * settings.terrainHeight - 2.6f;
 }
 
-float sampleAtmosphericTerrainHeight(const Scene& scene, float x, float z)
-{
-    return sampleAtmosphericTerrainHeight(scene.proceduralWorld, x, z);
-}
-
 float sampleAtmosphericTerrainSlope(const ProceduralWorldSettings& settings, float x, float z)
 {
     const float offset = 3.0f;
@@ -561,11 +556,6 @@ Vec3 sampleAtmosphericTerrainNormal(const ProceduralWorldSettings& settings, flo
                             sampleAtmosphericTerrainHeight(settings, x, z - offset),
                         2.0f * offset};
     return normalize(cross(tangentZ, tangentX));
-}
-
-Vec3 sampleAtmosphericTerrainNormal(const Scene& scene, float x, float z)
-{
-    return sampleAtmosphericTerrainNormal(scene.proceduralWorld, x, z);
 }
 
 CollisionWorld buildCollisionWorld(const Scene& scene)
