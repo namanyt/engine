@@ -92,9 +92,14 @@ void MenuRuntime::update(const UpdateContext& updateContext)
     {
         if (m_phaseElapsedSeconds >= 0.65f)
         {
-            requestRuntimeChange(
-                RuntimeTransitionRequest{RuntimeId::DaylightSandbox, 7.0f, "Daylight Sandbox",
-                                         LoadingScreenStyle::DisclaimerBootSequence});
+            RuntimeTransitionRequest request{};
+            request.targetId = RuntimeId::VNPrototype;
+            request.minimumDurationSeconds = 7.0f;
+            request.loadingLabel = "Story Prelude";
+            request.loadingScreenStyle = LoadingScreenStyle::DisclaimerBootSequence;
+            request.scriptAssetPath = std::filesystem::path{"scripts/test.vnscript"};
+            request.returnTargetId = RuntimeId::DaylightSandbox;
+            requestRuntimeChange(std::move(request));
         }
 
         return;

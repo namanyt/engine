@@ -130,6 +130,8 @@ set(ENGINE_SOURCES
     src/runtime/InteractionPromptRenderable.cpp
     src/runtime/SettingsOverlay.cpp
     src/runtime/StartupFlowOverlay.cpp
+    src/runtime/VnScript.cpp
+    src/runtime/VNRuntime.cpp
     src/runtime/SceneRuntime.cpp
     src/runtime/SceneAssetScope.cpp
     src/runtime/EngineRuntime.cpp
@@ -208,6 +210,8 @@ set(ENGINE_HEADERS
     src/runtime/MenuRuntime.h
     src/runtime/SettingsOverlay.h
     src/runtime/StartupFlowOverlay.h
+    src/runtime/VnScript.h
+    src/runtime/VNRuntime.h
     src/runtime/SceneRuntime.h
     src/runtime/SceneAssetScope.h
     src/runtime/EngineRuntime.h
@@ -300,6 +304,7 @@ set(ENGINE_ASSET_PLACEHOLDERS
     assets/models/.gitkeep
     assets/videos/.gitkeep
     assets/fonts/.gitkeep
+    assets/scripts/test.vnscript
     assets/test/.gitkeep
 )
 
@@ -346,7 +351,7 @@ target_link_libraries(EngineStarter
 )
 
 if(WIN32)
-    target_link_libraries(EngineStarter PRIVATE ole32 windowscodecs)
+    target_link_libraries(EngineStarter PRIVATE ole32 windowscodecs Msimg32)
 endif()
 
 if(TARGET imgui)
@@ -385,6 +390,7 @@ source_group(TREE "${CMAKE_SOURCE_DIR}" FILES
 if(BUILD_TESTING)
     add_executable(EngineStarterTests
         tests/SmokeTests.cpp
+        src/runtime/VnScript.cpp
         src/assets/Asset.cpp
         src/assets/AudioAsset.cpp
         src/assets/AssetManager.cpp
@@ -434,6 +440,7 @@ if(BUILD_TESTING)
     add_test(NAME dependency_layout_exists COMMAND EngineStarterTests dependency_layout_exists)
     add_test(NAME engine_source_layout_exists COMMAND EngineStarterTests engine_source_layout_exists)
     add_test(NAME asset_manager_round_trip COMMAND EngineStarterTests asset_manager_round_trip)
+    add_test(NAME vnscript_parser_smoke COMMAND EngineStarterTests vnscript_parser_smoke)
 
     set_tests_properties(
         shader_assets_exist
@@ -441,6 +448,7 @@ if(BUILD_TESTING)
         dependency_layout_exists
         engine_source_layout_exists
         asset_manager_round_trip
+        vnscript_parser_smoke
         PROPERTIES
             LABELS "smoke"
     )

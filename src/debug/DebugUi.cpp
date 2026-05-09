@@ -705,6 +705,10 @@ void DebugUi::draw(AtmosphericWorldSettings& worldSettings,
     {
         m_requestedRuntimeChange = RuntimeId::DaylightSandbox;
     }
+    if (ImGui::Button("Load VN Prototype"))
+    {
+        m_requestedRuntimeChange = RuntimeId::VNPrototype;
+    }
     if (ImGui::Button("Reload Current Runtime"))
     {
         m_requestedRuntimeChange = activeRuntimeId;

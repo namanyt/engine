@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 namespace engine
@@ -16,6 +17,7 @@ enum class RuntimeId
     Menu,
     FoggyTestWorld,
     DaylightSandbox,
+    VNPrototype,
 };
 
 struct RuntimeTransitionRequest final
@@ -24,6 +26,8 @@ struct RuntimeTransitionRequest final
     float minimumDurationSeconds = 1.6f;
     std::string loadingLabel;
     LoadingScreenStyle loadingScreenStyle = LoadingScreenStyle::ProgressOnly;
+    std::filesystem::path scriptAssetPath;
+    RuntimeId returnTargetId = RuntimeId::DaylightSandbox;
 };
 
 const char* runtimeName(RuntimeId runtimeId) noexcept;

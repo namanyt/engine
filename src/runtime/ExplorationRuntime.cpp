@@ -40,6 +40,7 @@ std::unique_ptr<engine::SceneMetasset> createSceneMetasset(engine::RuntimeId run
         return std::make_unique<engine::TestWorldSceneMetasset>();
     case engine::RuntimeId::DaylightSandbox:
         return std::make_unique<engine::DaylightSandboxSceneMetasset>();
+    case engine::RuntimeId::VNPrototype:
     case engine::RuntimeId::Menu:
         break;
     }
@@ -56,6 +57,7 @@ createSceneRuntime(engine::RuntimeId runtimeId, const engine::SceneMetasset& sce
         return std::make_unique<engine::TestWorldScene>(sceneMetasset);
     case engine::RuntimeId::DaylightSandbox:
         return std::make_unique<engine::DaylightSandboxScene>(sceneMetasset);
+    case engine::RuntimeId::VNPrototype:
     case engine::RuntimeId::Menu:
         break;
     }
@@ -677,7 +679,11 @@ void ExplorationRuntime::handleOverlayInput(const UpdateContext& updateContext,
         return;
     }
 
-    requestRuntimeChange(RuntimeTransitionRequest{RuntimeId::Menu, 1.1f, "Main Menu"});
+    RuntimeTransitionRequest request{};
+    request.targetId = RuntimeId::Menu;
+    request.minimumDurationSeconds = 1.1f;
+    request.loadingLabel = "Main Menu";
+    requestRuntimeChange(std::move(request));
 }
 
 void ExplorationRuntime::updateInteractionState(const ExplorationInputState& inputState,
@@ -867,8 +873,17 @@ void ExplorationRuntime::refreshSettingsOverlay()
 
 void ExplorationRuntime::requestWorldLoad(RuntimeId targetRuntimeId)
 {
-    requestRuntimeChange(
-        RuntimeTransitionRequest{targetRuntimeId, 1.6f, runtimeDisplayName(targetRuntimeId)});
+    RuntimeTransitionRequest request{};
+    request.targetId = targetRuntimeId;
+    request.minimumDurationSeconds = 1.6f;
+    request.loadingLabel = runtimeDisplayName(targetRuntimeId);
+    if (targetRuntimeId == RuntimeId::VNPrototype)
+    {
+        request.scriptAssetPath = std::filesystem::path{"scripts/test.vnscript"};
+        request.returnTargetId = m_runtimeId;
+    }
+
+    requestRuntimeChange(std::move(request));
 }
 
 void ExplorationRuntime::refreshInteractionDebugState()

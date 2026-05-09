@@ -1,6 +1,7 @@
 #include "assets/AssetManager.h"
 #include "assets/ShaderAsset.h"
 #include "core/ShaderLibrary.h"
+#include "runtime/VnScript.h"
 
 #include <filesystem>
 #include <fstream>
@@ -77,10 +78,12 @@ int assetDirectoryLayoutExists()
     const bool hasShaders = requirePath(root / "assets" / "shaders");
     const bool hasVideos = requirePath(root / "assets" / "videos");
     const bool hasFonts = requirePath(root / "assets" / "fonts");
+    const bool hasScripts = requirePath(root / "assets" / "scripts");
     const bool hasTest = requirePath(root / "assets" / "test");
+    const bool hasPrototypeScript = requirePath(root / "assets" / "scripts" / "test.vnscript");
 
     return hasAssets && hasTextures && hasAudio && hasModels && hasShaders && hasVideos &&
-                   hasFonts && hasTest
+                   hasFonts && hasScripts && hasTest && hasPrototypeScript
                ? 0
                : 1;
 }
@@ -137,6 +140,10 @@ int engineSourceLayoutExists()
         root / "src" / "core" / "ShadowMapPass.cpp",
         root / "src" / "debug" / "DebugUi.h",
         root / "src" / "debug" / "DebugUi.cpp",
+        root / "src" / "runtime" / "VnScript.h",
+        root / "src" / "runtime" / "VnScript.cpp",
+        root / "src" / "runtime" / "VNRuntime.h",
+        root / "src" / "runtime" / "VNRuntime.cpp",
         root / "src" / "runtime" / "RuntimeIds.h",
         root / "src" / "runtime" / "RuntimeIds.cpp",
         root / "src" / "runtime" / "RuntimeFactory.h",
@@ -386,6 +393,105 @@ int assetManagerRoundTrip()
     return 0;
 }
 
+int vnscriptParserSmoke()
+{
+    const std::filesystem::path scriptPath = repoRoot() / "assets" / "scripts" / "test.vnscript";
+    if (!std::filesystem::exists(scriptPath))
+    {
+        std::cerr << "Missing vnscript test asset: " << scriptPath.string() << '\n';
+        return 1;
+    }
+
+    const engine::VnScript script = engine::parseVnScriptFile(scriptPath);
+    if (script.instructions.size() < 22)
+    {
+        std::cerr << "Expected at least 22 vnscript instructions, found "
+                  << script.instructions.size() << '\n';
+        return 1;
+    }
+
+    if (script.instructions.front().type != engine::VnCommandType::CharacterSet ||
+        script.instructions.front().identifier != "patrick")
+    {
+        std::cerr << "First vnscript command should define Patrick.\n";
+        return 1;
+    }
+
+    if (script.instructions[1].type != engine::VnCommandType::Background ||
+        script.instructions[1].assetPath != std::filesystem::path{"background.png"})
+    {
+        std::cerr << "Second vnscript command should set the placeholder background.\n";
+        return 1;
+    }
+
+    int characterCommandCount = 0;
+    bool foundCenterNativeScale = false;
+    bool foundLeftScaledDown = false;
+    bool foundRightScaledUp = false;
+    bool foundHideCharacter = false;
+
+    for (const engine::VnInstruction& instruction : script.instructions)
+    {
+        if (instruction.type == engine::VnCommandType::Character)
+        {
+            ++characterCommandCount;
+            foundCenterNativeScale = foundCenterNativeScale ||
+                                     (instruction.stageRegion == engine::VnStageRegion::Center &&
+                                      instruction.scale == 1.0f);
+            foundLeftScaledDown =
+                foundLeftScaledDown || (instruction.stageRegion == engine::VnStageRegion::Left &&
+                                        instruction.scale == 0.75f);
+            foundRightScaledUp =
+                foundRightScaledUp || (instruction.stageRegion == engine::VnStageRegion::Right &&
+                                       instruction.scale == 1.5f);
+        }
+
+        if (instruction.type == engine::VnCommandType::HideCharacter &&
+            instruction.identifier == "patrick")
+        {
+            foundHideCharacter = true;
+        }
+    }
+
+    if (characterCommandCount < 3)
+    {
+        std::cerr << "Expected at least three CHARACTER commands in the prototype script.\n";
+        return 1;
+    }
+
+    if (!foundCenterNativeScale)
+    {
+        std::cerr << "Expected the prototype script to include center native-scale staging.\n";
+        return 1;
+    }
+
+    if (!foundLeftScaledDown)
+    {
+        std::cerr << "Expected the prototype script to include a smaller left-stage variant.\n";
+        return 1;
+    }
+
+    if (!foundRightScaledUp)
+    {
+        std::cerr << "Expected the prototype script to include a larger right-stage variant.\n";
+        return 1;
+    }
+
+    if (!foundHideCharacter)
+    {
+        std::cerr << "Expected the prototype script to hide Patrick before ending.\n";
+        return 1;
+    }
+
+    if (script.instructions.back().type != engine::VnCommandType::End)
+    {
+        std::cerr << "Prototype vnscript must terminate with END.\n";
+        return 1;
+    }
+
+    return 0;
+}
+
 struct NamedTest
 {
     std::string_view name;
@@ -400,7 +506,8 @@ int main(int argc, char** argv)
         {"asset_directory_layout_exists", &assetDirectoryLayoutExists},
         {"dependency_layout_exists", &dependencyLayoutExists},
         {"engine_source_layout_exists", &engineSourceLayoutExists},
-        {"asset_manager_round_trip", &assetManagerRoundTrip}};
+        {"asset_manager_round_trip", &assetManagerRoundTrip},
+        {"vnscript_parser_smoke", &vnscriptParserSmoke}};
 
     if (argc != 2)
     {

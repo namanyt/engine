@@ -12,6 +12,8 @@ const char* runtimeName(RuntimeId runtimeId) noexcept
         return "ExplorationRuntime";
     case RuntimeId::DaylightSandbox:
         return "DaylightSandboxRuntime";
+    case RuntimeId::VNPrototype:
+        return "VNRuntime";
     }
 
     return "UnknownRuntime";
@@ -27,6 +29,8 @@ const char* runtimeDisplayName(RuntimeId runtimeId) noexcept
         return "Foggy TestWorld";
     case RuntimeId::DaylightSandbox:
         return "Daylight Sandbox";
+    case RuntimeId::VNPrototype:
+        return "VN Prototype";
     }
 
     return "Unknown Runtime";

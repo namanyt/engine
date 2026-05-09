@@ -4,6 +4,7 @@
 #include "runtime/SettingsOverlay.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -33,6 +34,23 @@ enum class PauseMenuSelection
     Resume,
     Settings,
     ReturnToMainMenu,
+};
+
+struct VisualNovelOverlayPortrait final
+{
+    std::filesystem::path assetPath;
+    float centerXNormalized = 0.5f;
+    float baselineYNormalized = 0.94f;
+    float nativeScale = 1.0f;
+};
+
+struct VisualNovelOverlayModel final
+{
+    std::filesystem::path backgroundAssetPath;
+    std::vector<VisualNovelOverlayPortrait> portraits;
+    std::string speakerName;
+    std::string dialogueText;
+    std::string advancePrompt;
 };
 
 class StartupFlowOverlay final
@@ -69,6 +87,8 @@ class StartupFlowOverlay final
     static StartupFlowOverlay createInteractionPromptTexture(const std::string& promptText);
     static StartupFlowOverlay createSettingsMenu(const AssetManager& assetManager,
                                                  const SettingsOverlayViewModel& viewModel);
+    static StartupFlowOverlay createVisualNovelScene(const AssetManager& assetManager,
+                                                     const VisualNovelOverlayModel& viewModel);
 
     unsigned int m_textureId = 0;
     int m_width = 0;

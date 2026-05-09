@@ -7,6 +7,7 @@
 #include <glad/glad.h>
 
 #include <algorithm>
+#include <cstring>
 #include <filesystem>
 #include <functional>
 #include <sstream>
@@ -146,6 +147,11 @@ struct PixelSize final
     int height = 0;
 };
 
+std::wstring widen(std::string_view text)
+{
+    return std::wstring{text.begin(), text.end()};
+}
+
 void throwIfFailed(HRESULT result, const std::string& message)
 {
     if (FAILED(result))
@@ -202,6 +208,99 @@ DecodedImage decodeWithWic(const std::filesystem::path& path)
                                         image.rgbaBytes.data()),
                   "Failed to copy backdrop pixels: " + path.string());
     return image;
+}
+
+std::vector<std::uint8_t> rgbaToPremultipliedBgra(const DecodedImage& image)
+{
+    std::vector<std::uint8_t> bgraBytes(image.rgbaBytes.size(), 0);
+    for (std::size_t index = 0; index + 3 < image.rgbaBytes.size(); index += 4)
+    {
+        const float alpha = static_cast<float>(image.rgbaBytes[index + 3]) / 255.0f;
+        bgraBytes[index + 0] = static_cast<std::uint8_t>(
+            std::clamp(static_cast<float>(image.rgbaBytes[index + 2]) * alpha, 0.0f, 255.0f) +
+            0.5f);
+        bgraBytes[index + 1] = static_cast<std::uint8_t>(
+            std::clamp(static_cast<float>(image.rgbaBytes[index + 1]) * alpha, 0.0f, 255.0f) +
+            0.5f);
+        bgraBytes[index + 2] = static_cast<std::uint8_t>(
+            std::clamp(static_cast<float>(image.rgbaBytes[index + 0]) * alpha, 0.0f, 255.0f) +
+            0.5f);
+        bgraBytes[index + 3] = image.rgbaBytes[index + 3];
+    }
+
+    return bgraBytes;
+}
+
+RECT coverBounds(const RECT& destinationBounds, int sourceWidth, int sourceHeight)
+{
+    const int destinationWidth = destinationBounds.right - destinationBounds.left;
+    const int destinationHeight = destinationBounds.bottom - destinationBounds.top;
+    if (destinationWidth <= 0 || destinationHeight <= 0 || sourceWidth <= 0 || sourceHeight <= 0)
+    {
+        return destinationBounds;
+    }
+
+    const float scale =
+        std::max(static_cast<float>(destinationWidth) / static_cast<float>(sourceWidth),
+                 static_cast<float>(destinationHeight) / static_cast<float>(sourceHeight));
+    const int scaledWidth = static_cast<int>(static_cast<float>(sourceWidth) * scale + 0.5f);
+    const int scaledHeight = static_cast<int>(static_cast<float>(sourceHeight) * scale + 0.5f);
+    const int left = destinationBounds.left + (destinationWidth - scaledWidth) / 2;
+    const int top = destinationBounds.top + (destinationHeight - scaledHeight) / 2;
+    return RECT{left, top, left + scaledWidth, top + scaledHeight};
+}
+
+void drawDecodedImage(HDC deviceContext, const DecodedImage& image, const RECT& destinationBounds)
+{
+    if (deviceContext == nullptr || image.width <= 0 || image.height <= 0)
+    {
+        return;
+    }
+
+    BITMAPINFO bitmapInfo{};
+    bitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bitmapInfo.bmiHeader.biWidth = image.width;
+    bitmapInfo.bmiHeader.biHeight = -image.height;
+    bitmapInfo.bmiHeader.biPlanes = 1;
+    bitmapInfo.bmiHeader.biBitCount = 32;
+    bitmapInfo.bmiHeader.biCompression = BI_RGB;
+
+    void* pixelMemory = nullptr;
+    HDC sourceContext = CreateCompatibleDC(deviceContext);
+    if (sourceContext == nullptr)
+    {
+        throw std::runtime_error(
+            "Failed to create a source device context for overlay image composition.");
+    }
+
+    HBITMAP bitmap =
+        CreateDIBSection(sourceContext, &bitmapInfo, DIB_RGB_COLORS, &pixelMemory, nullptr, 0);
+    if (bitmap == nullptr || pixelMemory == nullptr)
+    {
+        DeleteDC(sourceContext);
+        throw std::runtime_error(
+            "Failed to allocate a source bitmap for overlay image composition.");
+    }
+
+    const std::vector<std::uint8_t> bgraBytes = rgbaToPremultipliedBgra(image);
+    std::memcpy(pixelMemory, bgraBytes.data(), bgraBytes.size());
+
+    HGDIOBJ previousBitmap = SelectObject(sourceContext, bitmap);
+    const BLENDFUNCTION blendFunction{AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+    const int width = destinationBounds.right - destinationBounds.left;
+    const int height = destinationBounds.bottom - destinationBounds.top;
+    if (!AlphaBlend(deviceContext, destinationBounds.left, destinationBounds.top, width, height,
+                    sourceContext, 0, 0, image.width, image.height, blendFunction))
+    {
+        SelectObject(sourceContext, previousBitmap);
+        DeleteObject(bitmap);
+        DeleteDC(sourceContext);
+        throw std::runtime_error("Failed to alpha blend an overlay image.");
+    }
+
+    SelectObject(sourceContext, previousBitmap);
+    DeleteObject(bitmap);
+    DeleteDC(sourceContext);
 }
 
 std::filesystem::path resolveMenuBackdropPath(const engine::AssetManager& assetManager)
@@ -1025,6 +1124,97 @@ StartupFlowOverlay StartupFlowOverlay::createSettingsMenu(const AssetManager& as
         viewModel.pauseContext ? std::filesystem::path{} : resolveMenuBackdropPath(assetManager));
 #else
     throw std::runtime_error("Settings overlay generation is only available on Windows.");
+#endif
+}
+
+StartupFlowOverlay
+StartupFlowOverlay::createVisualNovelScene(const AssetManager& assetManager,
+                                           const VisualNovelOverlayModel& viewModel)
+{
+#if defined(_WIN32)
+    return paintWindowsTexture(
+        kOverlayWidth, kOverlayHeight,
+        [&assetManager, &viewModel](HDC deviceContext, const RECT& fullRect)
+        {
+            fillSolidRect(deviceContext, fullRect, RGB(8, 8, 10));
+
+            if (!viewModel.backgroundAssetPath.empty())
+            {
+                const std::filesystem::path backgroundPath =
+                    assetManager.resolveAssetPath(viewModel.backgroundAssetPath);
+                const DecodedImage backgroundImage = decodeWithWic(backgroundPath);
+                drawDecodedImage(
+                    deviceContext, backgroundImage,
+                    coverBounds(fullRect, backgroundImage.width, backgroundImage.height));
+            }
+
+            for (const VisualNovelOverlayPortrait& portrait : viewModel.portraits)
+            {
+                if (portrait.assetPath.empty())
+                {
+                    continue;
+                }
+
+                const std::filesystem::path portraitPath =
+                    assetManager.resolveAssetPath(portrait.assetPath);
+                const DecodedImage portraitImage = decodeWithWic(portraitPath);
+                const float portraitScale = std::max(portrait.nativeScale, 0.0f);
+                const float portraitWidth = static_cast<float>(portraitImage.width) * portraitScale;
+                const float portraitHeight =
+                    static_cast<float>(portraitImage.height) * portraitScale;
+                const float centerX = std::clamp(portrait.centerXNormalized, -1.0f, 2.0f) *
+                                      static_cast<float>(kOverlayWidth);
+                const float baselineY = std::clamp(portrait.baselineYNormalized, -1.0f, 2.0f) *
+                                        static_cast<float>(kOverlayHeight);
+                const RECT portraitBounds{static_cast<int>(centerX - portraitWidth * 0.5f + 0.5f),
+                                          static_cast<int>(baselineY - portraitHeight + 0.5f),
+                                          static_cast<int>(centerX + portraitWidth * 0.5f + 0.5f),
+                                          static_cast<int>(baselineY + 0.5f)};
+                drawDecodedImage(deviceContext, portraitImage, portraitBounds);
+            }
+
+            if (!viewModel.speakerName.empty() || !viewModel.dialogueText.empty() ||
+                !viewModel.advancePrompt.empty())
+            {
+                const RECT dialoguePanel{120, 730, 1800, 1000};
+                const RECT namePlate{160, 676, 600, 740};
+                const RECT accentLine{160, 968, 1760, 974};
+                fillSolidRect(deviceContext, dialoguePanel, RGB(20, 20, 24));
+                fillSolidRect(deviceContext, namePlate, RGB(70, 52, 34));
+                fillSolidRect(deviceContext, accentLine, RGB(178, 144, 94));
+
+                if (!viewModel.speakerName.empty())
+                {
+                    drawTextCommand(deviceContext,
+                                    PaintTextCommand{widen(viewModel.speakerName),
+                                                     RECT{186, 688, 570, 730}, 20, FW_SEMIBOLD,
+                                                     RGB(246, 238, 228),
+                                                     DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+                                    L"Segoe UI");
+                }
+
+                drawTextCommand(deviceContext,
+                                PaintTextCommand{
+                                    widen(viewModel.dialogueText), RECT{170, 784, 1740, 942}, 24,
+                                    FW_NORMAL, RGB(244, 244, 242), DT_LEFT | DT_TOP | DT_WORDBREAK},
+                                L"Segoe UI");
+
+                if (!viewModel.advancePrompt.empty())
+                {
+                    drawTextCommand(deviceContext,
+                                    PaintTextCommand{widen(viewModel.advancePrompt),
+                                                     RECT{1320, 942, 1740, 980}, 16, FW_NORMAL,
+                                                     RGB(186, 186, 190),
+                                                     DT_RIGHT | DT_VCENTER | DT_SINGLELINE},
+                                    L"Segoe UI");
+                }
+            }
+        },
+        true);
+#else
+    (void)assetManager;
+    (void)viewModel;
+    throw std::runtime_error("Visual novel overlay generation is only available on Windows.");
 #endif
 }
 } // namespace engine
