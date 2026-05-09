@@ -1,5 +1,6 @@
 #include "runtime/StartupFlowOverlay.h"
 
+#include "assets/AssetManager.h"
 #include "core/Renderer.h"
 
 #include <glad/glad.h>
@@ -183,13 +184,9 @@ DecodedImage decodeWithWic(const std::filesystem::path& path)
     return image;
 }
 
-std::filesystem::path resolveMenuBackdropPath()
+std::filesystem::path resolveMenuBackdropPath(const engine::AssetManager& assetManager)
 {
-#ifdef ENGINE_SOURCE_DIR
-    return std::filesystem::path(ENGINE_SOURCE_DIR) / "assets" / "textures" / "background.png";
-#else
-    return std::filesystem::path("assets") / "textures" / "background.png";
-#endif
+    return assetManager.resolveAssetPath(std::filesystem::path("textures") / "background.png");
 }
 
 void copyScaledBackdropToBgra(const DecodedImage& image, std::uint8_t* destination)
@@ -460,7 +457,8 @@ StartupFlowOverlay StartupFlowOverlay::createDisclaimer()
 #endif
 }
 
-StartupFlowOverlay StartupFlowOverlay::createMenu(MainMenuSelection selection)
+StartupFlowOverlay StartupFlowOverlay::createMenu(const AssetManager& assetManager,
+                                                  MainMenuSelection selection)
 {
 #if defined(_WIN32)
     return paintWindowsOverlay(
@@ -529,7 +527,7 @@ StartupFlowOverlay StartupFlowOverlay::createMenu(MainMenuSelection selection)
                                  DT_LEFT | DT_VCENTER | DT_SINGLELINE},
                 L"Segoe UI");
         },
-        true, resolveMenuBackdropPath());
+        true, resolveMenuBackdropPath(assetManager));
 #else
     throw std::runtime_error("Startup menu overlay generation is only available on Windows.");
 #endif
@@ -593,7 +591,8 @@ StartupFlowOverlay StartupFlowOverlay::createPauseMenu(PauseMenuSelection select
 #endif
 }
 
-StartupFlowOverlay StartupFlowOverlay::createSettingsMenu(const SettingsOverlayViewModel& viewModel)
+StartupFlowOverlay StartupFlowOverlay::createSettingsMenu(const AssetManager& assetManager,
+                                                          const SettingsOverlayViewModel& viewModel)
 {
 #if defined(_WIN32)
     return paintWindowsOverlay(
@@ -733,7 +732,7 @@ StartupFlowOverlay StartupFlowOverlay::createSettingsMenu(const SettingsOverlayV
                             L"Segoe UI");
         },
         !viewModel.pauseContext,
-        viewModel.pauseContext ? std::filesystem::path{} : resolveMenuBackdropPath());
+        viewModel.pauseContext ? std::filesystem::path{} : resolveMenuBackdropPath(assetManager));
 #else
     throw std::runtime_error("Settings overlay generation is only available on Windows.");
 #endif

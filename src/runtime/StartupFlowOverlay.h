@@ -7,6 +7,7 @@
 
 namespace engine
 {
+class AssetManager;
 class Renderer;
 
 enum class MainMenuSelection
@@ -48,9 +49,11 @@ class StartupFlowOverlay final
     static StartupFlowOverlay createSolid(std::uint8_t red, std::uint8_t green, std::uint8_t blue,
                                           std::uint8_t alpha);
     static StartupFlowOverlay createDisclaimer();
-    static StartupFlowOverlay createMenu(MainMenuSelection selection);
+    static StartupFlowOverlay createMenu(const AssetManager& assetManager,
+                                         MainMenuSelection selection);
     static StartupFlowOverlay createPauseMenu(PauseMenuSelection selection);
-    static StartupFlowOverlay createSettingsMenu(const SettingsOverlayViewModel& viewModel);
+    static StartupFlowOverlay createSettingsMenu(const AssetManager& assetManager,
+                                                 const SettingsOverlayViewModel& viewModel);
 
     unsigned int m_textureId = 0;
     int m_width = 0;

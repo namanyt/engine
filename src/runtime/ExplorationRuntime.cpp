@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <sstream>
+#include <stdexcept>
 
 #if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
 #include "debug/DebugUi.h"
@@ -65,6 +66,13 @@ void ExplorationRuntime::activate(ActivationContext& activationContext)
 {
     prepareActivation(activationContext);
 
+    if (activationContext.assetManager == nullptr)
+    {
+        throw std::runtime_error("ExplorationRuntime activation requires an AssetManager.");
+    }
+
+    m_assetManager = activationContext.assetManager;
+
     const Vec3 playerSpawn{
         0.0f, sampleAtmosphericTerrainHeight(m_scene->worldSettings().proceduralWorld, 0.0f, 18.0f),
         18.0f};
@@ -104,6 +112,7 @@ void ExplorationRuntime::deactivate(Renderer& renderer)
     m_pauseSettingsOverlay.reset();
     m_pauseReturnOverlay.reset();
     m_settingsOverlayTexture.reset();
+    m_assetManager.reset();
     if (m_scene != nullptr)
     {
         m_scene->deactivate(renderer);
@@ -470,8 +479,13 @@ void ExplorationRuntime::applyRuntimeOverlay(Renderer& renderer) const
 
 void ExplorationRuntime::refreshSettingsOverlay()
 {
+    if (m_assetManager == nullptr)
+    {
+        throw std::runtime_error("ExplorationRuntime settings overlay requires an AssetManager.");
+    }
+
     m_settingsOverlayTexture.reset();
     m_settingsOverlayTexture =
-        StartupFlowOverlay::createSettingsMenu(m_settingsOverlay.viewModel());
+        StartupFlowOverlay::createSettingsMenu(*m_assetManager, m_settingsOverlay.viewModel());
 }
 } // namespace engine

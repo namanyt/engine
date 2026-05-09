@@ -59,6 +59,7 @@ class ExplorationRuntime final : public RuntimeMode
     StartupFlowOverlay m_pauseSettingsOverlay;
     StartupFlowOverlay m_pauseReturnOverlay;
     StartupFlowOverlay m_settingsOverlayTexture;
+    std::shared_ptr<AssetManager> m_assetManager;
     SettingsOverlay m_settingsOverlay;
     Camera m_debugCamera;
     FreeCameraController m_debugCameraController;

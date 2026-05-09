@@ -153,11 +153,14 @@ struct CameraPresentationComponent final
     float standingEyeHeight = 1.64f;
     float crouchedEyeHeight = 1.02f;
     float currentEyeHeight = 1.64f;
+    float bobBlend = 0.0f;
     float bobPhase = 0.0f;
     float breathingPhase = 0.0f;
     float landingDip = 0.0f;
     float pitchOffsetDegrees = 0.0f;
     float rollDegrees = 0.0f;
+    float bobPitchOffsetDegrees = 0.0f;
+    float bobRollDegrees = 0.0f;
     bool initialized = false;
     Vec3 previousBodyPosition{};
     Vec3 currentBodyPosition{};

@@ -34,6 +34,8 @@ class AssetManager final
 
     std::size_t discover(const std::filesystem::path& rootPath);
     AssetHandle<> registerAsset(const std::filesystem::path& assetPath);
+    std::filesystem::path resolveAssetPath(const std::filesystem::path& assetPath) const;
+    const std::filesystem::path& assetRootDirectory() const noexcept;
 
     template <typename TAsset = Asset> AssetHandle<TAsset> findByUuid(const std::string& uuid) const
     {
@@ -44,7 +46,7 @@ class AssetManager final
     template <typename TAsset = Asset>
     AssetHandle<TAsset> findByPath(const std::filesystem::path& assetPath) const
     {
-        const AssetRegistry::Record* record = m_registry.findByPath(assetPath);
+        const AssetRegistry::Record* record = m_registry.findByPath(resolveAssetPath(assetPath));
         return typedHandle<TAsset>(record);
     }
 
@@ -97,6 +99,7 @@ class AssetManager final
     void registerLoader(AssetType type, Loader loader);
 
     AssetRegistry m_registry;
+    std::filesystem::path m_assetRootDirectory;
     std::unordered_map<AssetType, Loader, AssetTypeHash> m_loaders;
     std::unordered_map<std::string, std::weak_ptr<Asset>> m_cache;
     std::unordered_map<std::string, std::shared_ptr<Asset>> m_pinnedPreloads;

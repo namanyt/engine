@@ -66,6 +66,7 @@ class MenuRuntime final : public RuntimeMode
     StartupFlowOverlay m_quitSelectedOverlay;
     StartupFlowOverlay m_idleOverlay;
     StartupFlowOverlay m_settingsOverlayTexture;
+    std::shared_ptr<AssetManager> m_assetManager;
     SettingsOverlay m_settingsOverlay;
     View m_view = View::Main;
     Phase m_phase = Phase::Browsing;

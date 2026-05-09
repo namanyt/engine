@@ -10,6 +10,18 @@ namespace engine
 {
 namespace
 {
+std::filesystem::path normalizeFilesystemPath(const std::filesystem::path& path)
+{
+    std::error_code error;
+    const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path, error);
+    if (!error)
+    {
+        return canonicalPath.lexically_normal();
+    }
+
+    return std::filesystem::absolute(path).lexically_normal();
+}
+
 const char* assetClassName(AssetType type) noexcept
 {
     switch (type)
@@ -46,6 +58,8 @@ AssetManager::AssetManager()
 
 std::size_t AssetManager::discover(const std::filesystem::path& rootPath)
 {
+    m_assetRootDirectory = normalizeFilesystemPath(rootPath);
+
     std::unordered_set<std::string> existingUuids;
     existingUuids.reserve(m_registry.records().size());
     for (const auto& [uuid, record] : m_registry.records())
@@ -110,7 +124,7 @@ std::size_t AssetManager::discover(const std::filesystem::path& rootPath)
 
 AssetHandle<> AssetManager::registerAsset(const std::filesystem::path& assetPath)
 {
-    const AssetHandle<> handle = m_registry.registerAsset(assetPath);
+    const AssetHandle<> handle = m_registry.registerAsset(resolveAssetPath(assetPath));
     if (handle && m_registry.findByUuid(handle.uuid()) != nullptr)
     {
         const AssetRegistry::Record& record = *m_registry.findByUuid(handle.uuid());
@@ -121,6 +135,31 @@ AssetHandle<> AssetManager::registerAsset(const std::filesystem::path& assetPath
     }
 
     return handle;
+}
+
+std::filesystem::path AssetManager::resolveAssetPath(const std::filesystem::path& assetPath) const
+{
+    if (assetPath.empty())
+    {
+        return {};
+    }
+
+    if (assetPath.is_absolute())
+    {
+        return normalizeFilesystemPath(assetPath);
+    }
+
+    if (!m_assetRootDirectory.empty())
+    {
+        return (m_assetRootDirectory / assetPath).lexically_normal();
+    }
+
+    return assetPath.lexically_normal();
+}
+
+const std::filesystem::path& AssetManager::assetRootDirectory() const noexcept
+{
+    return m_assetRootDirectory;
 }
 
 std::shared_ptr<Asset> AssetManager::load(const AssetHandle<>& handle)

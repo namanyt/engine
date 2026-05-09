@@ -17,6 +17,13 @@ constexpr int kMaxFixedStepsPerFrame = 8;
 constexpr float kGroundRetainDistance = 0.08f;
 constexpr float kGroundRetainVerticalSpeed = 2.5f;
 constexpr float kSupportPersistenceSeconds = 0.08f;
+constexpr float kCameraBobMinSpeed = 0.08f;
+constexpr float kCameraBobPhaseSpeed = 5.25f;
+constexpr float kCameraBobVerticalAmplitude = 0.0045f;
+constexpr float kCameraBobPitchAmplitudeDegrees = 0.10f;
+constexpr float kCameraBobRollAmplitudeDegrees = 0.12f;
+constexpr float kCameraBobIdlePitchRecovery = 7.0f;
+constexpr float kCameraBobIdleRollRecovery = 7.5f;
 
 float radians(float degrees)
 {
@@ -282,6 +289,16 @@ float PlayerController::mouseSensitivity() const noexcept
     return m_mouseSensitivity;
 }
 
+float PlayerController::cameraBobAmount() const noexcept
+{
+    return m_cameraBobAmount;
+}
+
+float PlayerController::cameraBobBlendSpeed() const noexcept
+{
+    return m_cameraBobBlendSpeed;
+}
+
 float PlayerController::groundAcceleration() const noexcept
 {
     return m_groundAcceleration;
@@ -400,6 +417,16 @@ void PlayerController::setGravity(float gravity) noexcept
 void PlayerController::setMouseSensitivity(float mouseSensitivity) noexcept
 {
     m_mouseSensitivity = std::clamp(mouseSensitivity, 0.01f, 1.0f);
+}
+
+void PlayerController::setCameraBobAmount(float cameraBobAmount) noexcept
+{
+    m_cameraBobAmount = std::clamp(cameraBobAmount, 0.0f, 3.0f);
+}
+
+void PlayerController::setCameraBobBlendSpeed(float cameraBobBlendSpeed) noexcept
+{
+    m_cameraBobBlendSpeed = std::clamp(cameraBobBlendSpeed, 0.5f, 12.0f);
 }
 
 void PlayerController::setGroundAcceleration(float acceleration) noexcept
@@ -880,34 +907,52 @@ void PlayerController::updatePresentation(Scene& scene, ecs::Entity playerEntity
         approachScalar(presentation.currentEyeHeight, targetEyeHeight, deltaSeconds * 3.5f);
 
     const float speed = length(horizontalVector(velocity.value));
+    const float normalizedSpeed =
+        std::clamp(speed / std::max(controller.walkSpeed, 0.1f), 0.0f, 1.0f);
+    const float bobTarget = grounding.grounded ? normalizedSpeed * normalizedSpeed : 0.0f;
+    presentation.bobBlend =
+        approachScalar(presentation.bobBlend, bobTarget, deltaSeconds * m_cameraBobBlendSpeed);
+
     presentation.breathingPhase += deltaSeconds * (grounding.grounded ? 0.85f : 0.45f);
     const float breathingOffset = std::sin(presentation.breathingPhase) * 0.004f;
 
-    float bobSide = 0.0f;
-    float bobUp = 0.0f;
-    if (grounding.grounded && speed > 0.05f)
+    float bobVertical = 0.0f;
+    float bobPitch = 0.0f;
+    float bobRoll = 0.0f;
+    if (presentation.bobBlend > 0.001f && speed > kCameraBobMinSpeed)
     {
-        const float normalizedSpeed =
-            std::clamp(speed / std::max(controller.walkSpeed, 0.1f), 0.0f, 1.6f);
-        presentation.bobPhase += deltaSeconds * (7.0f + normalizedSpeed * 2.5f);
-        bobSide = std::sin(presentation.bobPhase) * 0.007f * normalizedSpeed;
-        bobUp = std::sin(presentation.bobPhase * 2.0f) * 0.012f * normalizedSpeed;
+        presentation.bobPhase += deltaSeconds * (kCameraBobPhaseSpeed + normalizedSpeed * 1.4f);
+        const float bobWave = std::sin(presentation.bobPhase);
+        const float liftWave = std::sin(presentation.bobPhase * 2.0f + 0.45f);
+        const float bobStrength = presentation.bobBlend * m_cameraBobAmount;
+
+        bobVertical =
+            bobStrength * kCameraBobVerticalAmplitude * (0.65f + normalizedSpeed) * liftWave;
+        bobPitch = bobStrength * kCameraBobPitchAmplitudeDegrees * bobWave;
+        bobRoll = bobStrength * kCameraBobRollAmplitudeDegrees * bobWave;
     }
 
     presentation.landingDip = std::max(presentation.landingDip - deltaSeconds * 0.18f, 0.0f);
 
-    const float targetRoll = -(input.moveAxes.x * 1.4f) - (velocity.value.x * 0.05f);
-    const float targetPitch =
+    const float targetMovementRoll = -(input.moveAxes.x * 1.4f) - (velocity.value.x * 0.05f);
+    const float targetMovementPitch =
         -std::clamp(speed / std::max(controller.walkSpeed, 0.1f), 0.0f, 1.0f) * 0.55f;
     presentation.rollDegrees =
-        approachScalar(presentation.rollDegrees, targetRoll, deltaSeconds * 8.0f);
+        approachScalar(presentation.rollDegrees, targetMovementRoll, deltaSeconds * 8.0f);
     presentation.pitchOffsetDegrees =
-        approachScalar(presentation.pitchOffsetDegrees, targetPitch, deltaSeconds * 6.0f);
+        approachScalar(presentation.pitchOffsetDegrees, targetMovementPitch, deltaSeconds * 6.0f);
+
+    const float rollRecovery = grounding.grounded ? 7.5f : kCameraBobIdleRollRecovery;
+    const float pitchRecovery = grounding.grounded ? 6.0f : kCameraBobIdlePitchRecovery;
+    presentation.bobRollDegrees =
+        approachScalar(presentation.bobRollDegrees, bobRoll, deltaSeconds * rollRecovery);
+    presentation.bobPitchOffsetDegrees =
+        approachScalar(presentation.bobPitchOffsetDegrees, bobPitch, deltaSeconds * pitchRecovery);
 
     presentation.localOffset =
-        Vec3{bobSide, breathingOffset + bobUp - presentation.landingDip, 0.0f};
+        Vec3{0.0f, breathingOffset + bobVertical - presentation.landingDip, 0.0f};
     debugState.cameraOffset = presentation.localOffset;
-    debugState.headBobAmount = bobUp;
+    debugState.headBobAmount = bobVertical;
     debugState.landingDip = presentation.landingDip;
 }
 
@@ -935,8 +980,9 @@ void PlayerController::syncPlayerFromEcs(const Scene& scene, ecs::Entity playerE
     player.setEyeHeight(presentation.currentEyeHeight);
     player.camera().setPerspective(camera.fieldOfViewRadians, camera.nearPlane, 160.0f);
     player.camera().setYawPitchRoll(camera.yawDegrees,
-                                    camera.pitchDegrees + presentation.pitchOffsetDegrees,
-                                    presentation.rollDegrees);
+                                    camera.pitchDegrees + presentation.pitchOffsetDegrees +
+                                        presentation.bobPitchOffsetDegrees,
+                                    presentation.rollDegrees + presentation.bobRollDegrees);
 
     const float clampedAlpha = std::clamp(presentationAlpha, 0.0f, 1.0f);
     const Vec3 renderBodyPosition =

@@ -535,6 +535,16 @@ void DebugUi::draw(AtmosphericWorldSettings& worldSettings,
     {
         playerController.setMouseSensitivity(mouseSensitivity);
     }
+    float cameraBobAmount = playerController.cameraBobAmount();
+    if (ImGui::SliderFloat("Camera Bob Amount", &cameraBobAmount, 0.0f, 3.0f, "%.2f"))
+    {
+        playerController.setCameraBobAmount(cameraBobAmount);
+    }
+    float cameraBobBlendSpeed = playerController.cameraBobBlendSpeed();
+    if (ImGui::SliderFloat("Camera Bob Blend Speed", &cameraBobBlendSpeed, 0.5f, 12.0f, "%.2f"))
+    {
+        playerController.setCameraBobBlendSpeed(cameraBobBlendSpeed);
+    }
     float crouchSpeedMultiplier = playerController.crouchSpeedMultiplier();
     if (ImGui::SliderFloat("Crouch Speed Mult", &crouchSpeedMultiplier, 0.1f, 1.0f))
     {

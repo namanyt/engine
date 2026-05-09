@@ -257,6 +257,20 @@ int assetManagerRoundTrip()
         return 1;
     }
 
+    const fs::path relativeAudioPath = fs::path("audio") / "wind.wav";
+    const auto relativeAudioHandle = manager.findByPath<engine::AudioAsset>(relativeAudioPath);
+    if (!relativeAudioHandle || relativeAudioHandle != audioHandle)
+    {
+        std::cerr << "Audio asset lookup by relative path failed.\n";
+        return 1;
+    }
+
+    if (manager.resolveAssetPath(relativeAudioPath) != audioPath.lexically_normal())
+    {
+        std::cerr << "AssetManager did not resolve the relative audio path correctly.\n";
+        return 1;
+    }
+
     if (!manager.isLoaded(audioHandle.uuid()))
     {
         std::cerr << "Preload flag did not keep the audio asset resident.\n";
@@ -313,6 +327,14 @@ int assetManagerRoundTrip()
     if (!vertexHandle || !fragmentHandle)
     {
         std::cerr << "Shader assets should be discoverable through the asset manager.\n";
+        return 1;
+    }
+
+    const auto relativeVertexHandle =
+        manager.findByPath<engine::ShaderAsset>(fs::path("shaders") / "test_surface.vert");
+    if (!relativeVertexHandle || relativeVertexHandle != vertexHandle)
+    {
+        std::cerr << "Shader asset lookup by relative path failed.\n";
         return 1;
     }
 

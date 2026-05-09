@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
 namespace engine
 {
@@ -27,10 +28,20 @@ void MenuRuntime::activate(ActivationContext& activationContext)
 {
     activationContext.renderer.prepareOverlayRenderingResources();
 
-    m_startSelectedOverlay = StartupFlowOverlay::createMenu(MainMenuSelection::NewGame);
-    m_settingsSelectedOverlay = StartupFlowOverlay::createMenu(MainMenuSelection::Settings);
-    m_quitSelectedOverlay = StartupFlowOverlay::createMenu(MainMenuSelection::Quit);
-    m_idleOverlay = StartupFlowOverlay::createMenu(MainMenuSelection::None);
+    if (activationContext.assetManager == nullptr)
+    {
+        throw std::runtime_error("MenuRuntime activation requires an AssetManager.");
+    }
+
+    m_assetManager = activationContext.assetManager;
+
+    m_startSelectedOverlay =
+        StartupFlowOverlay::createMenu(*m_assetManager, MainMenuSelection::NewGame);
+    m_settingsSelectedOverlay =
+        StartupFlowOverlay::createMenu(*m_assetManager, MainMenuSelection::Settings);
+    m_quitSelectedOverlay =
+        StartupFlowOverlay::createMenu(*m_assetManager, MainMenuSelection::Quit);
+    m_idleOverlay = StartupFlowOverlay::createMenu(*m_assetManager, MainMenuSelection::None);
     m_phase = Phase::Browsing;
     m_view = View::Main;
     m_phaseElapsedSeconds = 0.0f;
@@ -46,6 +57,7 @@ void MenuRuntime::deactivate(Renderer& renderer)
     m_quitSelectedOverlay.reset();
     m_idleOverlay.reset();
     m_settingsOverlayTexture.reset();
+    m_assetManager.reset();
     renderer.clearRuntimeOverlayTexture();
 }
 
@@ -214,9 +226,14 @@ void MenuRuntime::applyOverlayTexture(Renderer& renderer) const
 
 void MenuRuntime::refreshSettingsOverlay()
 {
+    if (m_assetManager == nullptr)
+    {
+        throw std::runtime_error("MenuRuntime settings overlay requires an AssetManager.");
+    }
+
     m_settingsOverlayTexture.reset();
     m_settingsOverlayTexture =
-        StartupFlowOverlay::createSettingsMenu(m_settingsOverlay.viewModel());
+        StartupFlowOverlay::createSettingsMenu(*m_assetManager, m_settingsOverlay.viewModel());
 }
 
 float MenuRuntime::fadeProgress() const

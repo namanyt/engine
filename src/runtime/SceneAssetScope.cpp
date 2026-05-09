@@ -92,6 +92,11 @@ SceneAssetScope::findAssetDependency(const std::string& dependencyId) const
 std::filesystem::path
 SceneAssetScope::resolveAssetPath(const std::filesystem::path& assetPath) const
 {
+    if (m_assetManager != nullptr)
+    {
+        return m_assetManager->resolveAssetPath(assetPath);
+    }
+
     if (assetPath.is_absolute())
     {
         return assetPath;

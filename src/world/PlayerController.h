@@ -21,6 +21,8 @@ class PlayerController final
     float jumpSpeed() const noexcept;
     float gravity() const noexcept;
     float mouseSensitivity() const noexcept;
+    float cameraBobAmount() const noexcept;
+    float cameraBobBlendSpeed() const noexcept;
     float groundAcceleration() const noexcept;
     float airAcceleration() const noexcept;
     float groundFriction() const noexcept;
@@ -46,6 +48,8 @@ class PlayerController final
     void setJumpSpeed(float jumpSpeed) noexcept;
     void setGravity(float gravity) noexcept;
     void setMouseSensitivity(float mouseSensitivity) noexcept;
+    void setCameraBobAmount(float cameraBobAmount) noexcept;
+    void setCameraBobBlendSpeed(float cameraBobBlendSpeed) noexcept;
     void setGroundAcceleration(float acceleration) noexcept;
     void setAirAcceleration(float acceleration) noexcept;
     void setGroundFriction(float friction) noexcept;
@@ -95,7 +99,7 @@ class PlayerController final
     bool m_collisionCacheRebuilt = false;
     bool m_staleColliderDetected = false;
     float m_accumulatorSeconds = 0.0f;
-    float m_walkSpeed = 8.538f;
+    float m_walkSpeed = 8.500f;
     float m_sprintMultiplier = 1.45f;
     float m_mouseSensitivity = 0.10f;
     float m_groundAcceleration = 42.0f;
@@ -108,6 +112,8 @@ class PlayerController final
     float m_capsuleRadius = 0.42f;
     float m_standingHeight = 1.8f;
     float m_crouchingHeight = 1.2f;
+    float m_cameraBobAmount = 1.6667f;
+    float m_cameraBobBlendSpeed = 8.0f;
     float m_standingEyeHeight = 1.64f;
     float m_crouchedEyeHeight = 1.02f;
     float m_stepHeight = 0.55f;
