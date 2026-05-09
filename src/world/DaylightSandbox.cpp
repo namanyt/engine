@@ -111,11 +111,10 @@ void addSandboxProps(engine::Scene& scene, const engine::TestWorldAssets& assets
 
     const engine::ecs::Entity leftMarker = addWorldObject(
         scene, engine::WorldObjectId::MarkerLeft, engine::WorldObjectKind::Marker,
-        engine::WorldObjectSemantic::Surface | engine::WorldObjectSemantic::Emissive |
-            engine::WorldObjectSemantic::RayOccluder,
-        "SandboxMarkerLeft", assets.cube, accentMaterial, engine::Vec3{-10.0f, 4.1f, -10.0f},
+        engine::WorldObjectSemantic::Surface | engine::WorldObjectSemantic::RayOccluder,
+        "SandboxMarkerLeft", assets.cube, accentMaterial, engine::Vec3{-10.0f, 3.5f, -10.0f},
         engine::Vec3{0.0f, 0.25f, 0.0f}, engine::Vec3{1.4f, 1.4f, 1.4f}, 0.78f);
-    addInteractable(scene, leftMarker, "show_alt_panel", 18.0f);
+    addInteractable(scene, leftMarker, "show_alt_panel", 9.0f);
     addWorldObject(scene, engine::WorldObjectId::None, engine::WorldObjectKind::Beacon,
                    engine::WorldObjectSemantic::Surface | engine::WorldObjectSemantic::Emissive,
                    "SandboxBeacon", assets.sphere, accentMaterial, engine::Vec3{0.0f, 3.8f, -18.0f},
@@ -125,7 +124,7 @@ void addSandboxProps(engine::Scene& scene, const engine::TestWorldAssets& assets
         engine::WorldObjectSemantic::Surface | engine::WorldObjectSemantic::RayOccluder,
         "SandboxMarkerRight", assets.pyramid, objectMaterial, engine::Vec3{11.0f, 4.8f, -8.0f},
         engine::Vec3{0.0f, -0.2f, 0.0f}, engine::Vec3{1.8f, 2.4f, 1.8f}, 0.72f);
-    addInteractable(scene, rightMarker, "restore_base_panel", 18.0f);
+    addInteractable(scene, rightMarker, "restore_base_panel", 9.0f);
 
     addWorldObject(scene, engine::WorldObjectId::None, engine::WorldObjectKind::Rock,
                    engine::WorldObjectSemantic::Surface | engine::WorldObjectSemantic::RayOccluder,

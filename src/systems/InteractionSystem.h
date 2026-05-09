@@ -14,7 +14,7 @@ class Scene;
 
 namespace engine::systems
 {
-constexpr float kInteractionFocusDotThreshold = 0.955f;
+constexpr float kInteractionFocusDotThreshold = 0.985f;
 
 struct InteractionState final
 {

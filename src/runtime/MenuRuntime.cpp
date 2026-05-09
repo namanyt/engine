@@ -92,9 +92,9 @@ void MenuRuntime::update(const UpdateContext& updateContext)
     {
         if (m_phaseElapsedSeconds >= 0.65f)
         {
-            requestRuntimeChange(RuntimeTransitionRequest{RuntimeId::DaylightSandbox, 4.0f,
-                                                          "Daylight Sandbox",
-                                                          LoadingScreenStyle::Disclaimer});
+            requestRuntimeChange(
+                RuntimeTransitionRequest{RuntimeId::DaylightSandbox, 7.0f, "Daylight Sandbox",
+                                         LoadingScreenStyle::DisclaimerBootSequence});
         }
 
         return;

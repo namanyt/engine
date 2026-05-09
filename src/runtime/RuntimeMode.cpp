@@ -14,6 +14,16 @@ void RuntimeMode::deactivate(Renderer& renderer)
     (void)renderer;
 }
 
+bool RuntimeMode::canRenderLoadingPreview() const
+{
+    return false;
+}
+
+void RuntimeMode::renderLoadingPreview(const RenderContext& renderContext)
+{
+    (void)renderContext;
+}
+
 std::unique_ptr<RuntimeMode> RuntimeMode::consumeRequestedTransition()
 {
     return std::move(m_requestedTransition);

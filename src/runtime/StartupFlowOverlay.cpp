@@ -29,6 +29,19 @@ namespace
 constexpr int kOverlayWidth = 1920;
 constexpr int kOverlayHeight = 1080;
 
+COLORREF toColorRef(const engine::BootSequenceTextEntry& entry, COLORREF fallback) noexcept
+{
+    if (!entry.hasColor)
+    {
+        return fallback;
+    }
+
+    const auto toByte = [](float value)
+    { return static_cast<int>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f); };
+
+    return RGB(toByte(entry.color.r), toByte(entry.color.g), toByte(entry.color.b));
+}
+
 unsigned int uploadTexture(const std::vector<std::uint8_t>& rgbaPixels, int width, int height)
 {
     unsigned int textureId = 0;
@@ -595,6 +608,105 @@ StartupFlowOverlay StartupFlowOverlay::createLoadingProgress(const std::string& 
     (void)percent;
     (void)phase;
     throw std::runtime_error("Startup loading overlay generation is only available on Windows.");
+#endif
+}
+
+StartupFlowOverlay
+StartupFlowOverlay::createBootSequence(const std::vector<BootSequenceTextEntry>& lines,
+                                       bool showCursor, const BootSequenceTextEntry& statusText)
+{
+#if defined(_WIN32)
+    constexpr int kTerminalPaddingLeft = 88;
+    constexpr int kTerminalPaddingRight = 88;
+    constexpr int kTerminalPaddingTop = 104;
+    constexpr int kTerminalPaddingBottom = 104;
+    constexpr int kTerminalLineHeight = 28;
+    constexpr int kTerminalLineStep = 34;
+    constexpr int kTerminalFooterGap = 20;
+
+    std::vector<std::pair<std::wstring, COLORREF>> lineTexts;
+    lineTexts.reserve(lines.size());
+    for (std::size_t index = 0; index < lines.size(); ++index)
+    {
+        const BootSequenceTextEntry& line = lines[index];
+        const COLORREF fallback = index == 0 ? RGB(214, 214, 214) : RGB(176, 176, 176);
+        lineTexts.emplace_back(std::wstring{line.text.begin(), line.text.end()},
+                               toColorRef(line, fallback));
+    }
+
+    const std::wstring statusLine = std::wstring{statusText.text.begin(), statusText.text.end()};
+    const COLORREF statusColor = toColorRef(statusText, RGB(214, 214, 214));
+
+    return paintWindowsOverlay(
+        [lineTexts = std::move(lineTexts), showCursor, statusLine,
+         statusColor](HDC deviceContext, const RECT& fullRect)
+        {
+            const int left = fullRect.left + kTerminalPaddingLeft;
+            const int right = fullRect.right - kTerminalPaddingRight;
+            const int top = fullRect.top + kTerminalPaddingTop;
+            int footerTop = fullRect.bottom - kTerminalPaddingBottom;
+
+            if (showCursor)
+            {
+                footerTop -= kTerminalLineHeight;
+            }
+
+            if (!statusLine.empty())
+            {
+                footerTop -= kTerminalFooterGap;
+                footerTop -= kTerminalLineHeight;
+            }
+
+            const int availableLogHeight = std::max(0, footerTop - top);
+            const int maxVisibleLines = std::max(1, availableLogHeight / kTerminalLineStep);
+            const std::size_t startIndex =
+                lineTexts.size() > static_cast<std::size_t>(maxVisibleLines)
+                    ? lineTexts.size() - static_cast<std::size_t>(maxVisibleLines)
+                    : 0u;
+
+            int lineTop = top;
+            for (std::size_t index = startIndex; index < lineTexts.size(); ++index)
+            {
+                const RECT lineBounds{left, lineTop, right, lineTop + kTerminalLineHeight};
+                drawTextCommand(deviceContext,
+                                PaintTextCommand{lineTexts[index].first, lineBounds, 16, FW_NORMAL,
+                                                 lineTexts[index].second,
+                                                 DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+                                L"Consolas");
+                lineTop += kTerminalLineStep;
+            }
+
+            if (!statusLine.empty())
+            {
+                const int statusTop =
+                    fullRect.bottom - kTerminalPaddingBottom -
+                    (showCursor ? (kTerminalLineHeight + kTerminalFooterGap + kTerminalLineHeight)
+                                : kTerminalLineHeight);
+                const RECT statusBounds{left, statusTop, right, statusTop + kTerminalLineHeight};
+                drawTextCommand(deviceContext,
+                                PaintTextCommand{statusLine, statusBounds, 16, FW_NORMAL,
+                                                 statusColor, DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+                                L"Consolas");
+            }
+
+            if (showCursor)
+            {
+                const int cursorTop =
+                    fullRect.bottom - kTerminalPaddingBottom - kTerminalLineHeight;
+                const RECT cursorBounds{left, cursorTop, right, cursorTop + kTerminalLineHeight};
+                drawTextCommand(deviceContext,
+                                PaintTextCommand{L"_", cursorBounds, 16, FW_NORMAL,
+                                                 RGB(224, 224, 224),
+                                                 DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+                                L"Consolas");
+            }
+        },
+        false);
+#else
+    (void)lines;
+    (void)showCursor;
+    (void)statusText;
+    throw std::runtime_error("Startup boot overlay generation is only available on Windows.");
 #endif
 }
 

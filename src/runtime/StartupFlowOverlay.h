@@ -5,11 +5,19 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace engine
 {
 class AssetManager;
 class Renderer;
+
+struct BootSequenceTextEntry final
+{
+    std::string text;
+    Color color = Color::white();
+    bool hasColor = false;
+};
 
 enum class MainMenuSelection
 {
@@ -52,6 +60,9 @@ class StartupFlowOverlay final
     static StartupFlowOverlay createDisclaimer();
     static StartupFlowOverlay createLoadingProgress(const std::string& loadingLabel, int percent,
                                                     const std::string& phase);
+    static StartupFlowOverlay createBootSequence(const std::vector<BootSequenceTextEntry>& lines,
+                                                 bool showCursor,
+                                                 const BootSequenceTextEntry& statusText);
     static StartupFlowOverlay createMenu(const AssetManager& assetManager,
                                          MainMenuSelection selection);
     static StartupFlowOverlay createPauseMenu(PauseMenuSelection selection);

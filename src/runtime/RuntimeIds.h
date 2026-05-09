@@ -8,6 +8,7 @@ enum class LoadingScreenStyle
 {
     ProgressOnly,
     Disclaimer,
+    DisclaimerBootSequence,
 };
 
 enum class RuntimeId

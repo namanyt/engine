@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace engine
 {
@@ -32,10 +33,36 @@ class LoadingRuntime final : public RuntimeMode
 #endif
 
   private:
+    struct BootSequenceEvent final
+    {
+        enum class Type
+        {
+            Line,
+            Cursor,
+            Status,
+        };
+
+        Type type = Type::Line;
+        float timeSeconds = 0.0f;
+        float durationSeconds = 0.0f;
+        std::string text;
+        Color color = Color::white();
+        bool hasColor = false;
+    };
+
     Color activeClearColor() const;
     void applyOverlayTexture(Renderer& renderer) const;
     void beginDeferredLoad(const UpdateContext& updateContext);
+    void loadBootSequenceScript();
+    BootSequenceTextEntry bootSequenceStatusText() const;
+    float bootSequencePresentationEndTimeSeconds() const;
+    int bootSequenceVisibleLineCount() const;
+    bool bootSequenceCursorVisible() const;
+    std::vector<BootSequenceTextEntry> visibleBootSequenceLines() const;
+    float bootSequenceFadeStartTimeSeconds() const;
     float overlayOpacity() const;
+    bool shouldRenderPreparedPreview() const;
+    void refreshBootSequenceOverlayIfNeeded();
     float transitionReadyTimeSeconds() const;
     void setProgress(Application& application, float progress, const char* phase);
     void refreshOverlay();
@@ -54,6 +81,12 @@ class LoadingRuntime final : public RuntimeMode
     float m_elapsedSeconds = 0.0f;
     float m_minimumDurationSeconds = 0.0f;
     float m_loadingCompletedAtSeconds = -1.0f;
+    float m_bootSequenceScriptDurationSeconds = 0.0f;
+    int m_bootSequenceVisibleLineRevision = -1;
+    bool m_bootSequenceCursorRevision = false;
+    BootSequenceTextEntry m_bootSequenceStatusRevision;
     bool m_loadingStarted = false;
+    bool m_transitionQueued = false;
+    std::vector<BootSequenceEvent> m_bootSequenceEvents;
 };
 } // namespace engine

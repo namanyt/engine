@@ -33,6 +33,8 @@ class ExplorationRuntime final : public RuntimeMode
     void deactivate(Renderer& renderer) override;
     void update(const UpdateContext& updateContext) override;
     void render(const RenderContext& renderContext) override;
+    bool canRenderLoadingPreview() const override;
+    void renderLoadingPreview(const RenderContext& renderContext) override;
 
 #if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
     void drawDebugUi(const DebugUiContext& debugUiContext) override;
@@ -81,6 +83,7 @@ class ExplorationRuntime final : public RuntimeMode
     PlayerController m_playerController;
     systems::InteractionState m_interactionState{};
     systems::FrameHistory m_frameHistory{};
+    systems::FrameHistory m_loadingPreviewFrameHistory{};
     ecs::Entity m_playerEntity = ecs::kInvalidEntity;
     ecs::Entity m_debugCameraEntity = ecs::kInvalidEntity;
     bool m_debugFreeCameraEnabled = false;

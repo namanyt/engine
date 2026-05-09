@@ -72,6 +72,8 @@ class RuntimeMode
     virtual void deactivate(Renderer& renderer);
     virtual void update(const UpdateContext& updateContext) = 0;
     virtual void render(const RenderContext& renderContext) = 0;
+    virtual bool canRenderLoadingPreview() const;
+    virtual void renderLoadingPreview(const RenderContext& renderContext);
 
 #if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
     virtual void drawDebugUi(const DebugUiContext& debugUiContext) = 0;

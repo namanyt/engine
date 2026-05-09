@@ -12,6 +12,7 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace
@@ -488,6 +489,10 @@ void DebugUi::draw(AtmosphericWorldSettings& worldSettings,
     ImGui::Text("Focus Threshold / Alignment: %.3f / %.3f",
                 runtimeState.interactionDebug.focusDotThreshold,
                 runtimeState.interactionDebug.focusedAlignment);
+    ImGui::Text(
+        "Focus Half-Angle: %.2f deg",
+        std::acos(std::clamp(runtimeState.interactionDebug.focusDotThreshold, -1.0f, 1.0f)) *
+            57.2957795f);
     ImGui::Text("Focused Distance: %.3f", runtimeState.interactionDebug.focusedDistance);
     ImGui::Text("Focused Target: %s", runtimeState.interactionDebug.hasFocusedTarget
                                           ? runtimeState.interactionDebug.focusedEntityLabel.c_str()

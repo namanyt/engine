@@ -139,7 +139,7 @@ engine::Vec3 interactionPromptAnchorForRender(const engine::Scene& scene,
         scene.registry().tryGet<engine::components::RenderMeshComponent>(focusedEntity);
     const float topOffset =
         promptMeshTopOffset(*transform, renderMesh != nullptr ? renderMesh->mesh : nullptr);
-    return transform->position + engine::Vec3{0.0f, topOffset + 0.14f, 0.0f};
+    return transform->position + engine::Vec3{0.0f, topOffset + 0.28f, 0.0f};
 }
 
 void appendFocusedInteractableHighlight(const engine::AtmosphericSceneRuntime& sceneRuntime,
@@ -450,6 +450,33 @@ void ExplorationRuntime::render(const RenderContext& renderContext)
                          extraRenderItems);
 }
 
+bool ExplorationRuntime::canRenderLoadingPreview() const
+{
+    return m_scene != nullptr;
+}
+
+void ExplorationRuntime::renderLoadingPreview(const RenderContext& renderContext)
+{
+    if (m_scene == nullptr)
+    {
+        return;
+    }
+
+    Camera previewCamera{};
+    previewCamera.setPosition(m_scene->defaultPlayerSpawn() + Vec3{0.0f, 1.8f, 0.0f});
+    previewCamera.setYawPitch(-90.0f, -4.5f);
+
+    m_scene->syncWorld();
+    m_scene->updateAtmosphere(renderContext.timeSeconds);
+    m_scene->syncMoonVisual(previewCamera.position());
+
+    const std::vector<systems::RenderItem> extraRenderItems;
+    m_scene->renderWorld(renderContext.renderer, renderContext.renderPipeline,
+                         renderContext.framebufferWidth, renderContext.framebufferHeight,
+                         renderContext.timeSeconds, previewCamera, m_loadingPreviewFrameHistory,
+                         extraRenderItems);
+}
+
 #if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
 void ExplorationRuntime::drawDebugUi(const DebugUiContext& debugUiContext)
 {
@@ -688,24 +715,6 @@ void ExplorationRuntime::updateInteractionState(const ExplorationInputState& inp
         1.0f);
     refreshInteractionDebugState();
 
-    if (interaction.focusChanged)
-    {
-        if (interaction.focusedEntity == ecs::kInvalidEntity)
-        {
-            if (previousFocusedEntity != ecs::kInvalidEntity)
-            {
-                Log::info("Interaction", "Focused entity cleared.");
-            }
-        }
-        else
-        {
-            const std::string entityLabel =
-                describeInteractionEntity(m_scene->scene(), interaction.focusedEntity);
-            Log::info("Interaction", "Focused entity '" + entityLabel + "' with interaction '" +
-                                         interaction.interactionId + "'.");
-        }
-    }
-
     if (!interaction.interactionTriggered)
     {
         return;
@@ -713,9 +722,6 @@ void ExplorationRuntime::updateInteractionState(const ExplorationInputState& inp
 
     const std::string entityLabel =
         describeInteractionEntity(m_scene->scene(), interaction.focusedEntity);
-    Log::info("Interaction", "Triggered interaction '" + interaction.interactionId + "' on '" +
-                                 entityLabel + "'.");
-
     if (interaction.interactionId == "show_alt_panel")
     {
         m_panelOverrideTexture = m_alternatePanelTexture;
