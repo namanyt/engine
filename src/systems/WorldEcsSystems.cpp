@@ -112,16 +112,36 @@ void syncPlayerEntity(Scene& scene, ecs::Entity entity, const Player& player, bo
             entity, player.position(), Vec3{0.0f, player.camera().yawDegrees(), 0.0f},
             Vec3{1.0f, 1.0f, 1.0f});
     }
+    else
+    {
+        components::TransformComponent& transform =
+            registry.get<components::TransformComponent>(entity);
+        transform.position = player.position();
+        transform.rotation = Vec3{0.0f, player.camera().yawDegrees(), 0.0f};
+    }
 
     if (!registry.has<components::VelocityComponent>(entity))
     {
         registry.emplace<components::VelocityComponent>(entity, player.velocity());
+    }
+    else
+    {
+        registry.get<components::VelocityComponent>(entity).value = player.velocity();
     }
 
     if (!registry.has<components::ColliderComponent>(entity))
     {
         registry.emplace<components::ColliderComponent>(entity, player.collisionRadius(),
                                                         player.collisionHeight());
+    }
+    else
+    {
+        components::ColliderComponent& collider =
+            registry.get<components::ColliderComponent>(entity);
+        collider.radius = player.collisionRadius();
+        collider.height = player.collisionHeight();
+        collider.type = components::ColliderType::Capsule;
+        collider.halfExtents = Vec3{collider.radius, collider.height * 0.5f, collider.radius};
     }
 
     if (!registry.has<components::PlayerComponent>(entity))
@@ -163,8 +183,26 @@ void syncPlayerEntity(Scene& scene, ecs::Entity entity, const Player& player, bo
     else
     {
         components::CameraComponent& camera = registry.get<components::CameraComponent>(entity);
+        const components::CameraPresentationComponent* presentation =
+            registry.tryGet<components::CameraPresentationComponent>(entity);
+        const float basePitchDegrees = presentation != nullptr
+                                           ? player.camera().pitchDegrees() -
+                                                 presentation->pitchOffsetDegrees -
+                                                 presentation->bobPitchOffsetDegrees
+                                           : player.camera().pitchDegrees();
+        const float baseRollDegrees = presentation != nullptr ? player.camera().rollDegrees() -
+                                                                    presentation->rollDegrees -
+                                                                    presentation->bobRollDegrees
+                                                              : player.camera().rollDegrees();
+
+        camera.eyeHeight = player.eyeHeight();
         camera.active = activeCamera;
         camera.debugFreeCamera = false;
+        camera.yawDegrees = player.camera().yawDegrees();
+        camera.pitchDegrees = basePitchDegrees;
+        camera.rollDegrees = baseRollDegrees;
+        camera.fieldOfViewRadians = player.camera().fieldOfViewRadians();
+        camera.nearPlane = player.camera().nearPlane();
     }
 }
 

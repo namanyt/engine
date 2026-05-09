@@ -2,6 +2,9 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
+
+#include "runtime/RuntimeIds.h"
 
 namespace engine
 {
@@ -75,11 +78,14 @@ class RuntimeMode
 #endif
 
     std::unique_ptr<RuntimeMode> consumeRequestedTransition();
+    std::optional<RuntimeTransitionRequest> consumeRequestedRuntimeChange();
 
   protected:
     void requestTransition(std::unique_ptr<RuntimeMode> nextMode);
+    void requestRuntimeChange(RuntimeTransitionRequest request);
 
   private:
     std::unique_ptr<RuntimeMode> m_requestedTransition;
+    std::optional<RuntimeTransitionRequest> m_requestedRuntimeChange;
 };
 } // namespace engine

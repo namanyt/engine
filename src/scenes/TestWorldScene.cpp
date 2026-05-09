@@ -3,21 +3,24 @@
 #include "assets/TextureAsset.h"
 #include "components/WorldComponents.h"
 #include "core/Log.h"
-#include "metassets/TestWorldScene.metasset.h"
 #include "core/RenderDebug.h"
 #include "core/RenderPipeline.h"
 #include "core/Renderer.h"
 #include "core/Shader.h"
-#include "world/Player.h"
+#include "metassets/TestWorldScene.metasset.h"
 #include "systems/TransformSystem.h"
 #include "systems/WorldEcsSystems.h"
+#include "world/Player.h"
 #include "world/WorldNavigation.h"
 
 #include <sstream>
 
 namespace engine
 {
-TestWorldScene::TestWorldScene(const SceneMetasset& sceneMetasset) : SceneRuntime(sceneMetasset) {}
+TestWorldScene::TestWorldScene(const SceneMetasset& sceneMetasset)
+    : AtmosphericSceneRuntime(sceneMetasset)
+{
+}
 
 const char* TestWorldScene::name() const
 {
@@ -100,6 +103,12 @@ const AtmosphericRuntimeState& TestWorldScene::runtimeState() const noexcept
     return m_runtimeState;
 }
 
+Vec3 TestWorldScene::defaultPlayerSpawn() const noexcept
+{
+    return Vec3{0.0f, sampleAtmosphericTerrainHeight(m_worldSettings.proceduralWorld, 0.0f, 18.0f),
+                18.0f};
+}
+
 void TestWorldScene::syncWorld()
 {
     syncAtmosphericTestWorld(m_scene, m_worldSettings, m_worldAssets);
@@ -150,20 +159,22 @@ void TestWorldScene::syncMoonVisual(const Vec3& activeCameraPosition)
 
 void TestWorldScene::renderWorld(Renderer& renderer, RenderPipeline& renderPipeline,
                                  int framebufferWidth, int framebufferHeight, float timeSeconds,
-                                 const Camera& activeCamera, systems::FrameHistory& frameHistory)
+                                 const Camera& activeCamera, systems::FrameHistory& frameHistory,
+                                 const std::vector<systems::RenderItem>& extraRenderItems)
 {
     renderer.setViewport(framebufferWidth, framebufferHeight);
     systems::TransformSystem::updateWorldTransforms(m_scene);
 
-    const systems::RenderSceneView renderSceneView = systems::buildRenderSceneView(m_scene);
+    systems::RenderSceneView renderSceneView = systems::buildRenderSceneView(m_scene);
+    renderSceneView.geometryItems.insert(renderSceneView.geometryItems.end(),
+                                         extraRenderItems.begin(), extraRenderItems.end());
 
-    const FrameUniforms frameUniforms = systems::buildFrameUniforms(
-        m_renderSettings, activeCamera, framebufferWidth, framebufferHeight, timeSeconds,
-        frameHistory, renderSceneView);
+    const FrameUniforms frameUniforms =
+        systems::buildFrameUniforms(m_renderSettings, activeCamera, framebufferWidth,
+                                    framebufferHeight, timeSeconds, frameHistory, renderSceneView);
 
     renderPipeline.renderFrame(renderSceneView, m_renderSettings.clearColor,
-                               m_renderSettings.postProcess,
-                               frameUniforms, timeSeconds);
+                               m_renderSettings.postProcess, frameUniforms, timeSeconds);
     systems::advanceFrameHistory(frameUniforms, frameHistory);
 }
 

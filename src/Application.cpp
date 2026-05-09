@@ -637,6 +637,8 @@ void Application::updateKeyboardState(RawInputState& inputState) const
 
     captureButton(inputState.keyEnter, glfwGetKey(m_window, GLFW_KEY_ENTER) == GLFW_PRESS,
                   m_previousEnterPressed);
+    captureButton(inputState.keyE, glfwGetKey(m_window, GLFW_KEY_E) == GLFW_PRESS,
+                  m_previousEPressed);
     captureButton(inputState.keyUpArrow, glfwGetKey(m_window, GLFW_KEY_UP) == GLFW_PRESS,
                   m_previousUpArrowPressed);
     captureButton(inputState.keyDownArrow, glfwGetKey(m_window, GLFW_KEY_DOWN) == GLFW_PRESS,

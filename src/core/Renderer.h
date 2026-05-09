@@ -84,16 +84,21 @@ class Renderer final
     void prepareWorldRenderingResources();
     void beginFrame(const Color& clearColor);
     void endFrame(const PostProcessSettings& postProcessSettings,
-                  const FrameUniforms& frameUniforms, float timeSeconds) const;
+                  const FrameUniforms& frameUniforms, float timeSeconds,
+                  bool drawRuntimeOverlay = true) const;
     void endOverlayFrame() const;
+    void restoreSceneDepthToBackbuffer() const;
+    void drawRuntimeOverlayLayers() const;
     void beginShadowPass(const FrameUniforms& frameUniforms) const;
     void drawShadow(const Mesh& mesh, const Mat4& modelMatrix) const;
     void drawShadow(const Mesh& mesh, const Transform& transform) const;
     void endShadowPass() const;
     void draw(const Mesh& mesh, const Material& material, const Mat4& modelMatrix,
-              const FrameUniforms& frameUniforms) const;
+              const FrameUniforms& frameUniforms, unsigned int textureId = 0,
+              float opacity = 1.0f) const;
     void draw(const Mesh& mesh, const Material& material, const Transform& transform,
-              const FrameUniforms& frameUniforms) const;
+              const FrameUniforms& frameUniforms, unsigned int textureId = 0,
+              float opacity = 1.0f) const;
     ShaderLibrary& shaderLibrary() noexcept;
     const ShaderLibrary& shaderLibrary() const noexcept;
     RenderProfiler& profiler() noexcept;
@@ -102,7 +107,11 @@ class Renderer final
     void setRuntimeOverlayTexture(unsigned int textureId, int width, int height);
     void setRuntimeOverlayTexture(unsigned int textureId, int width, int height,
                                   const RuntimeOverlayOptions& options);
+    void setSecondaryRuntimeOverlayTexture(unsigned int textureId, int width, int height);
+    void setSecondaryRuntimeOverlayTexture(unsigned int textureId, int width, int height,
+                                           const RuntimeOverlayOptions& options);
     void clearRuntimeOverlayTexture();
+    void clearSecondaryRuntimeOverlayTexture();
 
   private:
     void applyFrameState(const Shader& shader, const FrameUniforms& frameUniforms) const;

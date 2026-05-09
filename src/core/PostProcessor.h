@@ -27,11 +27,17 @@ class PostProcessor final
     void resize(int width, int height);
     void beginScene() const;
     void composeLighting(unsigned int atmosphereTextureId, float bloomThreshold) const;
-    void endScene(const PostProcessSettings& settings, const DebugViewSettings& debugView) const;
+    void endScene(const PostProcessSettings& settings, const DebugViewSettings& debugView,
+                  bool presentRuntimeOverlay) const;
     void endOverlayScene() const;
+    void restoreSceneDepthToBackbuffer() const;
+    void drawRuntimeOverlayLayers() const;
     void setRuntimeOverlayTexture(unsigned int textureId, int width, int height) noexcept;
     void setRuntimeOverlayTexture(unsigned int textureId, int width, int height,
                                   const RuntimeOverlayOptions& options) noexcept;
+    void setSecondaryRuntimeOverlayTexture(unsigned int textureId, int width, int height) noexcept;
+    void setSecondaryRuntimeOverlayTexture(unsigned int textureId, int width, int height,
+                                           const RuntimeOverlayOptions& options) noexcept;
     void presentSceneTexture() const;
     void presentDebugView(const PostProcessSettings& settings, const DebugViewSettings& debugView,
                           unsigned int bloomTextureId) const;
@@ -45,6 +51,8 @@ class PostProcessor final
     void ensureOverlayShader() const;
     void ensureWorldShaders() const;
     void drawRuntimeOverlay() const;
+    void drawRuntimeOverlayLayer(unsigned int textureId, int width, int height,
+                                 const RuntimeOverlayOptions& options) const;
 
     int m_width = 1;
     int m_height = 1;
@@ -66,5 +74,9 @@ class PostProcessor final
     int m_runtimeOverlayTextureWidth = 0;
     int m_runtimeOverlayTextureHeight = 0;
     RuntimeOverlayOptions m_runtimeOverlayOptions{};
+    unsigned int m_secondaryRuntimeOverlayTextureId = 0;
+    int m_secondaryRuntimeOverlayTextureWidth = 0;
+    int m_secondaryRuntimeOverlayTextureHeight = 0;
+    RuntimeOverlayOptions m_secondaryRuntimeOverlayOptions{};
 };
 } // namespace engine

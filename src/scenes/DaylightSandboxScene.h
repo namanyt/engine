@@ -1,19 +1,15 @@
 #pragma once
 
-#include "ecs/Entity.h"
 #include "scenes/AtmosphericSceneRuntime.h"
+
 #include "runtime/SceneAssetScope.h"
+
 #include "primitives/Cone.h"
 #include "primitives/Cube.h"
 #include "primitives/Cylinder.h"
 #include "primitives/Plane.h"
 #include "primitives/Pyramid.h"
 #include "primitives/Sphere.h"
-#include "runtime/SceneRuntime.h"
-#include "systems/RenderSystem.h"
-#include "world/Camera.h"
-#include "world/Scene.h"
-#include "world/TestWorld.h"
 
 #include <memory>
 
@@ -25,37 +21,37 @@ class Shader;
 class TextureAsset;
 class Player;
 
-class TestWorldScene final : public AtmosphericSceneRuntime
+class DaylightSandboxScene final : public AtmosphericSceneRuntime
 {
   public:
-    explicit TestWorldScene(const SceneMetasset& sceneMetasset);
-    ~TestWorldScene() override = default;
+    explicit DaylightSandboxScene(const SceneMetasset& sceneMetasset);
+    ~DaylightSandboxScene() override = default;
 
     const char* name() const override;
     void activate(AssetScope& assetScope) override;
     void deactivate(Renderer& renderer) override;
 
-    Scene& scene() noexcept;
-    const Scene& scene() const noexcept;
-    AtmosphericWorldSettings& worldSettings() noexcept;
-    const AtmosphericWorldSettings& worldSettings() const noexcept;
-    AtmosphericRenderSettings& renderSettings() noexcept;
-    const AtmosphericRenderSettings& renderSettings() const noexcept;
-    AtmosphericRuntimeState& runtimeState() noexcept;
-    const AtmosphericRuntimeState& runtimeState() const noexcept;
-    void syncWorld();
+    Scene& scene() noexcept override;
+    const Scene& scene() const noexcept override;
+    AtmosphericWorldSettings& worldSettings() noexcept override;
+    const AtmosphericWorldSettings& worldSettings() const noexcept override;
+    AtmosphericRenderSettings& renderSettings() noexcept override;
+    const AtmosphericRenderSettings& renderSettings() const noexcept override;
+    AtmosphericRuntimeState& runtimeState() noexcept override;
+    const AtmosphericRuntimeState& runtimeState() const noexcept override;
     Vec3 defaultPlayerSpawn() const noexcept override;
-    void ensureRuntimeEntities(ecs::Entity& playerEntity, ecs::Entity& debugCameraEntity);
+    void syncWorld() override;
+    void ensureRuntimeEntities(ecs::Entity& playerEntity, ecs::Entity& debugCameraEntity) override;
     void syncRuntimeEntities(ecs::Entity playerEntity, const Player& player,
                              ecs::Entity debugCameraEntity, const Camera& debugCamera,
-                             bool debugFreeCameraEnabled);
-    void updateAtmosphere(float timeSeconds);
-    void syncMoonVisual(const Vec3& activeCameraPosition);
+                             bool debugFreeCameraEnabled) override;
+    void updateAtmosphere(float timeSeconds) override;
+    void syncMoonVisual(const Vec3& activeCameraPosition) override;
     void renderWorld(Renderer& renderer, RenderPipeline& renderPipeline, int framebufferWidth,
                      int framebufferHeight, float timeSeconds, const Camera& activeCamera,
                      systems::FrameHistory& frameHistory,
-                     const std::vector<systems::RenderItem>& extraRenderItems);
-    const std::shared_ptr<TextureAsset>& runtimeOverlayTexture() const noexcept;
+                     const std::vector<systems::RenderItem>& extraRenderItems) override;
+    const std::shared_ptr<TextureAsset>& runtimeOverlayTexture() const noexcept override;
 
   private:
     Scene m_scene;

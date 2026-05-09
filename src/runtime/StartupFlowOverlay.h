@@ -4,6 +4,7 @@
 #include "runtime/SettingsOverlay.h"
 
 #include <cstdint>
+#include <string>
 
 namespace engine
 {
@@ -49,9 +50,12 @@ class StartupFlowOverlay final
     static StartupFlowOverlay createSolid(std::uint8_t red, std::uint8_t green, std::uint8_t blue,
                                           std::uint8_t alpha);
     static StartupFlowOverlay createDisclaimer();
+    static StartupFlowOverlay createLoadingProgress(const std::string& loadingLabel, int percent,
+                                                    const std::string& phase);
     static StartupFlowOverlay createMenu(const AssetManager& assetManager,
                                          MainMenuSelection selection);
     static StartupFlowOverlay createPauseMenu(PauseMenuSelection selection);
+    static StartupFlowOverlay createInteractionPromptTexture(const std::string& promptText);
     static StartupFlowOverlay createSettingsMenu(const AssetManager& assetManager,
                                                  const SettingsOverlayViewModel& viewModel);
 

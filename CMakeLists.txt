@@ -119,11 +119,15 @@ set(ENGINE_SOURCES
     src/metassets/Metasset.cpp
     src/metassets/MenuScene.metasset.cpp
     src/metassets/SceneMetasset.cpp
+    src/metassets/DaylightSandboxScene.metasset.cpp
     src/metassets/TestWorldScene.metasset.cpp
     src/runtime/LoadingRuntime.cpp
     src/runtime/MenuRuntime.cpp
     src/runtime/RuntimeMode.cpp
+    src/runtime/RuntimeIds.cpp
+    src/runtime/RuntimeFactory.cpp
     src/runtime/ExplorationRuntime.cpp
+    src/runtime/InteractionPromptRenderable.cpp
     src/runtime/SettingsOverlay.cpp
     src/runtime/StartupFlowOverlay.cpp
     src/runtime/SceneRuntime.cpp
@@ -131,6 +135,7 @@ set(ENGINE_SOURCES
     src/runtime/EngineRuntime.cpp
     src/scenes/LoadingScene.cpp
     src/scenes/MenuScene.cpp
+    src/scenes/DaylightSandboxScene.cpp
     src/scenes/TestWorldScene.cpp
     src/assets/Asset.cpp
     src/assets/AudioAsset.cpp
@@ -160,6 +165,7 @@ set(ENGINE_SOURCES
     src/graphics/Mesh.cpp
     src/systems/TransformSystem.cpp
     src/systems/RenderSystem.cpp
+    src/systems/InteractionSystem.cpp
     src/systems/WorldEcsSystems.cpp
     src/primitives/PrimitiveBuilders.cpp
     src/primitives/Cube.cpp
@@ -179,6 +185,7 @@ set(ENGINE_SOURCES
     src/world/Player.cpp
     src/world/PlayerController.cpp
     src/world/Scene.cpp
+    src/world/DaylightSandbox.cpp
     src/world/TestWorld.cpp
     src/world/WorldNavigation.cpp
 )
@@ -189,10 +196,14 @@ set(ENGINE_HEADERS
     src/metassets/Metasset.h
     src/metassets/MenuScene.metasset.h
     src/metassets/SceneMetasset.h
+    src/metassets/DaylightSandboxScene.metasset.h
     src/metassets/TestWorldScene.metasset.h
     src/runtime/ExplorationInput.h
+    src/runtime/RuntimeIds.h
+    src/runtime/RuntimeFactory.h
     src/runtime/RuntimeMode.h
     src/runtime/ExplorationRuntime.h
+    src/runtime/InteractionPromptRenderable.h
     src/runtime/LoadingRuntime.h
     src/runtime/MenuRuntime.h
     src/runtime/SettingsOverlay.h
@@ -202,6 +213,8 @@ set(ENGINE_HEADERS
     src/runtime/EngineRuntime.h
     src/scenes/LoadingScene.h
     src/scenes/MenuScene.h
+    src/scenes/AtmosphericSceneRuntime.h
+    src/scenes/DaylightSandboxScene.h
     src/scenes/TestWorldScene.h
     src/assets/Asset.h
     src/assets/AudioAsset.h
@@ -248,6 +261,7 @@ set(ENGINE_HEADERS
     src/components/WorldComponents.h
     src/systems/TransformSystem.h
     src/systems/RenderSystem.h
+    src/systems/InteractionSystem.h
     src/systems/WorldEcsSystems.h
     src/world/Camera.h
     src/world/FreeCameraController.h
@@ -257,6 +271,7 @@ set(ENGINE_HEADERS
     src/world/PlayerController.h
     src/world/RayTracing.h
     src/world/Scene.h
+    src/world/DaylightSandbox.h
     src/world/TestWorld.h
     src/world/WorldNavigation.h
 )
@@ -274,6 +289,8 @@ set(ENGINE_SHADERS
     assets/shaders/post_compose.frag
     assets/shaders/shadow_depth.vert
     assets/shaders/shadow_depth.frag
+    assets/shaders/interaction_prompt.vert
+    assets/shaders/interaction_prompt.frag
     assets/shaders/volumetric_upscale.frag
 )
 

@@ -1,6 +1,9 @@
 #pragma once
 
+#include "runtime/RuntimeIds.h"
 #include "world/TestWorld.h"
+
+#include <optional>
 
 struct GLFWwindow;
 
@@ -33,10 +36,11 @@ class DebugUi final
     void draw(AtmosphericWorldSettings& worldSettings, AtmosphericRenderSettings& renderSettings,
               AtmosphericRuntimeState& runtimeState, const ExplorationRuntimeStats& stats,
               Player& player, PlayerController& playerController, bool& debugFreeCameraEnabled,
-              const FramePerformanceStats& performanceStats,
+              RuntimeId activeRuntimeId, const FramePerformanceStats& performanceStats,
               const RendererDebugTextures& debugTextures);
     void endFrame() const;
     bool consumeResumeCameraRequest() noexcept;
+    std::optional<RuntimeId> consumeRequestedRuntimeChange() noexcept;
     bool shouldQuit() const noexcept;
 
     void setEnabled(bool enabled) noexcept;
@@ -46,5 +50,6 @@ class DebugUi final
     bool m_enabled = true;
     bool m_shouldQuit = false;
     bool m_shouldResumeCamera = false;
+    std::optional<RuntimeId> m_requestedRuntimeChange;
 };
 } // namespace engine

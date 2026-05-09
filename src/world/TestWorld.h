@@ -5,6 +5,8 @@
 #include "world/RayTracing.h"
 #include "world/Scene.h"
 
+#include <string>
+
 namespace engine
 {
 class Mesh;
@@ -49,7 +51,33 @@ struct AtmosphericRenderSettings final
 
 struct AtmosphericRuntimeState final
 {
+    struct InteractionDebugState final
+    {
+        bool enabled = false;
+        bool hasFocusedTarget = false;
+        bool hasHitPoint = false;
+        bool promptVisible = false;
+        bool promptCached = false;
+        bool promptRebuiltThisFrame = false;
+        int interactableCount = 0;
+        int promptCacheEntryCount = 0;
+        int promptRebuildCount = 0;
+        float maxInteractionRadius = 0.0f;
+        float focusDotThreshold = 0.0f;
+        float focusedDistance = 0.0f;
+        float focusedAlignment = 0.0f;
+        float promptOpacity = 0.0f;
+        float promptWorldHeight = 0.0f;
+        Vec3 rayOrigin{};
+        Vec3 rayEnd{};
+        Vec3 hitPoint{};
+        std::string focusedEntityLabel;
+        std::string focusedInteractionId;
+        std::string promptRebuildReason;
+    };
+
     MovementDebugState movementDebug{};
+    InteractionDebugState interactionDebug{};
     Vec3 moonVisualPosition{};
     bool debugMoonVisualOverrideEnabled = false;
     Vec3 debugMoonVisualOverridePosition{};

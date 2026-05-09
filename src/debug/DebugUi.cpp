@@ -335,7 +335,7 @@ void DebugUi::draw(AtmosphericWorldSettings& worldSettings,
                    AtmosphericRenderSettings& renderSettings, AtmosphericRuntimeState& runtimeState,
                    const ExplorationRuntimeStats& stats, Player& player,
                    PlayerController& playerController, bool& debugFreeCameraEnabled,
-                   const FramePerformanceStats& performanceStats,
+                   RuntimeId activeRuntimeId, const FramePerformanceStats& performanceStats,
                    const RendererDebugTextures& debugTextures)
 {
     if (!m_enabled)
@@ -405,6 +405,7 @@ void DebugUi::draw(AtmosphericWorldSettings& worldSettings,
     ImGui::Text("Cursor Captured: %s", runtimeState.movementDebug.cursorCaptured ? "yes" : "no");
 
     ImGui::Checkbox("Debug Freecam", &debugFreeCameraEnabled);
+    ImGui::Checkbox("Show Interactable Debug", &runtimeState.interactionDebug.enabled);
     ImGui::Text("Player Mode: %s", debugFreeCameraEnabled ? "Debug Freecam" : "Grounded FPS");
     ImGui::Text("Grounded: %s", player.grounded() ? "yes" : "no");
     ImGui::Text("Player Position: %.1f %.1f %.1f", player.position().x, player.position().y,
@@ -479,6 +480,65 @@ void DebugUi::draw(AtmosphericWorldSettings& worldSettings,
                 runtimeState.movementDebug.supportAcquisitionCount,
                 runtimeState.movementDebug.airborneTransitionCount,
                 runtimeState.movementDebug.groundedTransitionCount);
+    ImGui::Separator();
+    ImGui::TextUnformatted("Interaction State");
+    ImGui::Text("Interactables / Max Radius: %d / %.2f",
+                runtimeState.interactionDebug.interactableCount,
+                runtimeState.interactionDebug.maxInteractionRadius);
+    ImGui::Text("Focus Threshold / Alignment: %.3f / %.3f",
+                runtimeState.interactionDebug.focusDotThreshold,
+                runtimeState.interactionDebug.focusedAlignment);
+    ImGui::Text("Focused Distance: %.3f", runtimeState.interactionDebug.focusedDistance);
+    ImGui::Text("Focused Target: %s", runtimeState.interactionDebug.hasFocusedTarget
+                                          ? runtimeState.interactionDebug.focusedEntityLabel.c_str()
+                                          : "none");
+    ImGui::Text("Interaction ID: %s",
+                runtimeState.interactionDebug.hasFocusedTarget
+                    ? runtimeState.interactionDebug.focusedInteractionId.c_str()
+                    : "none");
+    ImGui::Text("Prompt Visible / Cached / Rebuilt: %s / %s / %s",
+                runtimeState.interactionDebug.promptVisible ? "yes" : "no",
+                runtimeState.interactionDebug.promptCached ? "yes" : "no",
+                runtimeState.interactionDebug.promptRebuiltThisFrame ? "yes" : "no");
+    ImGui::Text("Prompt Cache Entries / Opacity: %d / %.3f",
+                runtimeState.interactionDebug.promptCacheEntryCount,
+                runtimeState.interactionDebug.promptOpacity);
+    ImGui::Text("Prompt World Height: %.3f m", runtimeState.interactionDebug.promptWorldHeight);
+    ImGui::Text("Prompt Rebuild Count / Reason: %d / %s",
+                runtimeState.interactionDebug.promptRebuildCount,
+                runtimeState.interactionDebug.promptRebuildReason.empty()
+                    ? "n/a"
+                    : runtimeState.interactionDebug.promptRebuildReason.c_str());
+    if (const PassPerformanceStats* interactionFocus =
+            findPassPerformance(performanceStats, "Interaction Focus Update");
+        interactionFocus != nullptr)
+    {
+        ImGui::Text("Focus Update CPU: %.2f ms", interactionFocus->cpuMilliseconds);
+    }
+    if (const PassPerformanceStats* interactionHighlight =
+            findPassPerformance(performanceStats, "Interaction Highlight Prep");
+        interactionHighlight != nullptr)
+    {
+        ImGui::Text("Highlight Prep CPU: %.2f ms", interactionHighlight->cpuMilliseconds);
+    }
+    if (const PassPerformanceStats* billboardUpdate =
+            findPassPerformance(performanceStats, "Interaction Billboard Update");
+        billboardUpdate != nullptr)
+    {
+        ImGui::Text("Billboard Update CPU: %.2f ms", billboardUpdate->cpuMilliseconds);
+    }
+    if (const PassPerformanceStats* promptRefresh =
+            findPassPerformance(performanceStats, "Interaction Prompt Refresh");
+        promptRefresh != nullptr)
+    {
+        ImGui::Text("Prompt Refresh CPU: %.2f ms", promptRefresh->cpuMilliseconds);
+    }
+    if (const PassPerformanceStats* promptRebuild =
+            findPassPerformance(performanceStats, "Interaction Prompt Rebuild");
+        promptRebuild != nullptr)
+    {
+        ImGui::Text("Prompt Rebuild CPU: %.2f ms", promptRebuild->cpuMilliseconds);
+    }
     ImGui::Text("Friction Impulse / Horizontal Momentum: %.3f / %.3f",
                 runtimeState.movementDebug.frictionImpulse,
                 runtimeState.movementDebug.horizontalMomentumRatio);
@@ -627,6 +687,22 @@ void DebugUi::draw(AtmosphericWorldSettings& worldSettings,
     if (ImGui::Button("Quit Game"))
     {
         m_shouldQuit = true;
+    }
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Runtime Switching");
+    ImGui::Text("Current Runtime: %s", runtimeDisplayName(activeRuntimeId));
+    if (ImGui::Button("Load Foggy TestWorld"))
+    {
+        m_requestedRuntimeChange = RuntimeId::FoggyTestWorld;
+    }
+    if (ImGui::Button("Load Daylight Sandbox"))
+    {
+        m_requestedRuntimeChange = RuntimeId::DaylightSandbox;
+    }
+    if (ImGui::Button("Reload Current Runtime"))
+    {
+        m_requestedRuntimeChange = activeRuntimeId;
     }
 
     ImGui::End();
@@ -912,6 +988,13 @@ bool DebugUi::consumeResumeCameraRequest() noexcept
     return shouldResumeCamera;
 }
 
+std::optional<RuntimeId> DebugUi::consumeRequestedRuntimeChange() noexcept
+{
+    std::optional<RuntimeId> requestedRuntimeChange = m_requestedRuntimeChange;
+    m_requestedRuntimeChange.reset();
+    return requestedRuntimeChange;
+}
+
 void DebugUi::setEnabled(bool enabled) noexcept
 {
     m_enabled = enabled;
@@ -919,6 +1002,7 @@ void DebugUi::setEnabled(bool enabled) noexcept
     {
         m_shouldQuit = false;
         m_shouldResumeCamera = false;
+        m_requestedRuntimeChange.reset();
     }
 }
 

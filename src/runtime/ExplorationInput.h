@@ -15,6 +15,7 @@ struct ExplorationInputState final
     bool crouch = false;
     bool jump = false;
     bool sprint = false;
+    bool interact = false;
     bool toggleDebugFreeCamera = false;
     bool toggleMoonLight = false;
     bool toggleSphereLights = false;

@@ -97,7 +97,8 @@ void Renderer::beginFrame(const Color& clearColor)
 }
 
 void Renderer::endFrame(const PostProcessSettings& postProcessSettings,
-                        const FrameUniforms& frameUniforms, float timeSeconds) const
+                        const FrameUniforms& frameUniforms, float timeSeconds,
+                        bool drawRuntimeOverlay) const
 {
     (void)timeSeconds;
 
@@ -124,7 +125,7 @@ void Renderer::endFrame(const PostProcessSettings& postProcessSettings,
     if (m_postProcessor != nullptr)
     {
         const auto postGpuScope = m_profiler.makeGpuScope("Post Processing Pass");
-        m_postProcessor->endScene(postProcessSettings, frameUniforms.debugView);
+        m_postProcessor->endScene(postProcessSettings, frameUniforms.debugView, drawRuntimeOverlay);
     }
 }
 
@@ -136,6 +137,26 @@ void Renderer::endOverlayFrame() const
     }
 
     m_postProcessor->endOverlayScene();
+}
+
+void Renderer::restoreSceneDepthToBackbuffer() const
+{
+    if (m_postProcessor == nullptr)
+    {
+        return;
+    }
+
+    m_postProcessor->restoreSceneDepthToBackbuffer();
+}
+
+void Renderer::drawRuntimeOverlayLayers() const
+{
+    if (m_postProcessor == nullptr)
+    {
+        return;
+    }
+
+    m_postProcessor->drawRuntimeOverlayLayers();
 }
 
 void Renderer::beginShadowPass(const FrameUniforms& frameUniforms) const
@@ -176,13 +197,13 @@ void Renderer::endShadowPass() const
 }
 
 void Renderer::draw(const Mesh& mesh, const Material& material, const Transform& transform,
-                    const FrameUniforms& frameUniforms) const
+                    const FrameUniforms& frameUniforms, unsigned int textureId, float opacity) const
 {
-    draw(mesh, material, transform.modelMatrix(), frameUniforms);
+    draw(mesh, material, transform.modelMatrix(), frameUniforms, textureId, opacity);
 }
 
 void Renderer::draw(const Mesh& mesh, const Material& material, const Mat4& modelMatrix,
-                    const FrameUniforms& frameUniforms) const
+                    const FrameUniforms& frameUniforms, unsigned int textureId, float opacity) const
 {
     if (material.shader == nullptr)
     {
@@ -196,6 +217,14 @@ void Renderer::draw(const Mesh& mesh, const Material& material, const Mat4& mode
     applyFrameState(shader, frameUniforms);
     applyMaterialState(shader, material);
     applyLocalLightState(shader, frameUniforms);
+    shader.setFloat("uOpacity", opacity);
+
+    if (textureId != 0)
+    {
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        shader.setInt("uPromptTexture", 3);
+    }
 
     if (m_shadowMapPass != nullptr)
     {
@@ -206,6 +235,12 @@ void Renderer::draw(const Mesh& mesh, const Material& material, const Mat4& mode
 
     m_profiler.addDrawCall();
     mesh.draw();
+
+    if (textureId != 0)
+    {
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 }
 
 ShaderLibrary& Renderer::shaderLibrary() noexcept
@@ -271,9 +306,36 @@ void Renderer::setRuntimeOverlayTexture(unsigned int textureId, int width, int h
     m_postProcessor->setRuntimeOverlayTexture(textureId, width, height, options);
 }
 
+void Renderer::setSecondaryRuntimeOverlayTexture(unsigned int textureId, int width, int height)
+{
+    if (m_postProcessor == nullptr)
+    {
+        return;
+    }
+
+    m_postProcessor->setSecondaryRuntimeOverlayTexture(textureId, width, height);
+}
+
+void Renderer::setSecondaryRuntimeOverlayTexture(unsigned int textureId, int width, int height,
+                                                 const RuntimeOverlayOptions& options)
+{
+    if (m_postProcessor == nullptr)
+    {
+        return;
+    }
+
+    m_postProcessor->setSecondaryRuntimeOverlayTexture(textureId, width, height, options);
+}
+
 void Renderer::clearRuntimeOverlayTexture()
 {
     setRuntimeOverlayTexture(0, 0, 0);
+    clearSecondaryRuntimeOverlayTexture();
+}
+
+void Renderer::clearSecondaryRuntimeOverlayTexture()
+{
+    setSecondaryRuntimeOverlayTexture(0, 0, 0);
 }
 
 void Renderer::applyFrameState(const Shader& shader, const FrameUniforms& frameUniforms) const

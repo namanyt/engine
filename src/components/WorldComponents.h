@@ -66,6 +66,14 @@ struct WorldObjectComponent final
     bool castsShadows = true;
 };
 
+struct InteractableComponent final
+{
+    std::string interactionPrompt = "Interact [E]";
+    std::string interactionId;
+    float interactionRadius = 12.0f;
+    bool enabled = true;
+};
+
 struct RayOccluderComponent final
 {
     Vec3 centerOffset{};

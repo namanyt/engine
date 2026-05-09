@@ -103,7 +103,7 @@ void PostProcessor::composeLighting(unsigned int atmosphereTextureId, float bloo
 }
 
 void PostProcessor::endScene(const PostProcessSettings& settings,
-                             const DebugViewSettings& debugView) const
+                             const DebugViewSettings& debugView, bool presentRuntimeOverlay) const
 {
     ensureWorldShaders();
     ScopedRenderDebugGroup postScope("Post Processing Pass");
@@ -170,12 +170,18 @@ void PostProcessor::endScene(const PostProcessSettings& settings,
                                   static_cast<float>(PostDebugViewMode::FinalImage));
         m_tonemapShader->setFloat("uDebugExposureScale", debugExposureScale(settings.exposure));
         m_fullScreenPass.draw();
-        drawRuntimeOverlay();
+        if (presentRuntimeOverlay)
+        {
+            drawRuntimeOverlay();
+        }
         return;
     }
 
     presentDebugView(settings, debugView, activeBloomTextureId);
-    drawRuntimeOverlay();
+    if (presentRuntimeOverlay)
+    {
+        drawRuntimeOverlay();
+    }
 }
 
 void PostProcessor::endOverlayScene() const
@@ -185,6 +191,20 @@ void PostProcessor::endOverlayScene() const
     glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT,
                       GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    drawRuntimeOverlay();
+}
+
+void PostProcessor::restoreSceneDepthToBackbuffer() const
+{
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_sceneFramebufferId);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, m_width, m_height, GL_DEPTH_BUFFER_BIT,
+                      GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void PostProcessor::drawRuntimeOverlayLayers() const
+{
     drawRuntimeOverlay();
 }
 
@@ -204,6 +224,25 @@ void PostProcessor::setRuntimeOverlayTexture(unsigned int textureId, int width, 
     m_runtimeOverlayTextureHeight = height;
     m_runtimeOverlayOptions.layout = options.layout;
     m_runtimeOverlayOptions.opacity = std::clamp(options.opacity, 0.0f, 1.0f);
+}
+
+void PostProcessor::setSecondaryRuntimeOverlayTexture(unsigned int textureId, int width,
+                                                      int height) noexcept
+{
+    m_secondaryRuntimeOverlayTextureId = textureId;
+    m_secondaryRuntimeOverlayTextureWidth = width;
+    m_secondaryRuntimeOverlayTextureHeight = height;
+    m_secondaryRuntimeOverlayOptions = RuntimeOverlayOptions{};
+}
+
+void PostProcessor::setSecondaryRuntimeOverlayTexture(unsigned int textureId, int width, int height,
+                                                      const RuntimeOverlayOptions& options) noexcept
+{
+    m_secondaryRuntimeOverlayTextureId = textureId;
+    m_secondaryRuntimeOverlayTextureWidth = width;
+    m_secondaryRuntimeOverlayTextureHeight = height;
+    m_secondaryRuntimeOverlayOptions.layout = options.layout;
+    m_secondaryRuntimeOverlayOptions.opacity = std::clamp(options.opacity, 0.0f, 1.0f);
 }
 
 unsigned int PostProcessor::sceneTextureId() const noexcept
@@ -259,9 +298,18 @@ void PostProcessor::presentDebugView(const PostProcessSettings& settings,
 void PostProcessor::drawRuntimeOverlay() const
 {
     ensureOverlayShader();
-    if (m_overlayShader == nullptr || m_runtimeOverlayTextureId == 0 ||
-        m_runtimeOverlayTextureWidth <= 0 || m_runtimeOverlayTextureHeight <= 0 ||
-        m_runtimeOverlayOptions.opacity <= 0.001f)
+    drawRuntimeOverlayLayer(m_runtimeOverlayTextureId, m_runtimeOverlayTextureWidth,
+                            m_runtimeOverlayTextureHeight, m_runtimeOverlayOptions);
+    drawRuntimeOverlayLayer(
+        m_secondaryRuntimeOverlayTextureId, m_secondaryRuntimeOverlayTextureWidth,
+        m_secondaryRuntimeOverlayTextureHeight, m_secondaryRuntimeOverlayOptions);
+}
+
+void PostProcessor::drawRuntimeOverlayLayer(unsigned int textureId, int width, int height,
+                                            const RuntimeOverlayOptions& options) const
+{
+    if (m_overlayShader == nullptr || textureId == 0 || width <= 0 || height <= 0 ||
+        options.opacity <= 0.001f)
     {
         return;
     }
@@ -276,10 +324,10 @@ void PostProcessor::drawRuntimeOverlay() const
     float overlayMinX = 0.0f;
     float overlayMinY = 0.0f;
 
-    if (m_runtimeOverlayOptions.layout == RuntimeOverlayLayout::CornerBadge)
+    if (options.layout == RuntimeOverlayLayout::CornerBadge)
     {
-        const float textureAspect = static_cast<float>(m_runtimeOverlayTextureWidth) /
-                                    static_cast<float>(std::max(m_runtimeOverlayTextureHeight, 1));
+        const float textureAspect =
+            static_cast<float>(width) / static_cast<float>(std::max(height, 1));
         const float maxOverlayWidth =
             std::min(static_cast<float>(m_width) * kMaxScreenFraction, kMaxWidthPixels);
         const float maxOverlayHeight =
@@ -311,13 +359,13 @@ void PostProcessor::drawRuntimeOverlay() const
 
     m_overlayShader->use();
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_runtimeOverlayTextureId);
+    glBindTexture(GL_TEXTURE_2D, textureId);
     m_overlayShader->setInt("uOverlayTexture", 0);
     m_overlayShader->setVec2("uScreenSize", static_cast<float>(m_width),
                              static_cast<float>(m_height));
     m_overlayShader->setVec2("uOverlaySizePixels", overlayWidth, overlayHeight);
     m_overlayShader->setVec2("uOverlayMinPixels", overlayMinX, overlayMinY);
-    m_overlayShader->setFloat("uOverlayOpacity", m_runtimeOverlayOptions.opacity);
+    m_overlayShader->setFloat("uOverlayOpacity", options.opacity);
     m_fullScreenPass.draw();
     glBindTexture(GL_TEXTURE_2D, 0);
 

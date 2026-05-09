@@ -39,8 +39,17 @@ struct RenderItem final
     Transform transform{};
     Mat4 modelMatrix = Mat4::identity();
     Material material{};
+    unsigned int textureId = 0;
+    float opacity = 1.0f;
     bool castsShadows = true;
     bool visible = true;
+    bool wireframe = false;
+    float lineWidth = 1.0f;
+    bool alphaBlended = false;
+    bool depthTest = true;
+    bool depthWrite = true;
+    bool doubleSided = false;
+    bool worldUi = false;
 };
 
 struct RenderSceneView final

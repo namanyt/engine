@@ -21,6 +21,7 @@ struct RawButtonState final
 struct RawInputState final
 {
     RawButtonState keyEnter{};
+    RawButtonState keyE{};
     RawButtonState keyUpArrow{};
     RawButtonState keyDownArrow{};
     RawButtonState keyW{};
@@ -148,6 +149,7 @@ class Application final
     WindowMode m_windowMode = WindowMode::Windowed;
     mutable bool m_previousFullscreenTogglePressed = false;
     mutable bool m_previousEnterPressed = false;
+    mutable bool m_previousEPressed = false;
     mutable bool m_previousUpArrowPressed = false;
     mutable bool m_previousDownArrowPressed = false;
     mutable bool m_previousEscapePressed = false;

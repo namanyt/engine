@@ -2,6 +2,7 @@
 
 #include "assets/AssetManager.h"
 #include "core/Renderer.h"
+#include "runtime/OverlayUiLayout.h"
 
 #include <glad/glad.h>
 
@@ -124,6 +125,12 @@ struct PaintTextCommand final
     int weight = FW_NORMAL;
     COLORREF color = RGB(255, 255, 255);
     UINT format = DT_CENTER | DT_VCENTER | DT_WORDBREAK;
+};
+
+struct PixelSize final
+{
+    int width = 0;
+    int height = 0;
 };
 
 void throwIfFailed(HRESULT result, const std::string& message)
@@ -350,6 +357,93 @@ paintWindowsOverlay(const std::function<void(HDC, const RECT&)>& paintCallback,
     return engine::StartupFlowOverlay(uploadTexture(rgbaPixels, kOverlayWidth, kOverlayHeight),
                                       kOverlayWidth, kOverlayHeight);
 }
+
+PixelSize measureTextCommand(const PaintTextCommand& command, const wchar_t* faceName)
+{
+    HDC deviceContext = CreateCompatibleDC(nullptr);
+    if (deviceContext == nullptr)
+    {
+        throw std::runtime_error("Failed to create a device context for text measurement.");
+    }
+
+    FontScope font(CreateFontW(pointSizeToPixels(command.pointSize), 0, 0, 0, command.weight, FALSE,
+                               FALSE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
+                               CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,
+                               VARIABLE_PITCH | FF_DONTCARE, faceName));
+    if (font.handle == nullptr)
+    {
+        DeleteDC(deviceContext);
+        throw std::runtime_error("Failed to create a startup flow overlay font.");
+    }
+
+    HGDIOBJ previousFont = SelectObject(deviceContext, font.handle);
+    RECT measuredBounds{};
+    DrawTextW(deviceContext, command.text.c_str(), -1, &measuredBounds,
+              command.format | DT_CALCRECT);
+    SelectObject(deviceContext, previousFont);
+    DeleteDC(deviceContext);
+
+    const int measuredWidth = static_cast<int>(measuredBounds.right - measuredBounds.left);
+    const int measuredHeight = static_cast<int>(measuredBounds.bottom - measuredBounds.top);
+    return PixelSize{std::max(measuredWidth, 1), std::max(measuredHeight, 1)};
+}
+
+engine::StartupFlowOverlay
+paintWindowsTexture(int width, int height,
+                    const std::function<void(HDC, const RECT&)>& paintCallback,
+                    bool opaqueBackground)
+{
+    BITMAPINFO bitmapInfo{};
+    bitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bitmapInfo.bmiHeader.biWidth = width;
+    bitmapInfo.bmiHeader.biHeight = -height;
+    bitmapInfo.bmiHeader.biPlanes = 1;
+    bitmapInfo.bmiHeader.biBitCount = 32;
+    bitmapInfo.bmiHeader.biCompression = BI_RGB;
+
+    void* pixelMemory = nullptr;
+    HDC deviceContext = CreateCompatibleDC(nullptr);
+    if (deviceContext == nullptr)
+    {
+        throw std::runtime_error("Failed to create a startup flow overlay device context.");
+    }
+
+    HBITMAP bitmap =
+        CreateDIBSection(deviceContext, &bitmapInfo, DIB_RGB_COLORS, &pixelMemory, nullptr, 0);
+    if (bitmap == nullptr || pixelMemory == nullptr)
+    {
+        DeleteDC(deviceContext);
+        throw std::runtime_error("Failed to allocate a startup flow overlay bitmap.");
+    }
+
+    HGDIOBJ previousBitmap = SelectObject(deviceContext, bitmap);
+    RECT fullRect{0, 0, width, height};
+    HBRUSH clearBrush = CreateSolidBrush(RGB(0, 0, 0));
+    FillRect(deviceContext, &fullRect, clearBrush);
+    DeleteObject(clearBrush);
+
+    paintCallback(deviceContext, fullRect);
+
+    const auto* bgraBytes = static_cast<const std::uint8_t*>(pixelMemory);
+    std::vector<std::uint8_t> rgbaPixels(static_cast<std::size_t>(width) *
+                                         static_cast<std::size_t>(height) * 4u);
+    for (int index = 0; index < width * height; ++index)
+    {
+        const std::uint8_t blue = bgraBytes[index * 4 + 0];
+        const std::uint8_t green = bgraBytes[index * 4 + 1];
+        const std::uint8_t red = bgraBytes[index * 4 + 2];
+        const std::uint8_t alpha = opaqueBackground ? 255 : std::max({red, green, blue});
+        rgbaPixels[index * 4 + 0] = red;
+        rgbaPixels[index * 4 + 1] = green;
+        rgbaPixels[index * 4 + 2] = blue;
+        rgbaPixels[index * 4 + 3] = alpha;
+    }
+
+    SelectObject(deviceContext, previousBitmap);
+    DeleteObject(bitmap);
+    DeleteDC(deviceContext);
+    return engine::StartupFlowOverlay(uploadTexture(rgbaPixels, width, height), width, height);
+}
 #endif
 } // namespace
 
@@ -454,6 +548,53 @@ StartupFlowOverlay StartupFlowOverlay::createDisclaimer()
         false);
 #else
     throw std::runtime_error("Startup disclaimer overlay generation is only available on Windows.");
+#endif
+}
+
+StartupFlowOverlay StartupFlowOverlay::createLoadingProgress(const std::string& loadingLabel,
+                                                             int percent, const std::string& phase)
+{
+#if defined(_WIN32)
+    const std::wstring title = std::wstring{loadingLabel.begin(), loadingLabel.end()};
+    const std::wstring phaseText = std::wstring{phase.begin(), phase.end()};
+    const std::wstring percentText = std::to_wstring(std::clamp(percent, 0, 100)) + L"%";
+
+    return paintWindowsOverlay(
+        [title, phaseText, percentText](HDC deviceContext, const RECT& fullRect)
+        {
+            const RECT loadingBounds{fullRect.left + 360, fullRect.top + 300, fullRect.right - 360,
+                                     fullRect.top + 360};
+            drawTextCommand(deviceContext,
+                            PaintTextCommand{L"Loading " + title, loadingBounds, 22, FW_NORMAL,
+                                             RGB(208, 214, 220),
+                                             DT_CENTER | DT_VCENTER | DT_SINGLELINE},
+                            L"Segoe UI");
+
+            const RECT percentBounds{fullRect.left + 360, fullRect.top + 430, fullRect.right - 360,
+                                     fullRect.top + 620};
+            drawTextCommand(deviceContext,
+                            PaintTextCommand{percentText, percentBounds, 56, FW_SEMIBOLD,
+                                             RGB(244, 244, 244),
+                                             DT_CENTER | DT_VCENTER | DT_SINGLELINE},
+                            L"Segoe UI");
+
+            if (!phaseText.empty())
+            {
+                const RECT phaseBounds{fullRect.left + 360, fullRect.top + 660,
+                                       fullRect.right - 360, fullRect.top + 720};
+                drawTextCommand(deviceContext,
+                                PaintTextCommand{phaseText, phaseBounds, 18, FW_NORMAL,
+                                                 RGB(154, 164, 174),
+                                                 DT_CENTER | DT_VCENTER | DT_SINGLELINE},
+                                L"Segoe UI");
+            }
+        },
+        false);
+#else
+    (void)loadingLabel;
+    (void)percent;
+    (void)phase;
+    throw std::runtime_error("Startup loading overlay generation is only available on Windows.");
 #endif
 }
 
@@ -588,6 +729,43 @@ StartupFlowOverlay StartupFlowOverlay::createPauseMenu(PauseMenuSelection select
         false);
 #else
     throw std::runtime_error("Pause overlay generation is only available on Windows.");
+#endif
+}
+
+StartupFlowOverlay StartupFlowOverlay::createInteractionPromptTexture(const std::string& promptText)
+{
+#if defined(_WIN32)
+    const std::wstring prompt = std::wstring{promptText.begin(), promptText.end()};
+    const PaintTextCommand textCommand{prompt,
+                                       RECT{},
+                                       18,
+                                       FW_SEMIBOLD,
+                                       RGB(244, 240, 232),
+                                       DT_CENTER | DT_VCENTER | DT_SINGLELINE};
+    const PixelSize textSize = measureTextCommand(textCommand, L"Segoe UI");
+    const int textureWidth = std::max(284, textSize.width + 36);
+    const int textureHeight = std::max(54, textSize.height + 19);
+
+    return paintWindowsTexture(
+        textureWidth, textureHeight,
+        [prompt, textureWidth, textureHeight](HDC deviceContext, const RECT&)
+        {
+            const RECT backPlate{0, 0, textureWidth, textureHeight};
+            const RECT accentLine{22, textureHeight - 3, textureWidth - 22, textureHeight};
+            const RECT textBounds{18, 8, textureWidth - 18, textureHeight - 11};
+
+            fillSolidRect(deviceContext, backPlate, RGB(86, 78, 68));
+            fillSolidRect(deviceContext, accentLine, RGB(176, 154, 114));
+            drawTextCommand(deviceContext,
+                            PaintTextCommand{prompt, textBounds, 18, FW_SEMIBOLD,
+                                             RGB(244, 240, 232),
+                                             DT_CENTER | DT_VCENTER | DT_SINGLELINE},
+                            L"Segoe UI");
+        },
+        false);
+#else
+    (void)promptText;
+    throw std::runtime_error("Interaction prompt overlay generation is only available on Windows.");
 #endif
 }
 

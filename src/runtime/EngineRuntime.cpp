@@ -2,8 +2,7 @@
 
 #include "core/Log.h"
 #include "core/RenderDebug.h"
-#include "runtime/ExplorationRuntime.h"
-#include "runtime/MenuRuntime.h"
+#include "runtime/RuntimeFactory.h"
 #include "runtime/RuntimeMode.h"
 
 #include <cstdlib>
@@ -90,7 +89,7 @@ int EngineRuntime::run()
 
 void EngineRuntime::activateInitialRuntimeMode()
 {
-    activateRuntimeMode(std::make_unique<MenuRuntime>());
+    activateRuntimeMode(RuntimeFactory::create(RuntimeId::Menu));
 }
 
 void EngineRuntime::activateRuntimeMode(std::unique_ptr<RuntimeMode> runtimeMode)
@@ -126,11 +125,19 @@ void EngineRuntime::processRuntimeTransition()
 
     std::unique_ptr<RuntimeMode> requestedRuntimeMode =
         m_activeRuntimeMode->consumeRequestedTransition();
-    if (requestedRuntimeMode == nullptr)
+    if (requestedRuntimeMode != nullptr)
+    {
+        activateRuntimeMode(std::move(requestedRuntimeMode));
+        return;
+    }
+
+    const std::optional<RuntimeTransitionRequest> requestedRuntimeChange =
+        m_activeRuntimeMode->consumeRequestedRuntimeChange();
+    if (!requestedRuntimeChange.has_value())
     {
         return;
     }
 
-    activateRuntimeMode(std::move(requestedRuntimeMode));
+    activateRuntimeMode(RuntimeFactory::createLoadingTransition(*requestedRuntimeChange));
 }
 } // namespace engine

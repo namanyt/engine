@@ -17,9 +17,10 @@ constexpr float kDisclaimerFadeDurationSeconds = 1.2f;
 }
 
 LoadingRuntime::LoadingRuntime(std::unique_ptr<RuntimeMode> nextRuntimeMode,
-                               float minimumDurationSeconds, std::string nextRuntimeLabel)
+                               float minimumDurationSeconds, std::string nextRuntimeLabel,
+                               LoadingScreenStyle loadingScreenStyle)
     : m_nextRuntimeMode(std::move(nextRuntimeMode)),
-      m_nextRuntimeLabel(std::move(nextRuntimeLabel)),
+      m_nextRuntimeLabel(std::move(nextRuntimeLabel)), m_loadingScreenStyle(loadingScreenStyle),
       m_minimumDurationSeconds(minimumDurationSeconds)
 {
     if (m_nextRuntimeLabel.empty() && m_nextRuntimeMode != nullptr)
@@ -41,20 +42,22 @@ void LoadingRuntime::activate(ActivationContext& activationContext)
     m_shaderLibrary = &activationContext.shaderLibrary;
     m_assetRootDirectory = activationContext.assetRootDirectory;
     m_shaderDirectory = activationContext.shaderDirectory;
-    m_disclaimerOverlay = StartupFlowOverlay::createDisclaimer();
     activationContext.renderer.prepareOverlayRenderingResources();
     activationContext.application.setCursorCaptured(false);
     m_elapsedSeconds = 0.0f;
     m_loadingCompletedAtSeconds = -1.0f;
     m_loadingStarted = false;
-    setProgress(activationContext.application, 0.05f, "entering disclaimer");
+    refreshOverlay();
+    setProgress(activationContext.application, 0.05f,
+                m_loadingScreenStyle == LoadingScreenStyle::Disclaimer ? "entering disclaimer"
+                                                                       : "starting load");
 
     Log::info("LoadingRuntime", "Activated loading runtime.");
 }
 
 void LoadingRuntime::deactivate(Renderer& renderer)
 {
-    m_disclaimerOverlay.reset();
+    m_loadingOverlay.reset();
     m_assetManager.reset();
     m_shaderLibrary = nullptr;
     m_assetRootDirectory.clear();
@@ -108,14 +111,14 @@ Color LoadingRuntime::activeClearColor() const
 
 void LoadingRuntime::applyOverlayTexture(Renderer& renderer) const
 {
-    if (!m_disclaimerOverlay.valid())
+    if (!m_loadingOverlay.valid())
     {
         renderer.clearRuntimeOverlayTexture();
         return;
     }
 
-    m_disclaimerOverlay.apply(
-        renderer, RuntimeOverlayOptions{RuntimeOverlayLayout::FullScreen, disclaimerOpacity()});
+    m_loadingOverlay.apply(
+        renderer, RuntimeOverlayOptions{RuntimeOverlayLayout::FullScreen, overlayOpacity()});
 }
 
 void LoadingRuntime::beginDeferredLoad(const UpdateContext& updateContext)
@@ -139,8 +142,13 @@ void LoadingRuntime::beginDeferredLoad(const UpdateContext& updateContext)
     setProgress(updateContext.application, 0.88f, "scene ready");
 }
 
-float LoadingRuntime::disclaimerOpacity() const
+float LoadingRuntime::overlayOpacity() const
 {
+    if (m_loadingScreenStyle != LoadingScreenStyle::Disclaimer)
+    {
+        return 1.0f;
+    }
+
     const float fadeIn = std::clamp(m_elapsedSeconds / kDisclaimerFadeDurationSeconds, 0.0f, 1.0f);
     if (m_loadingCompletedAtSeconds < 0.0f)
     {
@@ -158,6 +166,16 @@ float LoadingRuntime::disclaimerOpacity() const
 
 float LoadingRuntime::transitionReadyTimeSeconds() const
 {
+    if (m_loadingScreenStyle != LoadingScreenStyle::Disclaimer)
+    {
+        if (m_loadingCompletedAtSeconds < 0.0f)
+        {
+            return m_minimumDurationSeconds;
+        }
+
+        return std::max(m_loadingCompletedAtSeconds, m_minimumDurationSeconds);
+    }
+
     if (m_loadingCompletedAtSeconds < 0.0f)
     {
         return m_minimumDurationSeconds;
@@ -172,7 +190,21 @@ void LoadingRuntime::setProgress(Application& application, float progress, const
 {
     m_activationProgress = std::clamp(progress, 0.0f, 1.0f);
     m_progressPhase = phase != nullptr ? phase : "loading";
+    refreshOverlay();
     updateProgressTitle(application);
+}
+
+void LoadingRuntime::refreshOverlay()
+{
+    if (m_loadingScreenStyle == LoadingScreenStyle::Disclaimer)
+    {
+        m_loadingOverlay = StartupFlowOverlay::createDisclaimer();
+        return;
+    }
+
+    const int percent = static_cast<int>(m_activationProgress * 100.0f + 0.5f);
+    m_loadingOverlay =
+        StartupFlowOverlay::createLoadingProgress(m_nextRuntimeLabel, percent, m_progressPhase);
 }
 
 void LoadingRuntime::updateProgressTitle(Application& application) const

@@ -6,8 +6,6 @@
 #include "core/Renderer.h"
 #include "core/RuntimeOverlay.h"
 #include "runtime/OverlayUiLayout.h"
-#include "runtime/ExplorationRuntime.h"
-#include "runtime/LoadingRuntime.h"
 
 #include <algorithm>
 #include <cmath>
@@ -94,8 +92,9 @@ void MenuRuntime::update(const UpdateContext& updateContext)
     {
         if (m_phaseElapsedSeconds >= 0.65f)
         {
-            requestTransition(std::make_unique<LoadingRuntime>(
-                std::make_unique<ExplorationRuntime>(), 4.0f, "TestWorld"));
+            requestRuntimeChange(RuntimeTransitionRequest{RuntimeId::DaylightSandbox, 4.0f,
+                                                          "Daylight Sandbox",
+                                                          LoadingScreenStyle::Disclaimer});
         }
 
         return;
