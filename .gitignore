@@ -13,3 +13,4 @@ run_stderr.log
 CMakeUserPresets.json
 engine_settings.ini
 imgui.ini
+*graphify-out*
