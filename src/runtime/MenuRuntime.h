@@ -58,14 +58,15 @@ class MenuRuntime final : public RuntimeMode
     MenuInputState interpretInput(const RawInputState& inputState) const;
     Color activeClearColor(float timeSeconds) const;
     void applyOverlayTexture(Renderer& renderer) const;
-    void refreshSettingsOverlay();
+    void refreshSettingsOverlay(SettingsOverlayDirtyRegion dirtyRegions);
     float fadeProgress() const;
 
     StartupFlowOverlay m_startSelectedOverlay;
     StartupFlowOverlay m_settingsSelectedOverlay;
     StartupFlowOverlay m_quitSelectedOverlay;
     StartupFlowOverlay m_idleOverlay;
-    StartupFlowOverlay m_settingsOverlayTexture;
+    StartupFlowOverlay m_settingsOverlayBaseTexture;
+    StartupFlowOverlay m_settingsOverlayContentTexture;
     std::shared_ptr<AssetManager> m_assetManager;
     SettingsOverlay m_settingsOverlay;
     View m_view = View::Main;

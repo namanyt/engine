@@ -11,3 +11,5 @@ external/_gladgen/
 run_stdout.log
 run_stderr.log
 CMakeUserPresets.json
+engine_settings.ini
+imgui.ini

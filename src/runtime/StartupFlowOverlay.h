@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/RuntimeOverlay.h"
-#include "runtime/SettingsOverlay.h"
+#include "runtime/SettingsPage.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -48,6 +48,7 @@ struct VisualNovelOverlayModel final
 {
     std::filesystem::path backgroundAssetPath;
     std::vector<VisualNovelOverlayPortrait> portraits;
+    bool showDialogueChrome = false;
     std::string speakerName;
     std::string dialogueText;
     std::string advancePrompt;
@@ -85,10 +86,15 @@ class StartupFlowOverlay final
                                          MainMenuSelection selection);
     static StartupFlowOverlay createPauseMenu(PauseMenuSelection selection);
     static StartupFlowOverlay createInteractionPromptTexture(const std::string& promptText);
+    static StartupFlowOverlay createSettingsBase(const AssetManager& assetManager,
+                                                 const SettingsOverlayViewModel& viewModel);
+    static StartupFlowOverlay createSettingsContent(const SettingsOverlayViewModel& viewModel);
     static StartupFlowOverlay createSettingsMenu(const AssetManager& assetManager,
                                                  const SettingsOverlayViewModel& viewModel);
     static StartupFlowOverlay createVisualNovelScene(const AssetManager& assetManager,
                                                      const VisualNovelOverlayModel& viewModel);
+    static StartupFlowOverlay
+    createVisualNovelDialogueLayer(const VisualNovelOverlayModel& viewModel);
 
     unsigned int m_textureId = 0;
     int m_width = 0;

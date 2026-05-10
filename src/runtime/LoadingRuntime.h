@@ -84,6 +84,7 @@ class LoadingRuntime final : public RuntimeMode
     float m_bootSequenceScriptDurationSeconds = 0.0f;
     int m_bootSequenceVisibleLineRevision = -1;
     bool m_bootSequenceCursorRevision = false;
+    bool m_persistentMusicFadeRequested = false;
     BootSequenceTextEntry m_bootSequenceStatusRevision;
     bool m_loadingStarted = false;
     bool m_transitionQueued = false;

@@ -1,6 +1,9 @@
 #include "runtime/MenuRuntime.h"
 
 #include "Application.h"
+#include "assets/AssetManager.h"
+#include "assets/AudioAsset.h"
+#include "core/AudioSystem.h"
 #include "core/Log.h"
 #include "core/RenderPipeline.h"
 #include "core/Renderer.h"
@@ -13,6 +16,26 @@
 
 namespace engine
 {
+namespace
+{
+const std::filesystem::path kMainMenuMusicPath{"audio/music.mp3"};
+constexpr std::string_view kMainMenuMusicPlaybackId{"main-menu-music"};
+constexpr float kMainMenuMusicVolume = 0.55f;
+
+RuntimeOverlayOptions settingsContentOverlayOptions(const SettingsOverlayViewModel& viewModel)
+{
+    const SettingsPageModel page = buildSettingsPageModel(viewModel);
+    RuntimeOverlayOptions options{};
+    options.layout = RuntimeOverlayLayout::CustomPixels;
+    options.opacity = 1.0f;
+    options.minXPixels = page.chrome.contentBounds.left;
+    options.minYPixels = page.chrome.contentBounds.top;
+    options.widthPixels = page.chrome.contentBounds.right - page.chrome.contentBounds.left;
+    options.heightPixels = page.chrome.contentBounds.bottom - page.chrome.contentBounds.top;
+    return options;
+}
+} // namespace
+
 MenuRuntime::MenuRuntime() = default;
 
 MenuRuntime::~MenuRuntime() = default;
@@ -44,6 +67,17 @@ void MenuRuntime::activate(ActivationContext& activationContext)
     m_view = View::Main;
     m_phaseElapsedSeconds = 0.0f;
     m_selectedAction = Selection::None;
+
+    const std::shared_ptr<AudioAsset> menuMusic =
+        m_assetManager->load<AudioAsset>(kMainMenuMusicPath);
+    if (menuMusic == nullptr)
+    {
+        throw std::runtime_error("Failed to load main menu music asset: " +
+                                 kMainMenuMusicPath.string());
+    }
+
+    activationContext.application.audioSystem().playPersistent(
+        std::string(kMainMenuMusicPlaybackId), menuMusic, true, kMainMenuMusicVolume);
     activationContext.application.setCursorCaptured(false);
     Log::info("MenuRuntime", "Activated menu runtime.");
 }
@@ -54,9 +88,11 @@ void MenuRuntime::deactivate(Renderer& renderer)
     m_settingsSelectedOverlay.reset();
     m_quitSelectedOverlay.reset();
     m_idleOverlay.reset();
-    m_settingsOverlayTexture.reset();
+    m_settingsOverlayBaseTexture.reset();
+    m_settingsOverlayContentTexture.reset();
     m_assetManager.reset();
     renderer.clearRuntimeOverlayTexture();
+    renderer.clearSecondaryRuntimeOverlayTexture();
 }
 
 void MenuRuntime::update(const UpdateContext& updateContext)
@@ -81,9 +117,10 @@ void MenuRuntime::update(const UpdateContext& updateContext)
             m_selectedAction = Selection::None;
         }
 
-        if (m_settingsOverlay.consumeDirty())
+        const SettingsOverlayDirtyRegion dirtyRegions = m_settingsOverlay.consumeDirtyRegions();
+        if (dirtyRegions != SettingsOverlayDirtyRegion::None)
         {
-            refreshSettingsOverlay();
+            refreshSettingsOverlay(dirtyRegions);
         }
         return;
     }
@@ -145,7 +182,8 @@ void MenuRuntime::update(const UpdateContext& updateContext)
         m_view = View::Settings;
         m_selectedAction = Selection::None;
         m_settingsOverlay.activate(updateContext.application, false);
-        refreshSettingsOverlay();
+        refreshSettingsOverlay(SettingsOverlayDirtyRegion::Base |
+                               SettingsOverlayDirtyRegion::Content);
         return;
     }
 
@@ -201,16 +239,29 @@ void MenuRuntime::applyOverlayTexture(Renderer& renderer) const
 {
     if (m_view == View::Settings)
     {
-        if (!m_settingsOverlayTexture.valid())
+        if (!m_settingsOverlayBaseTexture.valid())
         {
             renderer.clearRuntimeOverlayTexture();
+            renderer.clearSecondaryRuntimeOverlayTexture();
             return;
         }
 
-        m_settingsOverlayTexture.apply(
+        m_settingsOverlayBaseTexture.apply(
             renderer, RuntimeOverlayOptions{RuntimeOverlayLayout::FullScreen, 1.0f});
+        if (!m_settingsOverlayContentTexture.valid())
+        {
+            renderer.clearSecondaryRuntimeOverlayTexture();
+            return;
+        }
+
+        renderer.setSecondaryRuntimeOverlayTexture(
+            m_settingsOverlayContentTexture.textureId(), m_settingsOverlayContentTexture.width(),
+            m_settingsOverlayContentTexture.height(),
+            settingsContentOverlayOptions(m_settingsOverlay.viewModel()));
         return;
     }
+
+    renderer.clearSecondaryRuntimeOverlayTexture();
 
     const StartupFlowOverlay& activeOverlay =
         m_selectedAction == Selection::StartExploration
@@ -228,16 +279,26 @@ void MenuRuntime::applyOverlayTexture(Renderer& renderer) const
         renderer, RuntimeOverlayOptions{RuntimeOverlayLayout::FullScreen, 1.0f - fadeProgress()});
 }
 
-void MenuRuntime::refreshSettingsOverlay()
+void MenuRuntime::refreshSettingsOverlay(SettingsOverlayDirtyRegion dirtyRegions)
 {
     if (m_assetManager == nullptr)
     {
         throw std::runtime_error("MenuRuntime settings overlay requires an AssetManager.");
     }
 
-    m_settingsOverlayTexture.reset();
-    m_settingsOverlayTexture =
-        StartupFlowOverlay::createSettingsMenu(*m_assetManager, m_settingsOverlay.viewModel());
+    const SettingsOverlayViewModel viewModel = m_settingsOverlay.viewModel();
+    if (hasDirtyRegion(dirtyRegions, SettingsOverlayDirtyRegion::Base))
+    {
+        m_settingsOverlayBaseTexture.reset();
+        m_settingsOverlayBaseTexture =
+            StartupFlowOverlay::createSettingsBase(*m_assetManager, viewModel);
+    }
+
+    if (hasDirtyRegion(dirtyRegions, SettingsOverlayDirtyRegion::Content))
+    {
+        m_settingsOverlayContentTexture.reset();
+        m_settingsOverlayContentTexture = StartupFlowOverlay::createSettingsContent(viewModel);
+    }
 }
 
 float MenuRuntime::fadeProgress() const

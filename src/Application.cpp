@@ -1,6 +1,7 @@
 #include "Application.h"
 
 #include "assets/AssetManager.h"
+#include "core/AudioSystem.h"
 #include "core/Log.h"
 
 #include <glad/glad.h>
@@ -54,14 +55,37 @@ Application::DisplaySettings sanitizeDisplaySettings(Application::DisplaySetting
     return settings;
 }
 
+float clampUnitFloat(const float value)
+{
+    return std::clamp(value, 0.0f, 1.0f);
+}
+
+float clampTypingCharactersPerSecond(const float value)
+{
+    return std::clamp(value, 12.0f, 48.0f);
+}
+
+float clampMouseSensitivity(const float value)
+{
+    return std::clamp(value, 0.01f, 1.0f);
+}
+
+struct LoadedEngineSettings final
+{
+    Application::DisplaySettings display{};
+    Application::AudioSettings audio{};
+    Application::VnSettings vn{};
+    Application::InputSettings input{};
+};
+
 bool parseBoolSetting(const std::string& value)
 {
     return value == "1" || value == "true" || value == "on" || value == "yes";
 }
 
-Application::DisplaySettings loadDisplaySettings(const std::filesystem::path& settingsPath)
+LoadedEngineSettings loadEngineSettings(const std::filesystem::path& settingsPath)
 {
-    Application::DisplaySettings settings{};
+    LoadedEngineSettings settings{};
     std::ifstream stream(settingsPath);
     if (!stream.is_open())
     {
@@ -81,29 +105,51 @@ Application::DisplaySettings loadDisplaySettings(const std::filesystem::path& se
         const std::string value = line.substr(separator + 1);
         if (key == "width")
         {
-            settings.width = std::max(1, std::stoi(value));
+            settings.display.width = std::max(1, std::stoi(value));
         }
         else if (key == "height")
         {
-            settings.height = std::max(1, std::stoi(value));
+            settings.display.height = std::max(1, std::stoi(value));
         }
         else if (key == "fullscreen")
         {
-            settings.windowMode = parseBoolSetting(value)
-                                      ? Application::WindowMode::ExclusiveFullscreen
-                                      : Application::WindowMode::Windowed;
+            settings.display.windowMode = parseBoolSetting(value)
+                                              ? Application::WindowMode::ExclusiveFullscreen
+                                              : Application::WindowMode::Windowed;
         }
         else if (key == "window_mode")
         {
-            settings.windowMode = parseWindowModeSetting(value);
+            settings.display.windowMode = parseWindowModeSetting(value);
         }
         else if (key == "vsync")
         {
-            settings.vSyncEnabled = parseBoolSetting(value);
+            settings.display.vSyncEnabled = parseBoolSetting(value);
+        }
+        else if (key == "master_volume")
+        {
+            settings.audio.masterVolume = clampUnitFloat(std::stof(value));
+        }
+        else if (key == "music_volume")
+        {
+            settings.audio.musicVolume = clampUnitFloat(std::stof(value));
+        }
+        else if (key == "vn_typing_cps")
+        {
+            settings.vn.typingCharactersPerSecond =
+                clampTypingCharactersPerSecond(std::stof(value));
+        }
+        else if (key == "vn_auto_advance")
+        {
+            settings.vn.autoAdvanceEnabled = parseBoolSetting(value);
+        }
+        else if (key == "mouse_sensitivity")
+        {
+            settings.input.mouseSensitivity = clampMouseSensitivity(std::stof(value));
         }
     }
 
-    return sanitizeDisplaySettings(settings);
+    settings.display = sanitizeDisplaySettings(settings.display);
+    return settings;
 }
 } // namespace
 
@@ -114,7 +160,11 @@ Application::Application()
     try
     {
         m_settingsFilePath = resolveSettingsFilePath();
-        m_displaySettings = loadDisplaySettings(m_settingsFilePath);
+        const LoadedEngineSettings loadedSettings = loadEngineSettings(m_settingsFilePath);
+        m_displaySettings = loadedSettings.display;
+        m_audioSettings = loadedSettings.audio;
+        m_vnSettings = loadedSettings.vn;
+        m_inputSettings = loadedSettings.input;
         m_windowWidth = m_displaySettings.width;
         m_windowHeight = m_displaySettings.height;
         m_windowedWidth = m_displaySettings.width;
@@ -124,6 +174,10 @@ Application::Application()
         m_shaderDirectory = resolveShaderDirectory();
         m_assetManager = std::make_shared<AssetManager>();
         const std::size_t discoveredAssets = m_assetManager->discover(m_assetRootDirectory);
+        m_audioSystem = std::make_unique<AudioSystem>();
+        m_audioSystem->initialize();
+        m_audioSystem->setMasterVolume(m_audioSettings.masterVolume);
+        m_audioSystem->setMusicVolume(m_audioSettings.musicVolume);
 
         {
             std::ostringstream stream;
@@ -391,7 +445,7 @@ void Application::setWindowResolution(int width, int height)
 
     if (m_window == nullptr)
     {
-        persistDisplaySettings();
+        persistSettings();
         return;
     }
 
@@ -410,7 +464,7 @@ void Application::setWindowResolution(int width, int height)
         m_windowWidth = sanitized.width;
         m_windowHeight = sanitized.height;
     }
-    persistDisplaySettings();
+    persistSettings();
 
     std::ostringstream stream;
     stream << (m_windowMode == WindowMode::BorderlessFullscreen ? "Stored" : "Applied")
@@ -429,7 +483,7 @@ void Application::setWindowMode(WindowMode mode)
     {
         m_windowMode = mode;
         m_displaySettings.windowMode = mode;
-        persistDisplaySettings();
+        persistSettings();
         return;
     }
 
@@ -484,7 +538,7 @@ void Application::setWindowMode(WindowMode mode)
 
     m_windowMode = mode;
     m_displaySettings.windowMode = mode;
-    persistDisplaySettings();
+    persistSettings();
 }
 
 void Application::setExclusiveFullscreen(bool enabled)
@@ -500,8 +554,46 @@ void Application::setVSyncEnabled(bool enabled)
         glfwSwapInterval(enabled ? 1 : 0);
     }
 
-    persistDisplaySettings();
+    persistSettings();
     Log::info("Application", enabled ? "VSync enabled." : "VSync disabled.");
+}
+
+void Application::setMasterVolume(float volume)
+{
+    m_audioSettings.masterVolume = clampUnitFloat(volume);
+    if (m_audioSystem != nullptr)
+    {
+        m_audioSystem->setMasterVolume(m_audioSettings.masterVolume);
+    }
+    persistSettings();
+}
+
+void Application::setMusicVolume(float volume)
+{
+    m_audioSettings.musicVolume = clampUnitFloat(volume);
+    if (m_audioSystem != nullptr)
+    {
+        m_audioSystem->setMusicVolume(m_audioSettings.musicVolume);
+    }
+    persistSettings();
+}
+
+void Application::setVnTypingCharactersPerSecond(float charactersPerSecond)
+{
+    m_vnSettings.typingCharactersPerSecond = clampTypingCharactersPerSecond(charactersPerSecond);
+    persistSettings();
+}
+
+void Application::setVnAutoAdvanceEnabled(bool enabled)
+{
+    m_vnSettings.autoAdvanceEnabled = enabled;
+    persistSettings();
+}
+
+void Application::setMouseSensitivity(float sensitivity)
+{
+    m_inputSettings.mouseSensitivity = clampMouseSensitivity(sensitivity);
+    persistSettings();
 }
 
 void Application::applyWindowTitle(const std::string& title) const
@@ -539,6 +631,16 @@ const std::shared_ptr<AssetManager>& Application::assetManager() const noexcept
     return m_assetManager;
 }
 
+AudioSystem& Application::audioSystem() noexcept
+{
+    return *m_audioSystem;
+}
+
+const AudioSystem& Application::audioSystem() const noexcept
+{
+    return *m_audioSystem;
+}
+
 bool Application::isCursorCaptured() const noexcept
 {
     return m_cursorCaptured;
@@ -569,6 +671,21 @@ const Application::DisplaySettings& Application::displaySettings() const noexcep
     return m_displaySettings;
 }
 
+const Application::AudioSettings& Application::audioSettings() const noexcept
+{
+    return m_audioSettings;
+}
+
+const Application::VnSettings& Application::vnSettings() const noexcept
+{
+    return m_vnSettings;
+}
+
+const Application::InputSettings& Application::inputSettings() const noexcept
+{
+    return m_inputSettings;
+}
+
 GLFWwindow* Application::nativeWindow() const noexcept
 {
     return m_window;
@@ -580,7 +697,7 @@ void Application::toggleBorderlessFullscreen()
                                                        : WindowMode::Windowed);
 }
 
-void Application::persistDisplaySettings() const
+void Application::persistSettings() const
 {
     if (m_settingsFilePath.empty())
     {
@@ -591,7 +708,7 @@ void Application::persistDisplaySettings() const
     if (!stream.is_open())
     {
         Log::warning("Application",
-                     "Unable to persist display settings to " + m_settingsFilePath.string() + ".");
+                     "Unable to persist settings to " + m_settingsFilePath.string() + ".");
         return;
     }
 
@@ -601,10 +718,22 @@ void Application::persistDisplaySettings() const
     stream << "fullscreen="
            << (m_displaySettings.windowMode == WindowMode::ExclusiveFullscreen ? 1 : 0) << '\n';
     stream << "vsync=" << (m_displaySettings.vSyncEnabled ? 1 : 0) << '\n';
+    stream << "master_volume=" << m_audioSettings.masterVolume << '\n';
+    stream << "music_volume=" << m_audioSettings.musicVolume << '\n';
+    stream << "vn_typing_cps=" << m_vnSettings.typingCharactersPerSecond << '\n';
+    stream << "vn_auto_advance=" << (m_vnSettings.autoAdvanceEnabled ? 1 : 0) << '\n';
+    stream << "mouse_sensitivity=" << m_inputSettings.mouseSensitivity << '\n';
 }
 
 void Application::shutdown() noexcept
 {
+    if (m_audioSystem != nullptr)
+    {
+        Log::info("Application", "Shutting down audio system.");
+        m_audioSystem->shutdown();
+        m_audioSystem.reset();
+    }
+
     if (m_window != nullptr)
     {
         Log::info("Application", "Destroying window.");

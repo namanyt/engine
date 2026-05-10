@@ -405,6 +405,232 @@ void fillSolidRect(HDC deviceContext, const RECT& bounds, COLORREF color)
     DeleteObject(brush);
 }
 
+RECT toWinRect(const engine::overlayui::Rect& rect)
+{
+    return RECT{static_cast<LONG>(rect.left + 0.5f), static_cast<LONG>(rect.top + 0.5f),
+                static_cast<LONG>(rect.right + 0.5f), static_cast<LONG>(rect.bottom + 0.5f)};
+}
+
+engine::overlayui::Rect offsetRect(const engine::overlayui::Rect& rect, float offsetX,
+                                   float offsetY)
+{
+    return engine::overlayui::Rect{rect.left + offsetX, rect.top + offsetY, rect.right + offsetX,
+                                   rect.bottom + offsetY};
+}
+
+engine::SettingsPanelItemViewModel
+localizeSettingsItem(const engine::SettingsPanelItemViewModel& item, float offsetX, float offsetY)
+{
+    engine::SettingsPanelItemViewModel localized = item;
+    localized.bounds = offsetRect(item.bounds, offsetX, offsetY);
+    localized.interactiveBounds = offsetRect(item.interactiveBounds, offsetX, offsetY);
+    for (engine::SettingsSegmentOptionViewModel& option : localized.segmentOptions)
+    {
+        option.bounds = offsetRect(option.bounds, offsetX, offsetY);
+    }
+    return localized;
+}
+
+void fillRoundedRect(HDC deviceContext, const RECT& bounds, COLORREF color, int radius)
+{
+    HBRUSH brush = CreateSolidBrush(color);
+    HPEN pen = CreatePen(PS_NULL, 0, color);
+    HGDIOBJ previousBrush = SelectObject(deviceContext, brush);
+    HGDIOBJ previousPen = SelectObject(deviceContext, pen);
+    RoundRect(deviceContext, bounds.left, bounds.top, bounds.right, bounds.bottom, radius, radius);
+    SelectObject(deviceContext, previousPen);
+    SelectObject(deviceContext, previousBrush);
+    DeleteObject(pen);
+    DeleteObject(brush);
+}
+
+void frameRoundedRect(HDC deviceContext, const RECT& bounds, COLORREF color, int radius)
+{
+    HBRUSH brush = static_cast<HBRUSH>(GetStockObject(HOLLOW_BRUSH));
+    HPEN pen = CreatePen(PS_SOLID, 1, color);
+    HGDIOBJ previousBrush = SelectObject(deviceContext, brush);
+    HGDIOBJ previousPen = SelectObject(deviceContext, pen);
+    RoundRect(deviceContext, bounds.left, bounds.top, bounds.right, bounds.bottom, radius, radius);
+    SelectObject(deviceContext, previousPen);
+    SelectObject(deviceContext, previousBrush);
+    DeleteObject(pen);
+}
+
+bool intersects(const engine::overlayui::Rect& left, const engine::overlayui::Rect& right)
+{
+    return !(left.right < right.left || left.left > right.right || left.bottom < right.top ||
+             left.top > right.bottom);
+}
+
+void paintSettingsSlider(HDC deviceContext, const engine::SettingsPanelItemViewModel& item,
+                         const engine::SettingsHoverTarget& hoverTarget, COLORREF cardColor)
+{
+    fillRoundedRect(deviceContext, toWinRect(item.bounds), cardColor, 22);
+    drawTextCommand(
+        deviceContext,
+        PaintTextCommand{
+            item.label,
+            toWinRect(engine::overlayui::Rect{item.bounds.left + 24.0f, item.bounds.top + 14.0f,
+                                              item.bounds.left + 360.0f, item.bounds.top + 48.0f}),
+            22, FW_NORMAL, RGB(224, 229, 234), DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+        L"Segoe UI");
+    drawTextCommand(
+        deviceContext,
+        PaintTextCommand{
+            item.valueLabel,
+            toWinRect(engine::overlayui::Rect{item.bounds.right - 176.0f, item.bounds.top + 16.0f,
+                                              item.bounds.right - 24.0f, item.bounds.top + 48.0f}),
+            18, FW_SEMIBOLD, RGB(244, 214, 128), DT_RIGHT | DT_VCENTER | DT_SINGLELINE},
+        L"Segoe UI");
+
+    const RECT trackRect = toWinRect(item.interactiveBounds);
+    fillSolidRect(deviceContext,
+                  RECT{trackRect.left, trackRect.top + 10, trackRect.right, trackRect.top + 16},
+                  item.active || hoverTarget == item.hoverTarget ? RGB(188, 160, 92)
+                                                                 : RGB(84, 92, 102));
+    const int knobX =
+        trackRect.left +
+        static_cast<int>((item.interactiveBounds.right - item.interactiveBounds.left) *
+                             item.normalizedValue +
+                         0.5f);
+    fillRoundedRect(deviceContext, RECT{knobX - 14, trackRect.top, knobX + 14, trackRect.bottom},
+                    RGB(244, 214, 128), 20);
+}
+
+void paintSettingsToggle(HDC deviceContext, const engine::SettingsPanelItemViewModel& item,
+                         const engine::SettingsHoverTarget& hoverTarget, COLORREF cardColor)
+{
+    fillRoundedRect(deviceContext, toWinRect(item.bounds), cardColor, 22);
+    drawTextCommand(
+        deviceContext,
+        PaintTextCommand{
+            item.label,
+            toWinRect(engine::overlayui::Rect{item.bounds.left + 24.0f, item.bounds.top + 14.0f,
+                                              item.bounds.left + 360.0f, item.bounds.top + 48.0f}),
+            22, FW_NORMAL, RGB(224, 229, 234), DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+        L"Segoe UI");
+
+    const bool hovered = hoverTarget == item.hoverTarget;
+    const RECT toggleRect = toWinRect(item.interactiveBounds);
+    fillRoundedRect(deviceContext, toggleRect,
+                    item.active ? RGB(110, 96, 64) : (hovered ? RGB(72, 80, 88) : RGB(54, 60, 68)),
+                    20);
+    drawTextCommand(deviceContext,
+                    PaintTextCommand{item.valueLabel, toggleRect, 18,
+                                     item.active ? FW_SEMIBOLD : FW_NORMAL,
+                                     item.active ? RGB(244, 214, 128) : RGB(222, 228, 233),
+                                     DT_CENTER | DT_VCENTER | DT_SINGLELINE},
+                    L"Segoe UI");
+}
+
+void paintSettingsSegmented(HDC deviceContext, const engine::SettingsPanelItemViewModel& item,
+                            COLORREF cardColor)
+{
+    fillRoundedRect(deviceContext, toWinRect(item.bounds), cardColor, 22);
+    drawTextCommand(
+        deviceContext,
+        PaintTextCommand{
+            item.label,
+            toWinRect(engine::overlayui::Rect{item.bounds.left + 24.0f, item.bounds.top + 14.0f,
+                                              item.bounds.left + 360.0f, item.bounds.top + 48.0f}),
+            22, FW_NORMAL, RGB(224, 229, 234), DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+        L"Segoe UI");
+
+    for (const engine::SettingsSegmentOptionViewModel& option : item.segmentOptions)
+    {
+        const RECT optionRect = toWinRect(option.bounds);
+        fillRoundedRect(deviceContext, optionRect,
+                        option.selected ? RGB(110, 96, 64) : RGB(54, 60, 68), 18);
+        drawTextCommand(deviceContext,
+                        PaintTextCommand{option.label, optionRect, 15,
+                                         option.selected ? FW_SEMIBOLD : FW_NORMAL,
+                                         option.selected ? RGB(244, 214, 128) : RGB(222, 228, 233),
+                                         DT_CENTER | DT_VCENTER | DT_WORDBREAK},
+                        L"Segoe UI");
+    }
+}
+
+void paintSettingsSection(HDC deviceContext, const engine::SettingsPanelItemViewModel& item)
+{
+    drawTextCommand(
+        deviceContext,
+        PaintTextCommand{
+            item.label,
+            toWinRect(engine::overlayui::Rect{item.bounds.left, item.bounds.top, item.bounds.right,
+                                              item.bounds.top + 30.0f}),
+            24, FW_SEMIBOLD, RGB(242, 240, 232), DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+        L"Segoe UI");
+}
+
+void paintSettingsPlaceholder(HDC deviceContext, const engine::SettingsPanelItemViewModel& item,
+                              COLORREF cardColor)
+{
+    fillRoundedRect(deviceContext, toWinRect(item.bounds), cardColor, 22);
+    drawTextCommand(
+        deviceContext,
+        PaintTextCommand{
+            item.label,
+            toWinRect(engine::overlayui::Rect{item.bounds.left + 24.0f, item.bounds.top + 18.0f,
+                                              item.bounds.left + 300.0f, item.bounds.top + 50.0f}),
+            22, FW_NORMAL, RGB(224, 229, 234), DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+        L"Segoe UI");
+    drawTextCommand(
+        deviceContext,
+        PaintTextCommand{
+            item.valueLabel,
+            toWinRect(engine::overlayui::Rect{item.bounds.right - 184.0f, item.bounds.top + 18.0f,
+                                              item.bounds.right - 24.0f, item.bounds.top + 50.0f}),
+            15, FW_SEMIBOLD, RGB(196, 172, 122), DT_RIGHT | DT_VCENTER | DT_SINGLELINE},
+        L"Segoe UI");
+}
+
+bool shouldPaintVisualNovelDialogueChrome(const engine::VisualNovelOverlayModel& viewModel)
+{
+    return viewModel.showDialogueChrome || !viewModel.speakerName.empty() ||
+           !viewModel.dialogueText.empty() || !viewModel.advancePrompt.empty();
+}
+
+void paintVisualNovelDialogueChrome(HDC deviceContext)
+{
+    const RECT dialoguePanel{120, 730, 1800, 1000};
+    const RECT namePlate{160, 676, 600, 740};
+    const RECT accentLine{160, 968, 1760, 974};
+    fillSolidRect(deviceContext, dialoguePanel, RGB(20, 20, 24));
+    fillSolidRect(deviceContext, namePlate, RGB(70, 52, 34));
+    fillSolidRect(deviceContext, accentLine, RGB(178, 144, 94));
+}
+
+void paintVisualNovelDialogueText(HDC deviceContext,
+                                  const engine::VisualNovelOverlayModel& viewModel)
+{
+    if (!viewModel.speakerName.empty())
+    {
+        drawTextCommand(deviceContext,
+                        PaintTextCommand{widen(viewModel.speakerName), RECT{186, 688, 570, 730}, 20,
+                                         FW_SEMIBOLD, RGB(246, 238, 228),
+                                         DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+                        L"Segoe UI");
+    }
+
+    if (!viewModel.dialogueText.empty())
+    {
+        drawTextCommand(deviceContext,
+                        PaintTextCommand{widen(viewModel.dialogueText), RECT{170, 784, 1740, 942},
+                                         24, FW_NORMAL, RGB(244, 244, 242),
+                                         DT_LEFT | DT_TOP | DT_WORDBREAK},
+                        L"Segoe UI");
+    }
+
+    if (!viewModel.advancePrompt.empty())
+    {
+        drawTextCommand(deviceContext,
+                        PaintTextCommand{widen(viewModel.advancePrompt), RECT{1320, 942, 1740, 980},
+                                         16, FW_NORMAL, RGB(186, 186, 190),
+                                         DT_RIGHT | DT_VCENTER | DT_SINGLELINE},
+                        L"Segoe UI");
+    }
+}
+
 engine::StartupFlowOverlay
 paintWindowsOverlay(const std::function<void(HDC, const RECT&)>& paintCallback,
                     bool opaqueBackground, const std::filesystem::path& backdropPath = {})
@@ -545,6 +771,62 @@ paintWindowsTexture(int width, int height,
         const std::uint8_t green = bgraBytes[index * 4 + 1];
         const std::uint8_t red = bgraBytes[index * 4 + 2];
         const std::uint8_t alpha = opaqueBackground ? 255 : std::max({red, green, blue});
+        rgbaPixels[index * 4 + 0] = red;
+        rgbaPixels[index * 4 + 1] = green;
+        rgbaPixels[index * 4 + 2] = blue;
+        rgbaPixels[index * 4 + 3] = alpha;
+    }
+
+    SelectObject(deviceContext, previousBitmap);
+    DeleteObject(bitmap);
+    DeleteDC(deviceContext);
+    return engine::StartupFlowOverlay(uploadTexture(rgbaPixels, width, height), width, height);
+}
+
+engine::StartupFlowOverlay
+paintWindowsTextureBinaryAlpha(int width, int height,
+                               const std::function<void(HDC, const RECT&)>& paintCallback)
+{
+    BITMAPINFO bitmapInfo{};
+    bitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bitmapInfo.bmiHeader.biWidth = width;
+    bitmapInfo.bmiHeader.biHeight = -height;
+    bitmapInfo.bmiHeader.biPlanes = 1;
+    bitmapInfo.bmiHeader.biBitCount = 32;
+    bitmapInfo.bmiHeader.biCompression = BI_RGB;
+
+    void* pixelMemory = nullptr;
+    HDC deviceContext = CreateCompatibleDC(nullptr);
+    if (deviceContext == nullptr)
+    {
+        throw std::runtime_error("Failed to create a startup flow overlay device context.");
+    }
+
+    HBITMAP bitmap =
+        CreateDIBSection(deviceContext, &bitmapInfo, DIB_RGB_COLORS, &pixelMemory, nullptr, 0);
+    if (bitmap == nullptr || pixelMemory == nullptr)
+    {
+        DeleteDC(deviceContext);
+        throw std::runtime_error("Failed to allocate a startup flow overlay bitmap.");
+    }
+
+    HGDIOBJ previousBitmap = SelectObject(deviceContext, bitmap);
+    RECT fullRect{0, 0, width, height};
+    HBRUSH clearBrush = CreateSolidBrush(RGB(0, 0, 0));
+    FillRect(deviceContext, &fullRect, clearBrush);
+    DeleteObject(clearBrush);
+
+    paintCallback(deviceContext, fullRect);
+
+    const auto* bgraBytes = static_cast<const std::uint8_t*>(pixelMemory);
+    std::vector<std::uint8_t> rgbaPixels(static_cast<std::size_t>(width) *
+                                         static_cast<std::size_t>(height) * 4u);
+    for (int index = 0; index < width * height; ++index)
+    {
+        const std::uint8_t blue = bgraBytes[index * 4 + 0];
+        const std::uint8_t green = bgraBytes[index * 4 + 1];
+        const std::uint8_t red = bgraBytes[index * 4 + 2];
+        const std::uint8_t alpha = (red != 0 || green != 0 || blue != 0) ? 255 : 0;
         rgbaPixels[index * 4 + 0] = red;
         rgbaPixels[index * 4 + 1] = green;
         rgbaPixels[index * 4 + 2] = blue;
@@ -987,142 +1269,288 @@ StartupFlowOverlay StartupFlowOverlay::createSettingsMenu(const AssetManager& as
     return paintWindowsOverlay(
         [viewModel](HDC deviceContext, const RECT& fullRect)
         {
+            const SettingsPageModel page = buildSettingsPageModel(viewModel);
             if (viewModel.pauseContext)
             {
-                fillSolidRect(deviceContext, fullRect, RGB(52, 56, 62));
+                fillSolidRect(deviceContext, fullRect, RGB(28, 32, 36));
+            }
+            else
+            {
+                fillSolidRect(deviceContext, fullRect, RGB(18, 22, 28));
             }
 
-            const RECT panelBounds{460, 170, 1460, 910};
-            fillSolidRect(deviceContext, panelBounds,
-                          viewModel.pauseContext ? RGB(88, 92, 98) : RGB(34, 40, 48));
+            fillRoundedRect(deviceContext, toWinRect(page.chrome.shellBounds),
+                            viewModel.pauseContext ? RGB(40, 46, 52) : RGB(28, 34, 42), 42);
+            frameRoundedRect(deviceContext, toWinRect(page.chrome.shellBounds), RGB(84, 92, 100),
+                             42);
+
+            fillRoundedRect(deviceContext, toWinRect(page.chrome.sidebarBounds),
+                            viewModel.pauseContext ? RGB(52, 58, 64) : RGB(34, 40, 48), 30);
+            fillRoundedRect(deviceContext, toWinRect(page.chrome.contentBounds),
+                            viewModel.pauseContext ? RGB(48, 54, 60) : RGB(30, 36, 44), 30);
 
             drawTextCommand(deviceContext,
-                            PaintTextCommand{L"Settings", RECT{560, 232, 1300, 292}, 28,
-                                             FW_SEMIBOLD, RGB(242, 240, 232),
+                            PaintTextCommand{L"Settings", RECT{146, 118, 420, 168}, 30, FW_SEMIBOLD,
+                                             RGB(242, 240, 232),
                                              DT_LEFT | DT_VCENTER | DT_SINGLELINE},
                             L"Segoe UI");
 
-            drawTextCommand(deviceContext,
-                            PaintTextCommand{L"Changes stay pending until you click Apply.",
-                                             RECT{560, 286, 1320, 320}, 15, FW_NORMAL,
-                                             RGB(164, 176, 184),
-                                             DT_LEFT | DT_VCENTER | DT_SINGLELINE},
-                            L"Segoe UI");
-
-            const std::wstring resolutionLabel = std::to_wstring(viewModel.resolutionWidth) +
-                                                 L" x " +
-                                                 std::to_wstring(viewModel.resolutionHeight);
-            const std::wstring vSyncLabel = viewModel.vSyncEnabled ? L"On" : L"Off";
-
-            drawTextCommand(deviceContext,
-                            PaintTextCommand{L"Resolution", RECT{580, 360, 900, 398}, 23, FW_NORMAL,
-                                             RGB(208, 214, 220),
-                                             DT_LEFT | DT_VCENTER | DT_SINGLELINE},
-                            L"Segoe UI");
-            fillSolidRect(deviceContext, RECT{760, 404, 1260, 412},
-                          (viewModel.hoverTarget == SettingsHoverTarget::ResolutionSlider ||
-                           viewModel.resolutionDragging)
-                              ? RGB(188, 160, 92)
-                              : RGB(96, 104, 112));
-            for (int stopIndex = 0; stopIndex < viewModel.resolutionCount; ++stopIndex)
+            for (const SettingsCategoryEntryViewModel& category : page.categories)
             {
-                const float t = viewModel.resolutionCount > 1
-                                    ? static_cast<float>(stopIndex) /
-                                          static_cast<float>(viewModel.resolutionCount - 1)
-                                    : 0.0f;
-                const int x = 760 + static_cast<int>(500.0f * t + 0.5f);
-                fillSolidRect(deviceContext, RECT{x - 4, 398, x + 4, 418}, RGB(222, 228, 233));
+                const RECT categoryRect = toWinRect(category.bounds);
+                const COLORREF categoryColor =
+                    category.active ? RGB(96, 86, 62)
+                                    : (category.hovered ? RGB(60, 68, 76) : RGB(42, 48, 56));
+                fillRoundedRect(deviceContext, categoryRect, categoryColor, 24);
+                drawTextCommand(
+                    deviceContext,
+                    PaintTextCommand{category.title,
+                                     RECT{categoryRect.left + 24, categoryRect.top + 16,
+                                          categoryRect.right - 24, categoryRect.top + 44},
+                                     20, category.active ? FW_SEMIBOLD : FW_NORMAL,
+                                     category.active ? RGB(244, 214, 128) : RGB(224, 229, 234),
+                                     DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+                    L"Segoe UI");
             }
-            const float knobT = viewModel.resolutionCount > 1
-                                    ? static_cast<float>(viewModel.resolutionIndex) /
-                                          static_cast<float>(viewModel.resolutionCount - 1)
-                                    : 0.0f;
-            const int knobX = 760 + static_cast<int>(500.0f * knobT + 0.5f);
-            fillSolidRect(deviceContext, RECT{knobX - 14, 392, knobX + 14, 424},
-                          RGB(244, 214, 128));
-            drawTextCommand(deviceContext,
-                            PaintTextCommand{resolutionLabel, RECT{1288, 384, 1400, 430}, 21,
-                                             FW_SEMIBOLD, RGB(232, 235, 238),
-                                             DT_RIGHT | DT_VCENTER | DT_SINGLELINE},
-                            L"Segoe UI");
 
             drawTextCommand(deviceContext,
-                            PaintTextCommand{L"Display Mode", RECT{580, 450, 920, 486}, 23,
-                                             FW_NORMAL, RGB(208, 214, 220),
+                            PaintTextCommand{page.activeCategoryTitle, RECT{590, 120, 1300, 172},
+                                             32, FW_SEMIBOLD, RGB(242, 240, 232),
                                              DT_LEFT | DT_VCENTER | DT_SINGLELINE},
                             L"Segoe UI");
-            const auto drawModeButton =
-                [&](const RECT& bounds, const wchar_t* label, const bool active, const bool hovered)
+
+            const COLORREF cardColor = viewModel.pauseContext ? RGB(58, 64, 70) : RGB(42, 48, 56);
+            const int savedViewportState = SaveDC(deviceContext);
+            const RECT viewportRect = toWinRect(page.chrome.contentViewportBounds);
+            IntersectClipRect(deviceContext, viewportRect.left, viewportRect.top,
+                              viewportRect.right, viewportRect.bottom);
+            for (const SettingsPanelItemViewModel& item : page.items)
             {
-                fillSolidRect(deviceContext, bounds,
-                              active ? RGB(110, 96, 64)
-                                     : (hovered ? RGB(70, 78, 86) : RGB(54, 60, 68)));
-                drawTextCommand(deviceContext,
-                                PaintTextCommand{label, bounds, 16,
-                                                 active ? FW_SEMIBOLD : FW_NORMAL,
-                                                 active ? RGB(244, 214, 128) : RGB(222, 228, 233),
-                                                 DT_CENTER | DT_VCENTER | DT_SINGLELINE},
-                                L"Segoe UI");
-            };
-            drawModeButton(RECT{580, 490, 780, 548}, L"Windowed",
-                           viewModel.windowMode == Application::WindowMode::Windowed,
-                           viewModel.hoverTarget == SettingsHoverTarget::WindowedMode);
-            drawModeButton(RECT{800, 490, 1080, 548}, L"Windowed Fullscreen",
-                           viewModel.windowMode == Application::WindowMode::BorderlessFullscreen,
-                           viewModel.hoverTarget == SettingsHoverTarget::BorderlessMode);
-            drawModeButton(RECT{1100, 490, 1380, 548}, L"Exclusive Fullscreen",
-                           viewModel.windowMode == Application::WindowMode::ExclusiveFullscreen,
-                           viewModel.hoverTarget == SettingsHoverTarget::ExclusiveMode);
+                if (!intersects(item.bounds, page.chrome.contentViewportBounds))
+                {
+                    continue;
+                }
 
+                switch (item.kind)
+                {
+                case SettingsPanelItemKind::Section:
+                    paintSettingsSection(deviceContext, item);
+                    break;
+                case SettingsPanelItemKind::Slider:
+                    paintSettingsSlider(deviceContext, item, viewModel.hoverTarget, cardColor);
+                    break;
+                case SettingsPanelItemKind::Toggle:
+                    paintSettingsToggle(deviceContext, item, viewModel.hoverTarget, cardColor);
+                    break;
+                case SettingsPanelItemKind::Segmented:
+                    paintSettingsSegmented(deviceContext, item, cardColor);
+                    break;
+                case SettingsPanelItemKind::Placeholder:
+                    paintSettingsPlaceholder(deviceContext, item, cardColor);
+                    break;
+                }
+            }
+            RestoreDC(deviceContext, savedViewportState);
+
+            fillRoundedRect(deviceContext, toWinRect(page.chrome.scrollTrackBounds),
+                            RGB(52, 58, 64), 12);
+            fillRoundedRect(deviceContext, toWinRect(page.chrome.scrollThumbBounds),
+                            RGB(108, 116, 124), 12);
+
+            fillRoundedRect(deviceContext, toWinRect(page.chrome.backButtonBounds),
+                            viewModel.hoverTarget.type == SettingsHoverTargetType::BackButton
+                                ? RGB(70, 78, 86)
+                                : RGB(54, 60, 68),
+                            22);
+            fillRoundedRect(deviceContext, toWinRect(page.chrome.applyButtonBounds),
+                            !viewModel.applyEnabled ? RGB(52, 54, 58)
+                                                    : (viewModel.hoverTarget.type ==
+                                                               SettingsHoverTargetType::ApplyButton
+                                                           ? RGB(126, 108, 70)
+                                                           : RGB(110, 96, 64)),
+                            22);
             drawTextCommand(deviceContext,
-                            PaintTextCommand{L"VSync", RECT{580, 578, 900, 616}, 23, FW_NORMAL,
-                                             RGB(208, 214, 220),
-                                             DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+                            PaintTextCommand{L"Back", toWinRect(page.chrome.backButtonBounds), 22,
+                                             FW_NORMAL, RGB(222, 228, 233),
+                                             DT_CENTER | DT_VCENTER | DT_SINGLELINE},
                             L"Segoe UI");
-            fillSolidRect(deviceContext, RECT{580, 620, 760, 676},
-                          viewModel.hoverTarget == SettingsHoverTarget::VSyncToggle
-                              ? RGB(70, 78, 86)
-                              : RGB(54, 60, 68));
             drawTextCommand(
                 deviceContext,
-                PaintTextCommand{vSyncLabel, RECT{580, 620, 760, 676}, 21,
-                                 viewModel.vSyncEnabled ? FW_SEMIBOLD : FW_NORMAL,
-                                 viewModel.vSyncEnabled ? RGB(244, 214, 128) : RGB(222, 228, 233),
+                PaintTextCommand{L"Apply", toWinRect(page.chrome.applyButtonBounds), 22,
+                                 viewModel.applyEnabled ? FW_SEMIBOLD : FW_NORMAL,
+                                 viewModel.applyEnabled ? RGB(244, 214, 128) : RGB(140, 146, 152),
                                  DT_CENTER | DT_VCENTER | DT_SINGLELINE},
                 L"Segoe UI");
+        },
+        !viewModel.pauseContext,
+        viewModel.pauseContext ? std::filesystem::path{} : resolveMenuBackdropPath(assetManager));
+#else
+    throw std::runtime_error("Settings overlay generation is only available on Windows.");
+#endif
+}
 
-            fillSolidRect(deviceContext, RECT{950, 734, 1160, 794},
-                          viewModel.hoverTarget == SettingsHoverTarget::BackButton
-                              ? RGB(70, 78, 86)
-                              : RGB(54, 60, 68));
-            fillSolidRect(deviceContext, RECT{1188, 734, 1400, 794},
-                          !viewModel.applyEnabled
-                              ? RGB(52, 54, 58)
-                              : (viewModel.hoverTarget == SettingsHoverTarget::ApplyButton
-                                     ? RGB(126, 108, 70)
-                                     : RGB(110, 96, 64)));
+StartupFlowOverlay StartupFlowOverlay::createSettingsBase(const AssetManager& assetManager,
+                                                          const SettingsOverlayViewModel& viewModel)
+{
+#if defined(_WIN32)
+    return paintWindowsOverlay(
+        [viewModel](HDC deviceContext, const RECT& fullRect)
+        {
+            const SettingsPageModel page = buildSettingsPageModel(viewModel);
+            if (viewModel.pauseContext)
+            {
+                fillSolidRect(deviceContext, fullRect, RGB(28, 32, 36));
+            }
+            else
+            {
+                fillSolidRect(deviceContext, fullRect, RGB(18, 22, 28));
+            }
+
+            fillRoundedRect(deviceContext, toWinRect(page.chrome.shellBounds),
+                            viewModel.pauseContext ? RGB(40, 46, 52) : RGB(28, 34, 42), 42);
+            frameRoundedRect(deviceContext, toWinRect(page.chrome.shellBounds), RGB(84, 92, 100),
+                             42);
+
+            fillRoundedRect(deviceContext, toWinRect(page.chrome.sidebarBounds),
+                            viewModel.pauseContext ? RGB(52, 58, 64) : RGB(34, 40, 48), 30);
+            fillRoundedRect(deviceContext, toWinRect(page.chrome.contentBounds),
+                            viewModel.pauseContext ? RGB(48, 54, 60) : RGB(30, 36, 44), 30);
+
             drawTextCommand(deviceContext,
-                            PaintTextCommand{L"Back", RECT{950, 734, 1160, 794}, 22, FW_NORMAL,
+                            PaintTextCommand{L"Settings", RECT{146, 118, 420, 168}, 30, FW_SEMIBOLD,
+                                             RGB(242, 240, 232),
+                                             DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+                            L"Segoe UI");
+
+            for (const SettingsCategoryEntryViewModel& category : page.categories)
+            {
+                const RECT categoryRect = toWinRect(category.bounds);
+                const COLORREF categoryColor =
+                    category.active ? RGB(96, 86, 62)
+                                    : (category.hovered ? RGB(60, 68, 76) : RGB(42, 48, 56));
+                fillRoundedRect(deviceContext, categoryRect, categoryColor, 24);
+                drawTextCommand(
+                    deviceContext,
+                    PaintTextCommand{category.title,
+                                     RECT{categoryRect.left + 24, categoryRect.top + 16,
+                                          categoryRect.right - 24, categoryRect.top + 44},
+                                     20, category.active ? FW_SEMIBOLD : FW_NORMAL,
+                                     category.active ? RGB(244, 214, 128) : RGB(224, 229, 234),
+                                     DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+                    L"Segoe UI");
+            }
+        },
+        !viewModel.pauseContext,
+        viewModel.pauseContext ? std::filesystem::path{} : resolveMenuBackdropPath(assetManager));
+#else
+    (void)assetManager;
+    (void)viewModel;
+    throw std::runtime_error("Settings overlay generation is only available on Windows.");
+#endif
+}
+
+StartupFlowOverlay
+StartupFlowOverlay::createSettingsContent(const SettingsOverlayViewModel& viewModel)
+{
+#if defined(_WIN32)
+    const SettingsPageModel page = buildSettingsPageModel(viewModel);
+    const int textureWidth =
+        static_cast<int>(page.chrome.contentBounds.right - page.chrome.contentBounds.left + 0.5f);
+    const int textureHeight =
+        static_cast<int>(page.chrome.contentBounds.bottom - page.chrome.contentBounds.top + 0.5f);
+    const float offsetX = -page.chrome.contentBounds.left;
+    const float offsetY = -page.chrome.contentBounds.top;
+
+    return paintWindowsTextureBinaryAlpha(
+        textureWidth, textureHeight,
+        [viewModel, page, offsetX, offsetY](HDC deviceContext, const RECT& fullRect)
+        {
+            (void)fullRect;
+            const COLORREF cardColor = viewModel.pauseContext ? RGB(58, 64, 70) : RGB(42, 48, 56);
+
+            drawTextCommand(
+                deviceContext,
+                PaintTextCommand{
+                    page.activeCategoryTitle,
+                    toWinRect(offsetRect(engine::overlayui::Rect{590.0f, 120.0f, 1300.0f, 172.0f},
+                                         offsetX, offsetY)),
+                    32, FW_SEMIBOLD, RGB(242, 240, 232), DT_LEFT | DT_VCENTER | DT_SINGLELINE},
+                L"Segoe UI");
+
+            const int savedViewportState = SaveDC(deviceContext);
+            const engine::overlayui::Rect localizedViewportBounds =
+                offsetRect(page.chrome.contentViewportBounds, offsetX, offsetY);
+            const RECT viewportRect = toWinRect(localizedViewportBounds);
+            IntersectClipRect(deviceContext, viewportRect.left, viewportRect.top,
+                              viewportRect.right, viewportRect.bottom);
+            for (const SettingsPanelItemViewModel& item : page.items)
+            {
+                if (!intersects(item.bounds, page.chrome.contentViewportBounds))
+                {
+                    continue;
+                }
+
+                const SettingsPanelItemViewModel localItem =
+                    localizeSettingsItem(item, offsetX, offsetY);
+                switch (localItem.kind)
+                {
+                case SettingsPanelItemKind::Section:
+                    paintSettingsSection(deviceContext, localItem);
+                    break;
+                case SettingsPanelItemKind::Slider:
+                    paintSettingsSlider(deviceContext, localItem, viewModel.hoverTarget, cardColor);
+                    break;
+                case SettingsPanelItemKind::Toggle:
+                    paintSettingsToggle(deviceContext, localItem, viewModel.hoverTarget, cardColor);
+                    break;
+                case SettingsPanelItemKind::Segmented:
+                    paintSettingsSegmented(deviceContext, localItem, cardColor);
+                    break;
+                case SettingsPanelItemKind::Placeholder:
+                    paintSettingsPlaceholder(deviceContext, localItem, cardColor);
+                    break;
+                }
+            }
+            RestoreDC(deviceContext, savedViewportState);
+
+            fillRoundedRect(deviceContext,
+                            toWinRect(offsetRect(page.chrome.scrollTrackBounds, offsetX, offsetY)),
+                            RGB(52, 58, 64), 12);
+            fillRoundedRect(deviceContext,
+                            toWinRect(offsetRect(page.chrome.scrollThumbBounds, offsetX, offsetY)),
+                            RGB(108, 116, 124), 12);
+
+            const engine::overlayui::Rect backButtonBounds =
+                offsetRect(page.chrome.backButtonBounds, offsetX, offsetY);
+            const engine::overlayui::Rect applyButtonBounds =
+                offsetRect(page.chrome.applyButtonBounds, offsetX, offsetY);
+            fillRoundedRect(deviceContext, toWinRect(backButtonBounds),
+                            viewModel.hoverTarget.type == SettingsHoverTargetType::BackButton
+                                ? RGB(70, 78, 86)
+                                : RGB(54, 60, 68),
+                            22);
+            fillRoundedRect(deviceContext, toWinRect(applyButtonBounds),
+                            !viewModel.applyEnabled ? RGB(52, 54, 58)
+                                                    : (viewModel.hoverTarget.type ==
+                                                               SettingsHoverTargetType::ApplyButton
+                                                           ? RGB(126, 108, 70)
+                                                           : RGB(110, 96, 64)),
+                            22);
+            drawTextCommand(deviceContext,
+                            PaintTextCommand{L"Back", toWinRect(backButtonBounds), 22, FW_NORMAL,
                                              RGB(222, 228, 233),
                                              DT_CENTER | DT_VCENTER | DT_SINGLELINE},
                             L"Segoe UI");
             drawTextCommand(
                 deviceContext,
-                PaintTextCommand{L"Apply", RECT{1188, 734, 1400, 794}, 22,
+                PaintTextCommand{L"Apply", toWinRect(applyButtonBounds), 22,
                                  viewModel.applyEnabled ? FW_SEMIBOLD : FW_NORMAL,
                                  viewModel.applyEnabled ? RGB(244, 214, 128) : RGB(140, 146, 152),
                                  DT_CENTER | DT_VCENTER | DT_SINGLELINE},
                 L"Segoe UI");
-            drawTextCommand(deviceContext,
-                            PaintTextCommand{L"Use the mouse to adjust settings and click Apply.",
-                                             RECT{560, 792, 1320, 836}, 16, FW_NORMAL,
-                                             RGB(164, 176, 184),
-                                             DT_LEFT | DT_VCENTER | DT_SINGLELINE},
-                            L"Segoe UI");
-        },
-        !viewModel.pauseContext,
-        viewModel.pauseContext ? std::filesystem::path{} : resolveMenuBackdropPath(assetManager));
+        });
 #else
+    (void)viewModel;
     throw std::runtime_error("Settings overlay generation is only available on Windows.");
 #endif
 }
@@ -1173,46 +1601,32 @@ StartupFlowOverlay::createVisualNovelScene(const AssetManager& assetManager,
                 drawDecodedImage(deviceContext, portraitImage, portraitBounds);
             }
 
-            if (!viewModel.speakerName.empty() || !viewModel.dialogueText.empty() ||
-                !viewModel.advancePrompt.empty())
+            if (shouldPaintVisualNovelDialogueChrome(viewModel))
             {
-                const RECT dialoguePanel{120, 730, 1800, 1000};
-                const RECT namePlate{160, 676, 600, 740};
-                const RECT accentLine{160, 968, 1760, 974};
-                fillSolidRect(deviceContext, dialoguePanel, RGB(20, 20, 24));
-                fillSolidRect(deviceContext, namePlate, RGB(70, 52, 34));
-                fillSolidRect(deviceContext, accentLine, RGB(178, 144, 94));
-
-                if (!viewModel.speakerName.empty())
-                {
-                    drawTextCommand(deviceContext,
-                                    PaintTextCommand{widen(viewModel.speakerName),
-                                                     RECT{186, 688, 570, 730}, 20, FW_SEMIBOLD,
-                                                     RGB(246, 238, 228),
-                                                     DT_LEFT | DT_VCENTER | DT_SINGLELINE},
-                                    L"Segoe UI");
-                }
-
-                drawTextCommand(deviceContext,
-                                PaintTextCommand{
-                                    widen(viewModel.dialogueText), RECT{170, 784, 1740, 942}, 24,
-                                    FW_NORMAL, RGB(244, 244, 242), DT_LEFT | DT_TOP | DT_WORDBREAK},
-                                L"Segoe UI");
-
-                if (!viewModel.advancePrompt.empty())
-                {
-                    drawTextCommand(deviceContext,
-                                    PaintTextCommand{widen(viewModel.advancePrompt),
-                                                     RECT{1320, 942, 1740, 980}, 16, FW_NORMAL,
-                                                     RGB(186, 186, 190),
-                                                     DT_RIGHT | DT_VCENTER | DT_SINGLELINE},
-                                    L"Segoe UI");
-                }
+                paintVisualNovelDialogueChrome(deviceContext);
+                paintVisualNovelDialogueText(deviceContext, viewModel);
             }
         },
         true);
 #else
     (void)assetManager;
+    (void)viewModel;
+    throw std::runtime_error("Visual novel overlay generation is only available on Windows.");
+#endif
+}
+
+StartupFlowOverlay
+StartupFlowOverlay::createVisualNovelDialogueLayer(const VisualNovelOverlayModel& viewModel)
+{
+#if defined(_WIN32)
+    return paintWindowsOverlay(
+        [&viewModel](HDC deviceContext, const RECT& fullRect)
+        {
+            (void)fullRect;
+            paintVisualNovelDialogueText(deviceContext, viewModel);
+        },
+        false);
+#else
     (void)viewModel;
     throw std::runtime_error("Visual novel overlay generation is only available on Windows.");
 #endif

@@ -1,34 +1,21 @@
 #pragma once
 
-#include "Application.h"
+#include "runtime/SettingsPage.h"
 
 namespace engine
 {
-enum class SettingsHoverTarget
+enum class SettingsOverlayDirtyRegion : unsigned int
 {
-    None,
-    ResolutionSlider,
-    WindowedMode,
-    BorderlessMode,
-    ExclusiveMode,
-    VSyncToggle,
-    ApplyButton,
-    BackButton,
+    None = 0u,
+    Base = 1u << 0u,
+    Content = 1u << 1u,
 };
 
-struct SettingsOverlayViewModel final
-{
-    SettingsHoverTarget hoverTarget = SettingsHoverTarget::None;
-    int resolutionIndex = 0;
-    int resolutionCount = 1;
-    int resolutionWidth = 1600;
-    int resolutionHeight = 900;
-    Application::WindowMode windowMode = Application::WindowMode::Windowed;
-    bool vSyncEnabled = false;
-    bool applyEnabled = false;
-    bool pauseContext = false;
-    bool resolutionDragging = false;
-};
+SettingsOverlayDirtyRegion operator|(SettingsOverlayDirtyRegion left,
+                                     SettingsOverlayDirtyRegion right) noexcept;
+SettingsOverlayDirtyRegion& operator|=(SettingsOverlayDirtyRegion& left,
+                                       SettingsOverlayDirtyRegion right) noexcept;
+bool hasDirtyRegion(SettingsOverlayDirtyRegion value, SettingsOverlayDirtyRegion flag) noexcept;
 
 class SettingsOverlay final
 {
@@ -50,24 +37,38 @@ class SettingsOverlay final
 
     void activate(const Application& application, bool pauseContext);
     Result update(const InputState& inputState, Application& application);
-    bool consumeDirty();
+    SettingsOverlayDirtyRegion consumeDirtyRegions();
     SettingsOverlayViewModel viewModel() const noexcept;
 
   private:
     void syncFromApplication(const Application& application);
     int resolutionIndexFor(const Application::DisplaySettings& settings) const noexcept;
     void updateHoverTarget(const Vec2& normalizedMouse);
-    void updateResolutionFromMouse(const Vec2& normalizedMouse);
+    void updateSliderFromMouse(SettingsHoverTargetType sliderType, const Vec2& normalizedMouse);
     void applyPendingSettings(Application& application);
     bool hasPendingChanges() const noexcept;
+    void markDirty(SettingsOverlayDirtyRegion dirtyRegion) noexcept;
 
-    SettingsHoverTarget m_hoverTarget = SettingsHoverTarget::None;
+    SettingsHoverTarget m_hoverTarget{};
+    SettingsHoverTargetType m_draggingSlider = SettingsHoverTargetType::None;
+    SettingsCategory m_activeCategory = SettingsCategory::Display;
     int m_resolutionIndex = 1;
     Application::DisplaySettings m_appliedSettings{};
+    float m_appliedMasterVolume = 1.0f;
+    float m_appliedMusicVolume = 1.0f;
+    float m_appliedMouseSensitivity = 0.10f;
+    float m_appliedTypingCharactersPerSecond = 30.0f;
+    bool m_appliedAutoAdvanceEnabled = false;
     Application::WindowMode m_windowMode = Application::WindowMode::Windowed;
     bool m_vsyncEnabled = false;
+    bool m_autoAdvanceEnabled = false;
     bool m_pauseContext = false;
-    bool m_draggingResolution = false;
-    bool m_dirty = true;
+    float m_masterVolume = 0.85f;
+    float m_musicVolume = 0.70f;
+    float m_mouseSensitivity = 0.52f;
+    float m_typingSpeed = 0.45f;
+    float m_contentScrollOffset = 0.0f;
+    SettingsOverlayDirtyRegion m_dirtyRegions =
+        SettingsOverlayDirtyRegion::Base | SettingsOverlayDirtyRegion::Content;
 };
 } // namespace engine

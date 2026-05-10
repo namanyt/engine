@@ -32,6 +32,20 @@ constexpr std::string_view kPromptRebuildOverlayMissing = "overlay_missing";
 constexpr std::string_view kPromptRebuildScreenMotion = "screen_motion";
 constexpr std::string_view kPromptRebuildTextChanged = "prompt_text";
 
+engine::RuntimeOverlayOptions
+settingsContentOverlayOptions(const engine::SettingsOverlayViewModel& viewModel)
+{
+    const engine::SettingsPageModel page = engine::buildSettingsPageModel(viewModel);
+    engine::RuntimeOverlayOptions options{};
+    options.layout = engine::RuntimeOverlayLayout::CustomPixels;
+    options.opacity = 1.0f;
+    options.minXPixels = page.chrome.contentBounds.left;
+    options.minYPixels = page.chrome.contentBounds.top;
+    options.widthPixels = page.chrome.contentBounds.right - page.chrome.contentBounds.left;
+    options.heightPixels = page.chrome.contentBounds.bottom - page.chrome.contentBounds.top;
+    return options;
+}
+
 std::unique_ptr<engine::SceneMetasset> createSceneMetasset(engine::RuntimeId runtimeId)
 {
     switch (runtimeId)
@@ -296,7 +310,8 @@ void ExplorationRuntime::deactivate(Renderer& renderer)
     m_pauseResumeOverlay.reset();
     m_pauseSettingsOverlay.reset();
     m_pauseReturnOverlay.reset();
-    m_settingsOverlayTexture.reset();
+    m_settingsOverlayBaseTexture.reset();
+    m_settingsOverlayContentTexture.reset();
     m_assetManager.reset();
     m_alternatePanelTexture.reset();
     m_panelOverrideTexture.reset();
@@ -346,6 +361,10 @@ void ExplorationRuntime::update(const UpdateContext& updateContext)
     m_scene->ensureRuntimeEntities(m_playerEntity, m_debugCameraEntity);
     m_scene->syncRuntimeEntities(m_playerEntity, m_player, m_debugCameraEntity, m_debugCamera,
                                  m_debugFreeCameraEnabled);
+
+    const float mouseSensitivity = updateContext.application.inputSettings().mouseSensitivity;
+    m_playerController.setMouseSensitivity(mouseSensitivity);
+    m_debugCameraController.setMouseSensitivity(mouseSensitivity);
 
     if (m_overlayView == OverlayView::None && m_debugFreeCameraEnabled)
     {
@@ -619,9 +638,10 @@ void ExplorationRuntime::handleOverlayInput(const UpdateContext& updateContext,
             m_pauseSelection = PauseMenuSelection::None;
         }
 
-        if (m_settingsOverlay.consumeDirty())
+        const SettingsOverlayDirtyRegion dirtyRegions = m_settingsOverlay.consumeDirtyRegions();
+        if (dirtyRegions != SettingsOverlayDirtyRegion::None)
         {
-            refreshSettingsOverlay();
+            refreshSettingsOverlay(dirtyRegions);
         }
         return;
     }
@@ -675,7 +695,8 @@ void ExplorationRuntime::handleOverlayInput(const UpdateContext& updateContext,
         m_overlayView = OverlayView::Settings;
         m_pauseSelection = PauseMenuSelection::None;
         m_settingsOverlay.activate(updateContext.application, true);
-        refreshSettingsOverlay();
+        refreshSettingsOverlay(SettingsOverlayDirtyRegion::Base |
+                               SettingsOverlayDirtyRegion::Content);
         return;
     }
 
@@ -824,13 +845,26 @@ void ExplorationRuntime::applyRuntimeOverlay(Renderer& renderer) const
 
     if (m_overlayView == OverlayView::Settings)
     {
-        renderer.clearSecondaryRuntimeOverlayTexture();
-        if (m_settingsOverlayTexture.valid())
+        if (m_settingsOverlayBaseTexture.valid())
         {
-            m_settingsOverlayTexture.apply(
+            m_settingsOverlayBaseTexture.apply(
                 renderer, RuntimeOverlayOptions{RuntimeOverlayLayout::FullScreen, 1.0f});
+            if (m_settingsOverlayContentTexture.valid())
+            {
+                renderer.setSecondaryRuntimeOverlayTexture(
+                    m_settingsOverlayContentTexture.textureId(),
+                    m_settingsOverlayContentTexture.width(),
+                    m_settingsOverlayContentTexture.height(),
+                    settingsContentOverlayOptions(m_settingsOverlay.viewModel()));
+            }
+            else
+            {
+                renderer.clearSecondaryRuntimeOverlayTexture();
+            }
             return;
         }
+
+        renderer.clearSecondaryRuntimeOverlayTexture();
     }
 
     const float fadeProgress = std::clamp(m_entryFadeElapsedSeconds / 1.15f, 0.0f, 1.0f);
@@ -859,16 +893,26 @@ void ExplorationRuntime::applyRuntimeOverlay(Renderer& renderer) const
     }
 }
 
-void ExplorationRuntime::refreshSettingsOverlay()
+void ExplorationRuntime::refreshSettingsOverlay(SettingsOverlayDirtyRegion dirtyRegions)
 {
     if (m_assetManager == nullptr)
     {
         throw std::runtime_error("ExplorationRuntime settings overlay requires an AssetManager.");
     }
 
-    m_settingsOverlayTexture.reset();
-    m_settingsOverlayTexture =
-        StartupFlowOverlay::createSettingsMenu(*m_assetManager, m_settingsOverlay.viewModel());
+    const SettingsOverlayViewModel viewModel = m_settingsOverlay.viewModel();
+    if (hasDirtyRegion(dirtyRegions, SettingsOverlayDirtyRegion::Base))
+    {
+        m_settingsOverlayBaseTexture.reset();
+        m_settingsOverlayBaseTexture =
+            StartupFlowOverlay::createSettingsBase(*m_assetManager, viewModel);
+    }
+
+    if (hasDirtyRegion(dirtyRegions, SettingsOverlayDirtyRegion::Content))
+    {
+        m_settingsOverlayContentTexture.reset();
+        m_settingsOverlayContentTexture = StartupFlowOverlay::createSettingsContent(viewModel);
+    }
 }
 
 void ExplorationRuntime::requestWorldLoad(RuntimeId targetRuntimeId)

@@ -1,6 +1,7 @@
 #include "runtime/LoadingRuntime.h"
 
 #include "Application.h"
+#include "core/AudioSystem.h"
 #include "core/Log.h"
 #include "core/RenderPipeline.h"
 #include "core/Renderer.h"
@@ -22,10 +23,12 @@ constexpr float kDeferredLoadStartDelaySeconds = 0.18f;
 constexpr float kDisclaimerFadeDurationSeconds = 1.2f;
 constexpr float kBootSequenceDisclaimerDurationSeconds = 4.0f;
 constexpr float kBootSequenceFadeOutDurationSeconds = 0.5f;
+constexpr float kPersistentMusicFadeOutDurationSeconds = 1.5f;
 constexpr float kBootSequenceDefaultLineAdvanceSeconds = 0.065f;
 constexpr float kBootSequenceBurstLineAdvanceSeconds = 0.028f;
 constexpr float kBootSequenceCursorBlinkSeconds = 0.24f;
 constexpr std::string_view kBootSequenceAssetPath = "boot/boot_sequence.txt";
+constexpr std::string_view kMainMenuMusicPlaybackId{"main-menu-music"};
 
 struct ParsedBootSequenceColor final
 {
@@ -153,6 +156,7 @@ void LoadingRuntime::activate(ActivationContext& activationContext)
     m_bootSequenceScriptDurationSeconds = 0.0f;
     m_bootSequenceVisibleLineRevision = -1;
     m_bootSequenceCursorRevision = false;
+    m_persistentMusicFadeRequested = false;
     m_bootSequenceStatusRevision = BootSequenceTextEntry{};
     m_loadingStarted = false;
     m_transitionQueued = false;
@@ -182,6 +186,7 @@ void LoadingRuntime::deactivate(Renderer& renderer)
     m_bootSequenceScriptDurationSeconds = 0.0f;
     m_bootSequenceVisibleLineRevision = -1;
     m_bootSequenceCursorRevision = false;
+    m_persistentMusicFadeRequested = false;
     m_bootSequenceStatusRevision = BootSequenceTextEntry{};
     m_transitionQueued = false;
     m_bootSequenceEvents.clear();
@@ -200,6 +205,19 @@ void LoadingRuntime::update(const UpdateContext& updateContext)
     }
 
     refreshBootSequenceOverlayIfNeeded();
+
+    if (m_loadingScreenStyle == LoadingScreenStyle::DisclaimerBootSequence &&
+        !m_persistentMusicFadeRequested)
+    {
+        const float fadeStartTimeSeconds =
+            std::max(transitionReadyTimeSeconds() - kPersistentMusicFadeOutDurationSeconds, 0.0f);
+        if (m_elapsedSeconds >= fadeStartTimeSeconds)
+        {
+            updateContext.application.audioSystem().fadeOutPersistent(
+                kMainMenuMusicPlaybackId, kPersistentMusicFadeOutDurationSeconds);
+            m_persistentMusicFadeRequested = true;
+        }
+    }
 
     updateProgressTitle(updateContext.application);
     if (m_nextRuntimeMode == nullptr || m_loadingCompletedAtSeconds < 0.0f ||

@@ -11,6 +11,7 @@ struct GLFWwindow;
 namespace engine
 {
 class AssetManager;
+class AudioSystem;
 
 struct RawButtonState final
 {
@@ -69,6 +70,23 @@ class Application final
         bool vSyncEnabled = false;
     };
 
+    struct AudioSettings final
+    {
+        float masterVolume = 1.0f;
+        float musicVolume = 1.0f;
+    };
+
+    struct VnSettings final
+    {
+        float typingCharactersPerSecond = 30.0f;
+        bool autoAdvanceEnabled = false;
+    };
+
+    struct InputSettings final
+    {
+        float mouseSensitivity = 0.10f;
+    };
+
     Application();
     ~Application();
 
@@ -94,9 +112,16 @@ class Application final
     void setWindowMode(WindowMode mode);
     void setExclusiveFullscreen(bool enabled);
     void setVSyncEnabled(bool enabled);
+    void setMasterVolume(float volume);
+    void setMusicVolume(float volume);
+    void setVnTypingCharactersPerSecond(float charactersPerSecond);
+    void setVnAutoAdvanceEnabled(bool enabled);
+    void setMouseSensitivity(float sensitivity);
 
     int framebufferWidth() const noexcept;
     int framebufferHeight() const noexcept;
+    AudioSystem& audioSystem() noexcept;
+    const AudioSystem& audioSystem() const noexcept;
     const std::filesystem::path& assetRootDirectory() const noexcept;
     const std::filesystem::path& shaderDirectory() const noexcept;
     const std::shared_ptr<AssetManager>& assetManager() const noexcept;
@@ -106,13 +131,16 @@ class Application final
     bool isVSyncEnabled() const noexcept;
     WindowMode windowMode() const noexcept;
     const DisplaySettings& displaySettings() const noexcept;
+    const AudioSettings& audioSettings() const noexcept;
+    const VnSettings& vnSettings() const noexcept;
+    const InputSettings& inputSettings() const noexcept;
     GLFWwindow* nativeWindow() const noexcept;
 
   private:
     void initializeWindow();
     void shutdown() noexcept;
     void updateKeyboardState(RawInputState& inputState) const;
-    void persistDisplaySettings() const;
+    void persistSettings() const;
     void toggleBorderlessFullscreen();
 
     static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
@@ -125,10 +153,14 @@ class Application final
 
     GLFWwindow* m_window = nullptr;
     std::shared_ptr<AssetManager> m_assetManager;
+    std::unique_ptr<AudioSystem> m_audioSystem;
     std::filesystem::path m_assetRootDirectory;
     std::filesystem::path m_shaderDirectory;
     std::filesystem::path m_settingsFilePath;
     DisplaySettings m_displaySettings{};
+    AudioSettings m_audioSettings{};
+    VnSettings m_vnSettings{};
+    InputSettings m_inputSettings{};
     int m_windowWidth = 1600;
     int m_windowHeight = 900;
     int m_windowedPosX = 100;

@@ -96,8 +96,9 @@ int dependencyLayoutExists()
     const bool hasGladHeader =
         requirePath(root / "external" / "glad" / "include" / "glad" / "glad.h");
     const bool hasGladSource = requirePath(root / "external" / "glad" / "src" / "glad.c");
+    const bool hasMiniaudioHeader = requirePath(root / "external" / "miniaudio" / "miniaudio.h");
 
-    return hasGlfw && hasGladHeader && hasGladSource ? 0 : 1;
+    return hasGlfw && hasGladHeader && hasGladSource && hasMiniaudioHeader ? 0 : 1;
 }
 
 int engineSourceLayoutExists()
@@ -125,6 +126,8 @@ int engineSourceLayoutExists()
         root / "src" / "assets" / "TextureAsset.cpp",
         root / "src" / "assets" / "AudioAsset.h",
         root / "src" / "assets" / "AudioAsset.cpp",
+        root / "src" / "core" / "AudioSystem.h",
+        root / "src" / "core" / "AudioSystem.cpp",
         root / "src" / "assets" / "ModelAsset.h",
         root / "src" / "assets" / "ModelAsset.cpp",
         root / "src" / "core" / "Log.h",

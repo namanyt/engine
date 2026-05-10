@@ -5,6 +5,7 @@
 #include "runtime/InteractionPromptRenderable.h"
 #include "runtime/RuntimeIds.h"
 #include "runtime/RuntimeMode.h"
+#include "runtime/SettingsOverlay.h"
 #include "runtime/StartupFlowOverlay.h"
 #include "systems/InteractionSystem.h"
 #include "systems/RenderSystem.h"
@@ -57,7 +58,7 @@ class ExplorationRuntime final : public RuntimeMode
     void appendInteractionPromptRenderItem(Renderer& renderer,
                                            std::vector<systems::RenderItem>& extraRenderItems);
     void applyRuntimeOverlay(Renderer& renderer) const;
-    void refreshSettingsOverlay();
+    void refreshSettingsOverlay(SettingsOverlayDirtyRegion dirtyRegions);
     const Camera& activeCamera() const;
     void setDebugFreeCameraEnabled(bool previousEnabled, bool enabled);
     void requestWorldLoad(RuntimeId targetRuntimeId);
@@ -71,7 +72,8 @@ class ExplorationRuntime final : public RuntimeMode
     StartupFlowOverlay m_pauseResumeOverlay;
     StartupFlowOverlay m_pauseSettingsOverlay;
     StartupFlowOverlay m_pauseReturnOverlay;
-    StartupFlowOverlay m_settingsOverlayTexture;
+    StartupFlowOverlay m_settingsOverlayBaseTexture;
+    StartupFlowOverlay m_settingsOverlayContentTexture;
     std::shared_ptr<AssetManager> m_assetManager;
     std::shared_ptr<TextureAsset> m_alternatePanelTexture;
     std::shared_ptr<TextureAsset> m_panelOverrideTexture;

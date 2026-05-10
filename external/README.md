@@ -17,6 +17,8 @@ external/
       KHR/khrplatform.h
     src/
       glad.c
+  miniaudio/
+    miniaudio.h
   imgui/
     imgui.h
     imgui.cpp
@@ -56,6 +58,13 @@ external/
 - Keeps engine code independent from vendor source layout changes
 - Lets CMake treat GLFW as a normal subproject
 - Keeps GLAD explicit and easy to regenerate when upgrading OpenGL targets
+- Keeps miniaudio pinned as a simple vendored single-header dependency for engine audio playback
+
+## miniaudio setup
+
+1. Download `miniaudio.h` from https://github.com/mackron/miniaudio/releases/tag/0.11.25 .
+2. Place it at `external/miniaudio/miniaudio.h`.
+3. The engine compiles the implementation from its own audio wrapper source; no separate project setup is required.
 
 ## Dear ImGui setup
 

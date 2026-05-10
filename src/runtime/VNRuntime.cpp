@@ -6,6 +6,7 @@
 #include "core/Log.h"
 #include "core/RenderPipeline.h"
 #include "core/Renderer.h"
+#include "runtime/OverlayUiLayout.h"
 
 #include <algorithm>
 #include <sstream>
@@ -17,8 +18,25 @@ namespace
 {
 constexpr float kCharacterBaselineNormalized = 0.67f;
 constexpr const char* kAdvancePrompt = "Click / Enter / Space";
-constexpr float kTypewriterCharactersPerSecond = 30.0f;
-constexpr float kTypewriterSecondsPerCharacter = 1.0f / kTypewriterCharactersPerSecond;
+constexpr float kAutoAdvanceDelaySeconds = 0.85f;
+
+float typewriterSecondsPerCharacter(const float charactersPerSecond)
+{
+    return 1.0f / std::max(charactersPerSecond, 1.0f);
+}
+
+RuntimeOverlayOptions settingsContentOverlayOptions(const SettingsOverlayViewModel& viewModel)
+{
+    const SettingsPageModel page = buildSettingsPageModel(viewModel);
+    RuntimeOverlayOptions options{};
+    options.layout = RuntimeOverlayLayout::CustomPixels;
+    options.opacity = 1.0f;
+    options.minXPixels = page.chrome.contentBounds.left;
+    options.minYPixels = page.chrome.contentBounds.top;
+    options.widthPixels = page.chrome.contentBounds.right - page.chrome.contentBounds.left;
+    options.heightPixels = page.chrome.contentBounds.bottom - page.chrome.contentBounds.top;
+    return options;
+}
 } // namespace
 
 VNRuntime::VNRuntime(std::filesystem::path scriptAssetPath, RuntimeId returnRuntimeId)
@@ -53,8 +71,15 @@ void VNRuntime::prepareActivation(ActivationContext& activationContext)
     m_script = parseVnScriptFile(m_resolvedScriptPath);
     m_sceneState = SceneState{};
     m_activeOverlay = StartupFlowOverlay::createSolid(0, 0, 0, 255);
+    m_dialogueOverlay.reset();
     m_transitionSourceOverlay.reset();
     m_transitionTargetOverlay.reset();
+    m_pauseIdleOverlay.reset();
+    m_pauseResumeOverlay.reset();
+    m_pauseSettingsOverlay.reset();
+    m_pauseReturnOverlay.reset();
+    m_settingsOverlayBaseTexture.reset();
+    m_settingsOverlayContentTexture.reset();
     m_nextInstructionIndex = 0;
     m_visibleDialogueCharacterCount = 0;
     m_waitRemainingSeconds = 0.0f;
@@ -62,9 +87,15 @@ void VNRuntime::prepareActivation(ActivationContext& activationContext)
     m_transitionDurationSeconds = 0.0f;
     m_typewriterCarrySeconds = 0.0f;
     m_typewriterPauseRemainingSeconds = 0.0f;
+    m_autoAdvanceRemainingSeconds = 0.0f;
+    m_advanceReleaseRequired = false;
+    m_autoAdvanceEnabled = false;
     m_waitingForAdvance = false;
+    m_dialogueDirty = false;
     m_sceneDirty = false;
     m_finished = false;
+    m_overlayView = OverlayView::None;
+    m_pauseSelection = PauseMenuSelection::None;
     executeUntilBlocked();
     m_prepared = true;
 }
@@ -73,6 +104,15 @@ void VNRuntime::activate(ActivationContext& activationContext)
 {
     prepareActivation(activationContext);
     activationContext.application.setCursorCaptured(false);
+    m_pauseIdleOverlay = StartupFlowOverlay::createPauseMenu(PauseMenuSelection::None);
+    m_pauseResumeOverlay = StartupFlowOverlay::createPauseMenu(PauseMenuSelection::Resume);
+    m_pauseSettingsOverlay = StartupFlowOverlay::createPauseMenu(PauseMenuSelection::Settings);
+    m_pauseReturnOverlay =
+        StartupFlowOverlay::createPauseMenu(PauseMenuSelection::ReturnToMainMenu);
+    m_settingsOverlayBaseTexture.reset();
+    m_settingsOverlayContentTexture.reset();
+    m_overlayView = OverlayView::None;
+    m_pauseSelection = PauseMenuSelection::None;
     applyOverlayTextures(activationContext.renderer);
 
     std::ostringstream stream;
@@ -84,16 +124,43 @@ void VNRuntime::activate(ActivationContext& activationContext)
 void VNRuntime::deactivate(Renderer& renderer)
 {
     m_activeOverlay.reset();
+    m_dialogueOverlay.reset();
     m_transitionSourceOverlay.reset();
     m_transitionTargetOverlay.reset();
+    m_pauseIdleOverlay.reset();
+    m_pauseResumeOverlay.reset();
+    m_pauseSettingsOverlay.reset();
+    m_pauseReturnOverlay.reset();
+    m_settingsOverlayBaseTexture.reset();
+    m_settingsOverlayContentTexture.reset();
     m_assetManager.reset();
     renderer.clearRuntimeOverlayTexture();
+    renderer.clearSecondaryRuntimeOverlayTexture();
+    m_overlayView = OverlayView::None;
+    m_pauseSelection = PauseMenuSelection::None;
 }
 
 void VNRuntime::update(const UpdateContext& updateContext)
 {
     if (m_finished)
     {
+        return;
+    }
+
+    const Application::VnSettings& vnSettings = updateContext.application.vnSettings();
+    m_autoAdvanceEnabled = vnSettings.autoAdvanceEnabled;
+
+    if (m_overlayView != OverlayView::None)
+    {
+        handlePauseOverlayInput(updateContext);
+        return;
+    }
+
+    if (updateContext.inputState.keyEscape.pressed)
+    {
+        m_overlayView = OverlayView::Pause;
+        m_pauseSelection = PauseMenuSelection::None;
+        updateContext.application.setCursorCaptured(false);
         return;
     }
 
@@ -117,35 +184,156 @@ void VNRuntime::update(const UpdateContext& updateContext)
         }
     }
 
+    if (!advanceHeld(updateContext.inputState))
+    {
+        m_advanceReleaseRequired = false;
+    }
+
     if (m_waitingForAdvance)
     {
         if (!isCurrentLineFullyRevealed())
         {
-            if (advanceRequested(updateContext.inputState))
+            if (!m_advanceReleaseRequired && advanceHeld(updateContext.inputState))
             {
                 completeTypewriter();
+                m_dialogueDirty = true;
+                m_advanceReleaseRequired = true;
                 commitVisualState(false, 0.0f);
                 return;
             }
 
-            if (updateTypewriter(updateContext.deltaSeconds))
+            if (updateTypewriter(updateContext.deltaSeconds, vnSettings.typingCharactersPerSecond))
             {
-                m_sceneDirty = true;
+                m_dialogueDirty = true;
                 commitVisualState(false, 0.0f);
             }
 
             return;
         }
 
-        if (!advanceRequested(updateContext.inputState))
+        if (!m_advanceReleaseRequired && advanceRequested(updateContext.inputState))
         {
-            return;
+            m_waitingForAdvance = false;
+            m_dialogueDirty = true;
+            m_advanceReleaseRequired = true;
         }
+        else if (m_autoAdvanceEnabled)
+        {
+            if (m_autoAdvanceRemainingSeconds <= 0.0f)
+            {
+                m_autoAdvanceRemainingSeconds = kAutoAdvanceDelaySeconds;
+            }
 
-        m_waitingForAdvance = false;
+            m_autoAdvanceRemainingSeconds =
+                std::max(0.0f, m_autoAdvanceRemainingSeconds - updateContext.deltaSeconds);
+            if (m_autoAdvanceRemainingSeconds > 0.0f)
+            {
+                return;
+            }
+
+            m_waitingForAdvance = false;
+            m_dialogueDirty = true;
+            m_advanceReleaseRequired = true;
+        }
+        else
+        {
+            if (m_advanceReleaseRequired || !advanceRequested(updateContext.inputState))
+            {
+                return;
+            }
+
+            m_waitingForAdvance = false;
+            m_dialogueDirty = true;
+            m_advanceReleaseRequired = true;
+        }
     }
 
     executeUntilBlocked();
+}
+
+void VNRuntime::handlePauseOverlayInput(const UpdateContext& updateContext)
+{
+    if (m_overlayView == OverlayView::Settings)
+    {
+        SettingsOverlay::InputState settingsInput{};
+        settingsInput.cancel = updateContext.inputState.keyEscape.pressed;
+        settingsInput.click = updateContext.inputState.mouseLeft.pressed;
+        settingsInput.mouseDown = updateContext.inputState.mouseLeft.down;
+        settingsInput.mousePosition = updateContext.inputState.mousePosition;
+        settingsInput.windowSize = updateContext.inputState.windowSize;
+
+        if (m_settingsOverlay.update(settingsInput, updateContext.application) ==
+            SettingsOverlay::Result::Close)
+        {
+            m_overlayView = OverlayView::Pause;
+            m_pauseSelection = PauseMenuSelection::None;
+        }
+
+        const SettingsOverlayDirtyRegion dirtyRegions = m_settingsOverlay.consumeDirtyRegions();
+        if (dirtyRegions != SettingsOverlayDirtyRegion::None)
+        {
+            refreshSettingsOverlay(dirtyRegions);
+        }
+        return;
+    }
+
+    bool hoveredPauseEntry = false;
+    m_pauseSelection = PauseMenuSelection::None;
+    if (updateContext.inputState.windowSize.x > 1.0f &&
+        updateContext.inputState.windowSize.y > 1.0f)
+    {
+        const Vec2 designMouse = overlayui::toDesignSpace(updateContext.inputState.mousePosition,
+                                                          updateContext.inputState.windowSize);
+        if (overlayui::contains(overlayui::kPauseResumeRect, designMouse))
+        {
+            m_pauseSelection = PauseMenuSelection::Resume;
+            hoveredPauseEntry = true;
+        }
+        else if (overlayui::contains(overlayui::kPauseSettingsRect, designMouse))
+        {
+            m_pauseSelection = PauseMenuSelection::Settings;
+            hoveredPauseEntry = true;
+        }
+        else if (overlayui::contains(overlayui::kPauseReturnRect, designMouse))
+        {
+            m_pauseSelection = PauseMenuSelection::ReturnToMainMenu;
+            hoveredPauseEntry = true;
+        }
+    }
+
+    if (updateContext.inputState.keyEscape.pressed)
+    {
+        m_overlayView = OverlayView::None;
+        return;
+    }
+
+    const bool clickSelection = updateContext.inputState.mouseLeft.pressed && hoveredPauseEntry;
+    if (!clickSelection)
+    {
+        return;
+    }
+
+    if (m_pauseSelection == PauseMenuSelection::Resume)
+    {
+        m_overlayView = OverlayView::None;
+        return;
+    }
+
+    if (m_pauseSelection == PauseMenuSelection::Settings)
+    {
+        m_overlayView = OverlayView::Settings;
+        m_pauseSelection = PauseMenuSelection::None;
+        m_settingsOverlay.activate(updateContext.application, true);
+        refreshSettingsOverlay(SettingsOverlayDirtyRegion::Base |
+                               SettingsOverlayDirtyRegion::Content);
+        return;
+    }
+
+    RuntimeTransitionRequest request{};
+    request.targetId = RuntimeId::Menu;
+    request.minimumDurationSeconds = 1.1f;
+    request.loadingLabel = "Main Menu";
+    requestRuntimeChange(std::move(request));
 }
 
 void VNRuntime::render(const RenderContext& renderContext)
@@ -177,6 +365,11 @@ bool VNRuntime::advanceRequested(const RawInputState& inputState) const
 {
     return inputState.mouseLeft.pressed || inputState.keyEnter.pressed ||
            inputState.keySpace.pressed;
+}
+
+bool VNRuntime::advanceHeld(const RawInputState& inputState) const
+{
+    return inputState.mouseLeft.down || inputState.keyEnter.down || inputState.keySpace.down;
 }
 
 void VNRuntime::executeUntilBlocked()
@@ -253,10 +446,12 @@ void VNRuntime::executeInstruction(const VnInstruction& instruction)
         return;
     case VnCommandType::Name:
         m_sceneState.speakerName = instruction.text;
+        m_dialogueDirty = true;
         m_sceneDirty = true;
         return;
     case VnCommandType::Text:
         m_sceneState.dialogueText = instruction.text;
+        m_dialogueDirty = true;
         m_sceneDirty = true;
         m_waitingForAdvance = true;
         resetTypewriter();
@@ -311,7 +506,19 @@ void VNRuntime::finalizeFadeIfComplete()
 
 void VNRuntime::commitVisualState(bool useFade, float fadeDurationSeconds)
 {
-    if (!m_sceneDirty && m_activeOverlay.valid() && !useFade)
+    const bool rebuildSceneOverlay = m_sceneDirty || !m_activeOverlay.valid() || useFade;
+    if (!rebuildSceneOverlay && !m_dialogueDirty)
+    {
+        return;
+    }
+
+    if (m_dialogueDirty)
+    {
+        m_dialogueOverlay = buildDialogueOverlay();
+        m_dialogueDirty = false;
+    }
+
+    if (!rebuildSceneOverlay)
     {
         return;
     }
@@ -342,7 +549,7 @@ void VNRuntime::commitVisualState(bool useFade, float fadeDurationSeconds)
     m_transitionDurationSeconds = std::max(0.001f, fadeDurationSeconds);
 }
 
-bool VNRuntime::updateTypewriter(float deltaSeconds)
+bool VNRuntime::updateTypewriter(float deltaSeconds, float charactersPerSecond)
 {
     if (isCurrentLineFullyRevealed())
     {
@@ -365,10 +572,10 @@ bool VNRuntime::updateTypewriter(float deltaSeconds)
     }
 
     m_typewriterCarrySeconds += remainingDeltaSeconds;
-    while (!isCurrentLineFullyRevealed() &&
-           m_typewriterCarrySeconds >= kTypewriterSecondsPerCharacter)
+    const float secondsPerCharacter = typewriterSecondsPerCharacter(charactersPerSecond);
+    while (!isCurrentLineFullyRevealed() && m_typewriterCarrySeconds >= secondsPerCharacter)
     {
-        m_typewriterCarrySeconds -= kTypewriterSecondsPerCharacter;
+        m_typewriterCarrySeconds -= secondsPerCharacter;
         ++m_visibleDialogueCharacterCount;
         changed = true;
 
@@ -388,6 +595,7 @@ void VNRuntime::resetTypewriter()
     m_visibleDialogueCharacterCount = 0;
     m_typewriterCarrySeconds = 0.0f;
     m_typewriterPauseRemainingSeconds = 0.0f;
+    m_autoAdvanceRemainingSeconds = 0.0f;
 }
 
 void VNRuntime::completeTypewriter()
@@ -395,6 +603,7 @@ void VNRuntime::completeTypewriter()
     m_visibleDialogueCharacterCount = m_sceneState.dialogueText.size();
     m_typewriterCarrySeconds = 0.0f;
     m_typewriterPauseRemainingSeconds = 0.0f;
+    m_autoAdvanceRemainingSeconds = kAutoAdvanceDelaySeconds;
 }
 
 bool VNRuntime::isCurrentLineFullyRevealed() const
@@ -445,10 +654,8 @@ StartupFlowOverlay VNRuntime::buildSceneOverlay() const
 
     VisualNovelOverlayModel overlayModel{};
     overlayModel.backgroundAssetPath = resolveTextureAssetPath(m_sceneState.backgroundAssetPath);
-    overlayModel.speakerName = m_sceneState.speakerName;
-    overlayModel.dialogueText = visibleDialogueText();
-    overlayModel.advancePrompt =
-        m_waitingForAdvance && isCurrentLineFullyRevealed() ? kAdvancePrompt : std::string{};
+    overlayModel.showDialogueChrome =
+        !m_sceneState.speakerName.empty() || !m_sceneState.dialogueText.empty();
 
     if (!overlayModel.backgroundAssetPath.empty())
     {
@@ -490,6 +697,30 @@ StartupFlowOverlay VNRuntime::buildSceneOverlay() const
     return StartupFlowOverlay::createVisualNovelScene(*m_assetManager, overlayModel);
 }
 
+StartupFlowOverlay VNRuntime::buildDialogueOverlay() const
+{
+    if (m_assetManager == nullptr)
+    {
+        throw std::runtime_error("VNRuntime cannot build overlays without an AssetManager.");
+    }
+
+    VisualNovelOverlayModel overlayModel{};
+    overlayModel.speakerName = m_sceneState.speakerName;
+    overlayModel.dialogueText = visibleDialogueText();
+    overlayModel.advancePrompt =
+        m_waitingForAdvance && isCurrentLineFullyRevealed() && !m_autoAdvanceEnabled
+            ? kAdvancePrompt
+            : std::string{};
+
+    if (overlayModel.speakerName.empty() && overlayModel.dialogueText.empty() &&
+        overlayModel.advancePrompt.empty())
+    {
+        return {};
+    }
+
+    return StartupFlowOverlay::createVisualNovelDialogueLayer(overlayModel);
+}
+
 std::filesystem::path
 VNRuntime::resolveTextureAssetPath(const std::filesystem::path& assetPath) const
 {
@@ -523,6 +754,45 @@ float VNRuntime::stageAnchorXNormalized(VnStageRegion stageRegion) const
 
 void VNRuntime::applyOverlayTextures(Renderer& renderer) const
 {
+    if (m_overlayView == OverlayView::Pause)
+    {
+        renderer.clearSecondaryRuntimeOverlayTexture();
+        const StartupFlowOverlay& pauseOverlay =
+            m_pauseSelection == PauseMenuSelection::Resume
+                ? m_pauseResumeOverlay
+                : (m_pauseSelection == PauseMenuSelection::Settings
+                       ? m_pauseSettingsOverlay
+                       : (m_pauseSelection == PauseMenuSelection::ReturnToMainMenu
+                              ? m_pauseReturnOverlay
+                              : m_pauseIdleOverlay));
+        pauseOverlay.apply(renderer, RuntimeOverlayOptions{RuntimeOverlayLayout::FullScreen, 1.0f});
+        return;
+    }
+
+    if (m_overlayView == OverlayView::Settings)
+    {
+        if (m_settingsOverlayBaseTexture.valid())
+        {
+            m_settingsOverlayBaseTexture.apply(
+                renderer, RuntimeOverlayOptions{RuntimeOverlayLayout::FullScreen, 1.0f});
+            if (m_settingsOverlayContentTexture.valid())
+            {
+                renderer.setSecondaryRuntimeOverlayTexture(
+                    m_settingsOverlayContentTexture.textureId(),
+                    m_settingsOverlayContentTexture.width(),
+                    m_settingsOverlayContentTexture.height(),
+                    settingsContentOverlayOptions(m_settingsOverlay.viewModel()));
+            }
+            else
+            {
+                renderer.clearSecondaryRuntimeOverlayTexture();
+            }
+            return;
+        }
+
+        renderer.clearSecondaryRuntimeOverlayTexture();
+    }
+
     if (m_transitionDurationSeconds > 0.0f && m_transitionSourceOverlay.valid() &&
         m_transitionTargetOverlay.valid())
     {
@@ -537,13 +807,44 @@ void VNRuntime::applyOverlayTextures(Renderer& renderer) const
         return;
     }
 
-    renderer.clearSecondaryRuntimeOverlayTexture();
     if (!m_activeOverlay.valid())
     {
         renderer.clearRuntimeOverlayTexture();
+        renderer.clearSecondaryRuntimeOverlayTexture();
         return;
     }
 
     m_activeOverlay.apply(renderer, RuntimeOverlayOptions{RuntimeOverlayLayout::FullScreen, 1.0f});
+    if (!m_dialogueOverlay.valid())
+    {
+        renderer.clearSecondaryRuntimeOverlayTexture();
+        return;
+    }
+
+    renderer.setSecondaryRuntimeOverlayTexture(
+        m_dialogueOverlay.textureId(), m_dialogueOverlay.width(), m_dialogueOverlay.height(),
+        RuntimeOverlayOptions{RuntimeOverlayLayout::FullScreen, 1.0f});
+}
+
+void VNRuntime::refreshSettingsOverlay(SettingsOverlayDirtyRegion dirtyRegions)
+{
+    if (m_assetManager == nullptr || dirtyRegions == SettingsOverlayDirtyRegion::None)
+    {
+        return;
+    }
+
+    const SettingsOverlayViewModel viewModel = m_settingsOverlay.viewModel();
+    if (hasDirtyRegion(dirtyRegions, SettingsOverlayDirtyRegion::Base) ||
+        !m_settingsOverlayBaseTexture.valid())
+    {
+        m_settingsOverlayBaseTexture =
+            StartupFlowOverlay::createSettingsBase(*m_assetManager, viewModel);
+    }
+
+    if (hasDirtyRegion(dirtyRegions, SettingsOverlayDirtyRegion::Content) ||
+        !m_settingsOverlayContentTexture.valid())
+    {
+        m_settingsOverlayContentTexture = StartupFlowOverlay::createSettingsContent(viewModel);
+    }
 }
 } // namespace engine

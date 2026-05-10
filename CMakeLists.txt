@@ -115,6 +115,7 @@ find_package(OpenGL REQUIRED)
 set(ENGINE_SOURCES
     src/main.cpp
     src/Application.cpp
+    src/core/AudioSystem.cpp
     src/metassets/LoadingScene.metasset.cpp
     src/metassets/Metasset.cpp
     src/metassets/MenuScene.metasset.cpp
@@ -128,6 +129,7 @@ set(ENGINE_SOURCES
     src/runtime/RuntimeFactory.cpp
     src/runtime/ExplorationRuntime.cpp
     src/runtime/InteractionPromptRenderable.cpp
+    src/runtime/SettingsPage.cpp
     src/runtime/SettingsOverlay.cpp
     src/runtime/StartupFlowOverlay.cpp
     src/runtime/VnScript.cpp
@@ -194,6 +196,7 @@ set(ENGINE_SOURCES
 
 set(ENGINE_HEADERS
     src/Application.h
+    src/core/AudioSystem.h
     src/metassets/LoadingScene.metasset.h
     src/metassets/Metasset.h
     src/metassets/MenuScene.metasset.h
@@ -208,6 +211,7 @@ set(ENGINE_HEADERS
     src/runtime/InteractionPromptRenderable.h
     src/runtime/LoadingRuntime.h
     src/runtime/MenuRuntime.h
+    src/runtime/SettingsPage.h
     src/runtime/SettingsOverlay.h
     src/runtime/StartupFlowOverlay.h
     src/runtime/VnScript.h
@@ -335,6 +339,7 @@ target_include_directories(EngineStarter
     PRIVATE
         "${CMAKE_SOURCE_DIR}/src"
         "${GLAD_INCLUDE_DIR}"
+    "${CMAKE_SOURCE_DIR}/external/miniaudio"
 )
 
 target_compile_definitions(EngineStarter
@@ -416,6 +421,7 @@ if(BUILD_TESTING)
         PRIVATE
             "${CMAKE_SOURCE_DIR}/src"
             "${GLAD_INCLUDE_DIR}"
+            "${CMAKE_SOURCE_DIR}/external/miniaudio"
     )
 
     target_link_libraries(EngineStarterTests

@@ -222,7 +222,7 @@ void PostProcessor::setRuntimeOverlayTexture(unsigned int textureId, int width, 
     m_runtimeOverlayTextureId = textureId;
     m_runtimeOverlayTextureWidth = width;
     m_runtimeOverlayTextureHeight = height;
-    m_runtimeOverlayOptions.layout = options.layout;
+    m_runtimeOverlayOptions = options;
     m_runtimeOverlayOptions.opacity = std::clamp(options.opacity, 0.0f, 1.0f);
 }
 
@@ -241,7 +241,7 @@ void PostProcessor::setSecondaryRuntimeOverlayTexture(unsigned int textureId, in
     m_secondaryRuntimeOverlayTextureId = textureId;
     m_secondaryRuntimeOverlayTextureWidth = width;
     m_secondaryRuntimeOverlayTextureHeight = height;
-    m_secondaryRuntimeOverlayOptions.layout = options.layout;
+    m_secondaryRuntimeOverlayOptions = options;
     m_secondaryRuntimeOverlayOptions.opacity = std::clamp(options.opacity, 0.0f, 1.0f);
 }
 
@@ -343,6 +343,21 @@ void PostProcessor::drawRuntimeOverlayLayer(unsigned int textureId, int width, i
 
         overlayMinX = static_cast<float>(m_width) - kMarginPixels - overlayWidth;
         overlayMinY = kMarginPixels;
+    }
+    else if (options.layout == RuntimeOverlayLayout::Centered)
+    {
+        overlayWidth = std::min(static_cast<float>(width), static_cast<float>(m_width));
+        overlayHeight = std::min(static_cast<float>(height), static_cast<float>(m_height));
+        overlayMinX = (static_cast<float>(m_width) - overlayWidth) * 0.5f;
+        overlayMinY = (static_cast<float>(m_height) - overlayHeight) * 0.5f;
+    }
+    else if (options.layout == RuntimeOverlayLayout::CustomPixels)
+    {
+        overlayWidth = options.widthPixels > 1.0f ? options.widthPixels : static_cast<float>(width);
+        overlayHeight =
+            options.heightPixels > 1.0f ? options.heightPixels : static_cast<float>(height);
+        overlayMinX = options.minXPixels;
+        overlayMinY = options.minYPixels;
     }
 
     if (overlayWidth <= 1.0f || overlayHeight <= 1.0f)

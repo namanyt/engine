@@ -1,5 +1,6 @@
 #include "runtime/EngineRuntime.h"
 
+#include "core/AudioSystem.h"
 #include "core/Log.h"
 #include "core/RenderDebug.h"
 #include "runtime/RuntimeFactory.h"
@@ -48,6 +49,8 @@ int EngineRuntime::run()
         const RawInputState inputState = m_application.consumeRawInputState();
         const float deltaSeconds = m_application.deltaSeconds();
         const float timeSeconds = m_application.timeSeconds();
+
+        m_application.audioSystem().update(deltaSeconds);
 
         RuntimeMode::UpdateContext updateContext{
             m_application,   m_renderer, m_renderPipeline, inputState, deltaSeconds, timeSeconds,
