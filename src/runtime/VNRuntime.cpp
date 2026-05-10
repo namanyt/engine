@@ -8,7 +8,12 @@
 #include "core/Renderer.h"
 #include "runtime/OverlayUiLayout.h"
 
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+#include <imgui.h>
+#endif
+
 #include <algorithm>
+#include <cstring>
 #include <sstream>
 #include <stdexcept>
 
@@ -20,6 +25,10 @@ constexpr float kCharacterBaselineNormalized = 0.67f;
 constexpr const char* kAdvancePrompt = "Click / Enter / Space";
 constexpr float kAutoAdvanceDelaySeconds = 0.85f;
 
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+constexpr float kDebugMinimumAutoStepIntervalSeconds = 0.05f;
+#endif
+
 float typewriterSecondsPerCharacter(const float charactersPerSecond)
 {
     return 1.0f / std::max(charactersPerSecond, 1.0f);
@@ -28,13 +37,17 @@ float typewriterSecondsPerCharacter(const float charactersPerSecond)
 RuntimeOverlayOptions settingsContentOverlayOptions(const SettingsOverlayViewModel& viewModel)
 {
     const SettingsPageModel page = buildSettingsPageModel(viewModel);
+    const float scaleX = 1.0f / overlayui::kDesignWidth;
+    const float scaleY = 1.0f / overlayui::kDesignHeight;
     RuntimeOverlayOptions options{};
     options.layout = RuntimeOverlayLayout::CustomPixels;
     options.opacity = 1.0f;
-    options.minXPixels = page.chrome.contentBounds.left;
-    options.minYPixels = page.chrome.contentBounds.top;
-    options.widthPixels = page.chrome.contentBounds.right - page.chrome.contentBounds.left;
-    options.heightPixels = page.chrome.contentBounds.bottom - page.chrome.contentBounds.top;
+    options.minXPixels = page.chrome.contentBounds.left * scaleX;
+    options.minYPixels = page.chrome.contentBounds.top * scaleY;
+    options.widthPixels =
+        (page.chrome.contentBounds.right - page.chrome.contentBounds.left) * scaleX;
+    options.heightPixels =
+        (page.chrome.contentBounds.bottom - page.chrome.contentBounds.top) * scaleY;
     return options;
 }
 } // namespace
@@ -65,38 +78,19 @@ void VNRuntime::prepareActivation(ActivationContext& activationContext)
 
     activationContext.renderer.prepareOverlayRenderingResources();
     m_assetManager = activationContext.assetManager;
-    m_resolvedScriptPath = m_scriptAssetPath.is_absolute()
-                               ? m_scriptAssetPath
-                               : activationContext.assetRootDirectory / m_scriptAssetPath;
-    m_script = parseVnScriptFile(m_resolvedScriptPath);
-    m_sceneState = SceneState{};
-    m_activeOverlay = StartupFlowOverlay::createSolid(0, 0, 0, 255);
-    m_dialogueOverlay.reset();
-    m_transitionSourceOverlay.reset();
-    m_transitionTargetOverlay.reset();
-    m_pauseIdleOverlay.reset();
-    m_pauseResumeOverlay.reset();
-    m_pauseSettingsOverlay.reset();
-    m_pauseReturnOverlay.reset();
-    m_settingsOverlayBaseTexture.reset();
-    m_settingsOverlayContentTexture.reset();
-    m_nextInstructionIndex = 0;
-    m_visibleDialogueCharacterCount = 0;
-    m_waitRemainingSeconds = 0.0f;
-    m_transitionElapsedSeconds = 0.0f;
-    m_transitionDurationSeconds = 0.0f;
-    m_typewriterCarrySeconds = 0.0f;
-    m_typewriterPauseRemainingSeconds = 0.0f;
-    m_autoAdvanceRemainingSeconds = 0.0f;
-    m_advanceReleaseRequired = false;
-    m_autoAdvanceEnabled = false;
-    m_waitingForAdvance = false;
-    m_dialogueDirty = false;
-    m_sceneDirty = false;
-    m_finished = false;
-    m_overlayView = OverlayView::None;
-    m_pauseSelection = PauseMenuSelection::None;
-    executeUntilBlocked();
+    m_assetRootDirectory = activationContext.assetRootDirectory;
+    resolveScriptPath();
+    resetRuntimeState();
+
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+    m_debugPlaybackMode = DebugPlaybackMode::Interactive;
+    m_debugAutoStepTimer = m_debugAutoStepIntervalSeconds;
+    m_debugStatusMessage.clear();
+    m_debugLastOperationSucceeded = true;
+    refreshDebugScriptList();
+    rebuildDebugCheckpoints();
+#endif
+
     m_prepared = true;
 }
 
@@ -134,14 +128,61 @@ void VNRuntime::deactivate(Renderer& renderer)
     m_settingsOverlayBaseTexture.reset();
     m_settingsOverlayContentTexture.reset();
     m_assetManager.reset();
+    m_assetRootDirectory.clear();
     renderer.clearRuntimeOverlayTexture();
     renderer.clearSecondaryRuntimeOverlayTexture();
     m_overlayView = OverlayView::None;
     m_pauseSelection = PauseMenuSelection::None;
+
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+    m_debugAvailableScripts.clear();
+    m_debugCheckpoints.clear();
+    m_debugScriptPathBuffer.fill('\0');
+    m_debugStatusMessage.clear();
+    m_debugPlaybackMode = DebugPlaybackMode::Interactive;
+    m_debugCheckpointIndex = 0;
+    m_debugAutoStepTimer = 0.0f;
+    m_debugLastOperationSucceeded = true;
+    m_debugSuppressRuntimeTransitions = false;
+#endif
 }
 
 void VNRuntime::update(const UpdateContext& updateContext)
 {
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+    if (m_debugPlaybackMode == DebugPlaybackMode::Paused)
+    {
+        return;
+    }
+
+    if (m_debugPlaybackMode == DebugPlaybackMode::Playing)
+    {
+        if (m_finished)
+        {
+            m_debugPlaybackMode = DebugPlaybackMode::Paused;
+            return;
+        }
+
+        m_debugAutoStepTimer = std::max(0.0f, m_debugAutoStepTimer - updateContext.deltaSeconds);
+        if (m_debugAutoStepTimer > 0.0f)
+        {
+            return;
+        }
+
+        if (!debugStepForward())
+        {
+            m_debugPlaybackMode = DebugPlaybackMode::Paused;
+            m_debugStatusMessage = "Reached the final VN checkpoint.";
+            m_debugLastOperationSucceeded = true;
+            return;
+        }
+
+        m_debugAutoStepTimer =
+            std::max(m_debugAutoStepIntervalSeconds, kDebugMinimumAutoStepIntervalSeconds);
+        return;
+    }
+#endif
+
     if (m_finished)
     {
         return;
@@ -259,6 +300,7 @@ void VNRuntime::handlePauseOverlayInput(const UpdateContext& updateContext)
         settingsInput.cancel = updateContext.inputState.keyEscape.pressed;
         settingsInput.click = updateContext.inputState.mouseLeft.pressed;
         settingsInput.mouseDown = updateContext.inputState.mouseLeft.down;
+        settingsInput.mouseScrollDelta = updateContext.inputState.mouseScrollDelta;
         settingsInput.mousePosition = updateContext.inputState.mousePosition;
         settingsInput.windowSize = updateContext.inputState.windowSize;
 
@@ -358,8 +400,255 @@ void VNRuntime::renderLoadingPreview(const RenderContext& renderContext)
 void VNRuntime::drawDebugUi(const DebugUiContext& debugUiContext)
 {
     (void)debugUiContext;
+
+    ImGui::SetNextWindowSize(ImVec2(500.0f, 0.0f), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("VN Runtime Debug"))
+    {
+        ImGui::End();
+        return;
+    }
+
+    const std::filesystem::path relativeScriptPath = assetRelativeScriptPath(m_scriptAssetPath);
+    const std::string relativeScriptLabel = relativeScriptPath.generic_string();
+    const std::size_t checkpointCount = m_debugCheckpoints.size();
+    const std::size_t checkpointDisplayIndex =
+        checkpointCount == 0 ? 0 : std::min(m_debugCheckpointIndex + 1, checkpointCount);
+
+    ImGui::Text("Mode: %s", debugPlaybackModeLabel());
+    ImGui::Text("Script: %s", relativeScriptLabel.empty() ? "<none>" : relativeScriptLabel.c_str());
+    ImGui::Text("Resolved: %s", m_resolvedScriptPath.string().c_str());
+    ImGui::Text("Checkpoint: %zu / %zu", checkpointDisplayIndex, checkpointCount);
+    ImGui::Text("Source line: %d", debugCurrentSourceLine());
+    ImGui::Text("Instruction cursor: %zu / %zu", m_nextInstructionIndex,
+                m_script.instructions.size());
+
+    if (!m_debugStatusMessage.empty())
+    {
+        const ImVec4 statusColor = m_debugLastOperationSucceeded
+                                       ? ImVec4(0.48f, 0.85f, 0.58f, 1.0f)
+                                       : ImVec4(0.93f, 0.42f, 0.42f, 1.0f);
+        ImGui::TextColored(statusColor, "%s", m_debugStatusMessage.c_str());
+    }
+
+    if (ImGui::Button("Manual"))
+    {
+        setDebugPlaybackMode(DebugPlaybackMode::Interactive);
+        m_debugStatusMessage = "Returned VN runtime to manual input control.";
+        m_debugLastOperationSucceeded = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Play"))
+    {
+        prepareDebugTransportState();
+        if (!m_finished)
+        {
+            setDebugPlaybackMode(DebugPlaybackMode::Playing);
+            m_debugStatusMessage = "Running VN script with debug auto-step transport.";
+            m_debugLastOperationSucceeded = true;
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Pause"))
+    {
+        prepareDebugTransportState();
+        setDebugPlaybackMode(DebugPlaybackMode::Paused);
+        m_debugStatusMessage = "Paused VN script transport.";
+        m_debugLastOperationSucceeded = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Step"))
+    {
+        prepareDebugTransportState();
+        if (debugStepForward())
+        {
+            m_debugStatusMessage = "Advanced to the next VN checkpoint.";
+            m_debugLastOperationSucceeded = true;
+        }
+        else
+        {
+            m_debugStatusMessage = "Already at the final VN checkpoint.";
+            m_debugLastOperationSucceeded = false;
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Reverse"))
+    {
+        prepareDebugTransportState();
+        if (debugStepBackward())
+        {
+            m_debugStatusMessage = "Restored the previous VN checkpoint.";
+            m_debugLastOperationSucceeded = true;
+        }
+        else
+        {
+            m_debugStatusMessage = "Already at the first VN checkpoint.";
+            m_debugLastOperationSucceeded = false;
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Stop"))
+    {
+        debugStop();
+        m_debugStatusMessage = "Reset the VN runtime to the first checkpoint.";
+        m_debugLastOperationSucceeded = true;
+    }
+
+    if (ImGui::Button("Hot Reload Current"))
+    {
+        if (!hotReloadCurrentScript(true))
+        {
+            m_debugLastOperationSucceeded = false;
+        }
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(180.0f);
+    ImGui::SliderFloat("Auto-step interval", &m_debugAutoStepIntervalSeconds,
+                       kDebugMinimumAutoStepIntervalSeconds, 2.0f, "%.2fs");
+
+    if (m_debugAutoStepIntervalSeconds < kDebugMinimumAutoStepIntervalSeconds)
+    {
+        m_debugAutoStepIntervalSeconds = kDebugMinimumAutoStepIntervalSeconds;
+    }
+
+    ImGui::Separator();
+
+    if (ImGui::Button("Refresh Script List"))
+    {
+        refreshDebugScriptList();
+        syncDebugScriptSelection();
+        m_debugStatusMessage = "Refreshed VN script list from the active asset root.";
+        m_debugLastOperationSucceeded = true;
+    }
+
+    if (ImGui::BeginCombo("Available Scripts",
+                          relativeScriptLabel.empty() ? "<none>" : relativeScriptLabel.c_str()))
+    {
+        const std::filesystem::path currentRelativePath =
+            assetRelativeScriptPath(m_scriptAssetPath);
+        for (const std::filesystem::path& scriptPath : m_debugAvailableScripts)
+        {
+            const std::string label = scriptPath.generic_string();
+            const bool selected = scriptPath == currentRelativePath;
+            if (ImGui::Selectable(label.c_str(), selected))
+            {
+                if (!loadScriptFromAssetPath(scriptPath, false))
+                {
+                    m_debugLastOperationSucceeded = false;
+                }
+            }
+
+            if (selected)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::InputText("Script Path", m_debugScriptPathBuffer.data(), m_debugScriptPathBuffer.size());
+    ImGui::SameLine();
+    if (ImGui::Button("Load Script"))
+    {
+        const std::filesystem::path requestedScriptPath =
+            std::filesystem::path{std::string{m_debugScriptPathBuffer.data()}};
+        if (requestedScriptPath.empty())
+        {
+            m_debugStatusMessage = "Enter a relative or absolute .vnscript path before loading.";
+            m_debugLastOperationSucceeded = false;
+        }
+        else if (!loadScriptFromAssetPath(requestedScriptPath, false))
+        {
+            m_debugLastOperationSucceeded = false;
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Speaker: %s",
+                m_sceneState.speakerName.empty() ? "<none>" : m_sceneState.speakerName.c_str());
+    ImGui::Text("Waiting for advance: %s", m_waitingForAdvance ? "yes" : "no");
+    ImGui::Text("Finished: %s", m_finished ? "yes" : "no");
+    ImGui::TextWrapped("Dialogue: %s", m_sceneState.dialogueText.empty()
+                                           ? "<none>"
+                                           : m_sceneState.dialogueText.c_str());
+
+    ImGui::End();
 }
 #endif
+
+void VNRuntime::resolveScriptPath()
+{
+    m_resolvedScriptPath = resolveScriptPath(m_scriptAssetPath);
+    m_script = parseVnScriptFile(m_resolvedScriptPath);
+}
+
+std::filesystem::path
+VNRuntime::resolveScriptPath(const std::filesystem::path& scriptAssetPath) const
+{
+    if (scriptAssetPath.empty())
+    {
+        return {};
+    }
+
+    if (scriptAssetPath.is_absolute())
+    {
+        return scriptAssetPath;
+    }
+
+    const std::filesystem::path& assetRootDirectory =
+        !m_assetRootDirectory.empty()
+            ? m_assetRootDirectory
+            : (m_assetManager != nullptr ? m_assetManager->assetRootDirectory()
+                                         : std::filesystem::path{});
+    if (assetRootDirectory.empty())
+    {
+        return scriptAssetPath;
+    }
+
+    return (assetRootDirectory / scriptAssetPath).lexically_normal();
+}
+
+void VNRuntime::resetRuntimeState()
+{
+    m_sceneState = SceneState{};
+    m_activeOverlay = StartupFlowOverlay::createSolid(0, 0, 0, 255);
+    m_dialogueOverlay.reset();
+    m_transitionSourceOverlay.reset();
+    m_transitionTargetOverlay.reset();
+    m_pauseIdleOverlay.reset();
+    m_pauseResumeOverlay.reset();
+    m_pauseSettingsOverlay.reset();
+    m_pauseReturnOverlay.reset();
+    m_settingsOverlayBaseTexture.reset();
+    m_settingsOverlayContentTexture.reset();
+    m_nextInstructionIndex = 0;
+    m_visibleDialogueCharacterCount = 0;
+    m_waitRemainingSeconds = 0.0f;
+    m_transitionElapsedSeconds = 0.0f;
+    m_transitionDurationSeconds = 0.0f;
+    m_typewriterCarrySeconds = 0.0f;
+    m_typewriterPauseRemainingSeconds = 0.0f;
+    m_autoAdvanceRemainingSeconds = 0.0f;
+    m_advanceReleaseRequired = false;
+    m_autoAdvanceEnabled = false;
+    m_waitingForAdvance = false;
+    m_dialogueDirty = false;
+    m_sceneDirty = false;
+    m_finished = false;
+    m_overlayView = OverlayView::None;
+    m_pauseSelection = PauseMenuSelection::None;
+    executeUntilBlocked();
+}
+
+void VNRuntime::rebuildVisualState()
+{
+    m_transitionSourceOverlay.reset();
+    m_transitionTargetOverlay.reset();
+    m_transitionElapsedSeconds = 0.0f;
+    m_transitionDurationSeconds = 0.0f;
+    m_sceneDirty = true;
+    m_dialogueDirty = true;
+    commitVisualState(false, 0.0f);
+}
 
 bool VNRuntime::advanceRequested(const RawInputState& inputState) const
 {
@@ -478,6 +767,15 @@ void VNRuntime::executeInstruction(const VnInstruction& instruction)
         return;
     case VnCommandType::End:
     {
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+        if (m_debugSuppressRuntimeTransitions ||
+            m_debugPlaybackMode != DebugPlaybackMode::Interactive)
+        {
+            m_finished = true;
+            return;
+        }
+#endif
+
         RuntimeTransitionRequest request{};
         request.targetId = m_returnRuntimeId;
         request.minimumDurationSeconds = 1.2f;
@@ -781,7 +1079,20 @@ void VNRuntime::applyOverlayTextures(Renderer& renderer) const
                     m_settingsOverlayContentTexture.textureId(),
                     m_settingsOverlayContentTexture.width(),
                     m_settingsOverlayContentTexture.height(),
-                    settingsContentOverlayOptions(m_settingsOverlay.viewModel()));
+                    [&renderer, this]()
+                    {
+                        RuntimeOverlayOptions options =
+                            settingsContentOverlayOptions(m_settingsOverlay.viewModel());
+                        const float framebufferWidth =
+                            static_cast<float>(std::max(renderer.framebufferWidth(), 1));
+                        const float framebufferHeight =
+                            static_cast<float>(std::max(renderer.framebufferHeight(), 1));
+                        options.minXPixels *= framebufferWidth;
+                        options.minYPixels *= framebufferHeight;
+                        options.widthPixels *= framebufferWidth;
+                        options.heightPixels *= framebufferHeight;
+                        return options;
+                    }());
             }
             else
             {
@@ -847,4 +1158,408 @@ void VNRuntime::refreshSettingsOverlay(SettingsOverlayDirtyRegion dirtyRegions)
         m_settingsOverlayContentTexture = StartupFlowOverlay::createSettingsContent(viewModel);
     }
 }
+
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+void VNRuntime::normalizeDebugCheckpointState()
+{
+    if (m_transitionDurationSeconds > 0.0f)
+    {
+        m_transitionElapsedSeconds = m_transitionDurationSeconds;
+        finalizeFadeIfComplete();
+    }
+
+    m_waitRemainingSeconds = 0.0f;
+    if (m_waitingForAdvance && !isCurrentLineFullyRevealed())
+    {
+        completeTypewriter();
+    }
+
+    m_dialogueDirty = true;
+    rebuildVisualState();
+}
+
+bool VNRuntime::advanceDebugCheckpoint()
+{
+    if (m_finished)
+    {
+        return false;
+    }
+
+    if (m_waitingForAdvance)
+    {
+        if (!isCurrentLineFullyRevealed())
+        {
+            completeTypewriter();
+        }
+
+        m_waitingForAdvance = false;
+        m_dialogueDirty = true;
+        m_advanceReleaseRequired = false;
+    }
+
+    m_waitRemainingSeconds = 0.0f;
+    if (m_transitionDurationSeconds > 0.0f)
+    {
+        m_transitionElapsedSeconds = m_transitionDurationSeconds;
+        finalizeFadeIfComplete();
+    }
+
+    const std::size_t previousInstructionIndex = m_nextInstructionIndex;
+    const bool previousFinished = m_finished;
+    executeUntilBlocked();
+    normalizeDebugCheckpointState();
+    return previousInstructionIndex != m_nextInstructionIndex || previousFinished != m_finished;
+}
+
+void VNRuntime::rebuildDebugCheckpoints()
+{
+    m_debugCheckpoints.clear();
+
+    const DebugPlaybackMode previousPlaybackMode = m_debugPlaybackMode;
+    const std::size_t requestedCheckpointIndex = m_debugCheckpointIndex;
+    m_debugPlaybackMode = DebugPlaybackMode::Paused;
+
+    resetRuntimeState();
+
+    const auto captureCheckpoint = [this]()
+    {
+        DebugCheckpoint checkpoint{};
+        checkpoint.sceneState = m_sceneState;
+        checkpoint.nextInstructionIndex = m_nextInstructionIndex;
+        checkpoint.visibleDialogueCharacterCount = m_visibleDialogueCharacterCount;
+        checkpoint.waitingForAdvance = m_waitingForAdvance;
+        checkpoint.finished = m_finished;
+        checkpoint.sourceLineNumber = debugCurrentSourceLine();
+        m_debugCheckpoints.push_back(std::move(checkpoint));
+    };
+
+    normalizeDebugCheckpointState();
+    captureCheckpoint();
+
+    m_debugSuppressRuntimeTransitions = true;
+    while (!m_finished)
+    {
+        if (!advanceDebugCheckpoint())
+        {
+            break;
+        }
+
+        captureCheckpoint();
+    }
+    m_debugSuppressRuntimeTransitions = false;
+
+    if (m_debugCheckpoints.empty())
+    {
+        m_debugCheckpointIndex = 0;
+    }
+    else
+    {
+        m_debugCheckpointIndex = std::min(requestedCheckpointIndex, m_debugCheckpoints.size() - 1);
+        restoreDebugCheckpoint(m_debugCheckpointIndex);
+    }
+
+    if (previousPlaybackMode == DebugPlaybackMode::Playing && !m_finished)
+    {
+        setDebugPlaybackMode(DebugPlaybackMode::Playing);
+    }
+    else if (previousPlaybackMode == DebugPlaybackMode::Interactive)
+    {
+        setDebugPlaybackMode(DebugPlaybackMode::Interactive);
+    }
+    else
+    {
+        setDebugPlaybackMode(DebugPlaybackMode::Paused);
+    }
+}
+
+void VNRuntime::restoreDebugCheckpoint(const std::size_t checkpointIndex)
+{
+    if (m_debugCheckpoints.empty())
+    {
+        return;
+    }
+
+    m_debugCheckpointIndex = std::min(checkpointIndex, m_debugCheckpoints.size() - 1);
+    const DebugCheckpoint& checkpoint = m_debugCheckpoints[m_debugCheckpointIndex];
+    m_sceneState = checkpoint.sceneState;
+    m_nextInstructionIndex = checkpoint.nextInstructionIndex;
+    m_visibleDialogueCharacterCount = checkpoint.visibleDialogueCharacterCount;
+    m_waitRemainingSeconds = 0.0f;
+    m_transitionElapsedSeconds = 0.0f;
+    m_transitionDurationSeconds = 0.0f;
+    m_typewriterCarrySeconds = 0.0f;
+    m_typewriterPauseRemainingSeconds = 0.0f;
+    m_autoAdvanceRemainingSeconds = 0.0f;
+    m_advanceReleaseRequired = false;
+    m_waitingForAdvance = checkpoint.waitingForAdvance;
+    m_finished = checkpoint.finished;
+    m_overlayView = OverlayView::None;
+    m_pauseSelection = PauseMenuSelection::None;
+    rebuildVisualState();
+}
+
+void VNRuntime::syncDebugScriptSelection()
+{
+    m_debugScriptPathBuffer.fill('\0');
+    const std::string scriptPathText = assetRelativeScriptPath(m_scriptAssetPath).generic_string();
+    if (scriptPathText.empty())
+    {
+        return;
+    }
+
+    const std::size_t copyLength =
+        std::min(scriptPathText.size(), m_debugScriptPathBuffer.size() - 1);
+    std::memcpy(m_debugScriptPathBuffer.data(), scriptPathText.data(), copyLength);
+    m_debugScriptPathBuffer[copyLength] = '\0';
+}
+
+void VNRuntime::syncDebugCheckpointToRuntimeState()
+{
+    if (m_debugCheckpoints.empty())
+    {
+        m_debugCheckpointIndex = 0;
+        return;
+    }
+
+    std::size_t bestIndex = 0;
+    for (std::size_t index = 0; index < m_debugCheckpoints.size(); ++index)
+    {
+        const DebugCheckpoint& checkpoint = m_debugCheckpoints[index];
+        if (checkpoint.nextInstructionIndex > m_nextInstructionIndex)
+        {
+            break;
+        }
+
+        bestIndex = index;
+        if (checkpoint.nextInstructionIndex == m_nextInstructionIndex &&
+            checkpoint.sceneState.speakerName == m_sceneState.speakerName &&
+            checkpoint.sceneState.dialogueText == m_sceneState.dialogueText)
+        {
+            break;
+        }
+    }
+
+    m_debugCheckpointIndex = bestIndex;
+}
+
+void VNRuntime::prepareDebugTransportState()
+{
+    if (m_debugCheckpoints.empty())
+    {
+        rebuildDebugCheckpoints();
+    }
+
+    if (m_debugPlaybackMode == DebugPlaybackMode::Interactive)
+    {
+        syncDebugCheckpointToRuntimeState();
+        restoreDebugCheckpoint(m_debugCheckpointIndex);
+    }
+
+    setDebugPlaybackMode(DebugPlaybackMode::Paused);
+}
+
+void VNRuntime::refreshDebugScriptList()
+{
+    m_debugAvailableScripts.clear();
+
+    const std::filesystem::path scriptsDirectory = m_assetRootDirectory / "scripts";
+    std::error_code errorCode;
+    if (!std::filesystem::exists(scriptsDirectory, errorCode))
+    {
+        syncDebugScriptSelection();
+        return;
+    }
+
+    for (std::filesystem::recursive_directory_iterator iterator(scriptsDirectory, errorCode), end;
+         iterator != end && !errorCode; iterator.increment(errorCode))
+    {
+        if (!iterator->is_regular_file())
+        {
+            continue;
+        }
+
+        if (iterator->path().extension() != ".vnscript")
+        {
+            continue;
+        }
+
+        m_debugAvailableScripts.push_back(assetRelativeScriptPath(iterator->path()));
+    }
+
+    const std::filesystem::path currentRelativePath = assetRelativeScriptPath(m_scriptAssetPath);
+    if (!currentRelativePath.empty() &&
+        std::find(m_debugAvailableScripts.begin(), m_debugAvailableScripts.end(),
+                  currentRelativePath) == m_debugAvailableScripts.end())
+    {
+        m_debugAvailableScripts.push_back(currentRelativePath);
+    }
+
+    std::sort(m_debugAvailableScripts.begin(), m_debugAvailableScripts.end());
+    syncDebugScriptSelection();
+}
+
+std::filesystem::path
+VNRuntime::assetRelativeScriptPath(const std::filesystem::path& scriptPath) const
+{
+    if (scriptPath.empty())
+    {
+        return {};
+    }
+
+    if (!scriptPath.is_absolute())
+    {
+        return scriptPath.lexically_normal();
+    }
+
+    if (!m_assetRootDirectory.empty())
+    {
+        const std::filesystem::path normalizedAssetRoot = m_assetRootDirectory.lexically_normal();
+        const std::filesystem::path normalizedScriptPath = scriptPath.lexically_normal();
+        const std::filesystem::path relativePath =
+            normalizedScriptPath.lexically_relative(normalizedAssetRoot);
+        const auto firstRelativeComponent = relativePath.begin();
+        if (!relativePath.empty() && firstRelativeComponent != relativePath.end() &&
+            *firstRelativeComponent != std::filesystem::path{".."})
+        {
+            return relativePath;
+        }
+    }
+
+    return scriptPath.lexically_normal();
+}
+
+bool VNRuntime::loadScriptFromAssetPath(const std::filesystem::path& scriptAssetPath,
+                                        const bool preserveCheckpoint)
+{
+    const std::filesystem::path previousScriptAssetPath = m_scriptAssetPath;
+    const std::filesystem::path previousResolvedScriptPath = m_resolvedScriptPath;
+    const VnScript previousScript = m_script;
+    const std::size_t previousCheckpointIndex = m_debugCheckpointIndex;
+    const DebugPlaybackMode previousPlaybackMode = m_debugPlaybackMode;
+
+    try
+    {
+        const std::filesystem::path resolvedScriptPath = resolveScriptPath(scriptAssetPath);
+        const VnScript parsedScript = parseVnScriptFile(resolvedScriptPath);
+
+        m_scriptAssetPath = assetRelativeScriptPath(scriptAssetPath);
+        m_resolvedScriptPath = resolvedScriptPath;
+        m_script = parsedScript;
+        m_debugCheckpointIndex = preserveCheckpoint ? previousCheckpointIndex : 0;
+        setDebugPlaybackMode(DebugPlaybackMode::Paused);
+        refreshDebugScriptList();
+        rebuildDebugCheckpoints();
+        syncDebugScriptSelection();
+        restoreDebugCheckpoint(m_debugCheckpointIndex);
+        m_debugStatusMessage = std::string("Loaded VN script '") +
+                               assetRelativeScriptPath(m_scriptAssetPath).generic_string() + "'.";
+        m_debugLastOperationSucceeded = true;
+        return true;
+    }
+    catch (const std::exception& exception)
+    {
+        m_scriptAssetPath = previousScriptAssetPath;
+        m_resolvedScriptPath = previousResolvedScriptPath;
+        m_script = previousScript;
+        m_debugCheckpointIndex = previousCheckpointIndex;
+        setDebugPlaybackMode(previousPlaybackMode);
+        rebuildDebugCheckpoints();
+        restoreDebugCheckpoint(m_debugCheckpointIndex);
+        syncDebugScriptSelection();
+        m_debugStatusMessage = exception.what();
+        m_debugLastOperationSucceeded = false;
+        return false;
+    }
+}
+
+bool VNRuntime::hotReloadCurrentScript(const bool preserveCheckpoint)
+{
+    if (loadScriptFromAssetPath(m_scriptAssetPath, preserveCheckpoint))
+    {
+        m_debugStatusMessage = std::string("Hot reloaded '") +
+                               assetRelativeScriptPath(m_scriptAssetPath).generic_string() + "'.";
+        m_debugLastOperationSucceeded = true;
+        return true;
+    }
+
+    return false;
+}
+
+bool VNRuntime::debugStepForward()
+{
+    if (m_debugCheckpoints.empty() || m_debugCheckpointIndex + 1 >= m_debugCheckpoints.size())
+    {
+        setDebugPlaybackMode(DebugPlaybackMode::Paused);
+        return false;
+    }
+
+    restoreDebugCheckpoint(m_debugCheckpointIndex + 1);
+    setDebugPlaybackMode(DebugPlaybackMode::Paused);
+    return true;
+}
+
+bool VNRuntime::debugStepBackward()
+{
+    if (m_debugCheckpoints.empty() || m_debugCheckpointIndex == 0)
+    {
+        setDebugPlaybackMode(DebugPlaybackMode::Paused);
+        return false;
+    }
+
+    restoreDebugCheckpoint(m_debugCheckpointIndex - 1);
+    setDebugPlaybackMode(DebugPlaybackMode::Paused);
+    return true;
+}
+
+void VNRuntime::debugStop()
+{
+    if (m_debugCheckpoints.empty())
+    {
+        rebuildDebugCheckpoints();
+    }
+
+    restoreDebugCheckpoint(0);
+    setDebugPlaybackMode(DebugPlaybackMode::Paused);
+}
+
+const char* VNRuntime::debugPlaybackModeLabel() const noexcept
+{
+    switch (m_debugPlaybackMode)
+    {
+    case DebugPlaybackMode::Interactive:
+        return "Manual";
+    case DebugPlaybackMode::Paused:
+        return "Paused";
+    case DebugPlaybackMode::Playing:
+        return "Playing";
+    }
+
+    return "Unknown";
+}
+
+void VNRuntime::setDebugPlaybackMode(const DebugPlaybackMode mode) noexcept
+{
+    m_debugPlaybackMode = mode;
+    m_debugAutoStepTimer =
+        std::max(m_debugAutoStepIntervalSeconds, kDebugMinimumAutoStepIntervalSeconds);
+}
+
+int VNRuntime::debugCurrentSourceLine() const noexcept
+{
+    if (m_debugCheckpoints.empty())
+    {
+        if (m_nextInstructionIndex == 0 || m_script.instructions.empty())
+        {
+            return 0;
+        }
+
+        const std::size_t instructionIndex =
+            std::min(m_nextInstructionIndex - 1, m_script.instructions.size() - 1);
+        return m_script.instructions[instructionIndex].lineNumber;
+    }
+
+    return m_debugCheckpoints[std::min(m_debugCheckpointIndex, m_debugCheckpoints.size() - 1)]
+        .sourceLineNumber;
+}
+#endif
 } // namespace engine

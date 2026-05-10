@@ -197,6 +197,7 @@ set(ENGINE_SOURCES
 set(ENGINE_HEADERS
     src/Application.h
     src/core/AudioSystem.h
+    src/core/AudioCategory.h
     src/metassets/LoadingScene.metasset.h
     src/metassets/Metasset.h
     src/metassets/MenuScene.metasset.h
@@ -447,6 +448,7 @@ if(BUILD_TESTING)
     add_test(NAME engine_source_layout_exists COMMAND EngineStarterTests engine_source_layout_exists)
     add_test(NAME asset_manager_round_trip COMMAND EngineStarterTests asset_manager_round_trip)
     add_test(NAME vnscript_parser_smoke COMMAND EngineStarterTests vnscript_parser_smoke)
+    add_test(NAME audio_settings_contract COMMAND EngineStarterTests audio_settings_contract)
 
     set_tests_properties(
         shader_assets_exist
@@ -455,6 +457,7 @@ if(BUILD_TESTING)
         engine_source_layout_exists
         asset_manager_round_trip
         vnscript_parser_smoke
+        audio_settings_contract
         PROPERTIES
             LABELS "smoke"
     )

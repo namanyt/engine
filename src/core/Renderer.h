@@ -103,6 +103,8 @@ class Renderer final
     const ShaderLibrary& shaderLibrary() const noexcept;
     RenderProfiler& profiler() noexcept;
     const RenderProfiler& profiler() const noexcept;
+    int framebufferWidth() const noexcept;
+    int framebufferHeight() const noexcept;
     RendererDebugTextures debugTextures() const noexcept;
     void setRuntimeOverlayTexture(unsigned int textureId, int width, int height);
     void setRuntimeOverlayTexture(unsigned int textureId, int width, int height,

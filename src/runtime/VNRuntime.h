@@ -6,6 +6,7 @@
 #include "runtime/StartupFlowOverlay.h"
 #include "runtime/VnScript.h"
 
+#include <array>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -68,6 +69,29 @@ class VNRuntime final : public RuntimeMode
         std::vector<StagedCharacter> stagedCharacters;
     };
 
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+    enum class DebugPlaybackMode
+    {
+        Interactive,
+        Paused,
+        Playing,
+    };
+
+    struct DebugCheckpoint final
+    {
+        SceneState sceneState;
+        std::size_t nextInstructionIndex = 0;
+        std::size_t visibleDialogueCharacterCount = 0;
+        bool waitingForAdvance = false;
+        bool finished = false;
+        int sourceLineNumber = 0;
+    };
+#endif
+
+    void resolveScriptPath();
+    std::filesystem::path resolveScriptPath(const std::filesystem::path& scriptAssetPath) const;
+    void resetRuntimeState();
+    void rebuildVisualState();
     bool advanceRequested(const RawInputState& inputState) const;
     bool advanceHeld(const RawInputState& inputState) const;
     void executeUntilBlocked();
@@ -88,8 +112,30 @@ class VNRuntime final : public RuntimeMode
     void applyOverlayTextures(Renderer& renderer) const;
     void refreshSettingsOverlay(SettingsOverlayDirtyRegion dirtyRegions);
 
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+    void normalizeDebugCheckpointState();
+    bool advanceDebugCheckpoint();
+    void rebuildDebugCheckpoints();
+    void restoreDebugCheckpoint(std::size_t checkpointIndex);
+    void syncDebugScriptSelection();
+    void syncDebugCheckpointToRuntimeState();
+    void prepareDebugTransportState();
+    void refreshDebugScriptList();
+    std::filesystem::path assetRelativeScriptPath(const std::filesystem::path& scriptPath) const;
+    bool loadScriptFromAssetPath(const std::filesystem::path& scriptAssetPath,
+                                 bool preserveCheckpoint);
+    bool hotReloadCurrentScript(bool preserveCheckpoint);
+    bool debugStepForward();
+    bool debugStepBackward();
+    void debugStop();
+    const char* debugPlaybackModeLabel() const noexcept;
+    void setDebugPlaybackMode(DebugPlaybackMode mode) noexcept;
+    int debugCurrentSourceLine() const noexcept;
+#endif
+
     std::filesystem::path m_scriptAssetPath;
     std::filesystem::path m_resolvedScriptPath;
+    std::filesystem::path m_assetRootDirectory;
     RuntimeId m_returnRuntimeId = RuntimeId::DaylightSandbox;
     std::shared_ptr<AssetManager> m_assetManager;
     VnScript m_script;
@@ -122,5 +168,18 @@ class VNRuntime final : public RuntimeMode
     bool m_finished = false;
     OverlayView m_overlayView = OverlayView::None;
     PauseMenuSelection m_pauseSelection = PauseMenuSelection::None;
+
+#if defined(ENGINE_ENABLE_DEBUG_UI) && !defined(NDEBUG)
+    std::vector<std::filesystem::path> m_debugAvailableScripts;
+    std::vector<DebugCheckpoint> m_debugCheckpoints;
+    std::array<char, 260> m_debugScriptPathBuffer{};
+    std::string m_debugStatusMessage;
+    DebugPlaybackMode m_debugPlaybackMode = DebugPlaybackMode::Interactive;
+    std::size_t m_debugCheckpointIndex = 0;
+    float m_debugAutoStepTimer = 0.0f;
+    float m_debugAutoStepIntervalSeconds = 0.8f;
+    bool m_debugLastOperationSucceeded = true;
+    bool m_debugSuppressRuntimeTransitions = false;
+#endif
 };
 } // namespace engine

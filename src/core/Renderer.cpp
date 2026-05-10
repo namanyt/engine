@@ -263,6 +263,16 @@ const RenderProfiler& Renderer::profiler() const noexcept
     return m_profiler;
 }
 
+int Renderer::framebufferWidth() const noexcept
+{
+    return m_framebufferWidth;
+}
+
+int Renderer::framebufferHeight() const noexcept
+{
+    return m_framebufferHeight;
+}
+
 RendererDebugTextures Renderer::debugTextures() const noexcept
 {
     RendererDebugTextures textures{};

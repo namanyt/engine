@@ -29,9 +29,15 @@ enum class SettingsHoverTargetType
     VSyncToggle,
     MasterVolumeSlider,
     MusicVolumeSlider,
+    UiVolumeSlider,
+    VnVolumeSlider,
+    AmbientVolumeSlider,
+    SfxVolumeSlider,
     MouseSensitivitySlider,
     TypingSpeedSlider,
     AutoAdvanceToggle,
+    ScrollTrack,
+    ScrollThumb,
     ApplyButton,
     BackButton,
 };
@@ -62,6 +68,10 @@ struct SettingsOverlayViewModel final
     bool resolutionDragging = false;
     float masterVolume = 0.85f;
     float musicVolume = 0.70f;
+    float uiVolume = 1.0f;
+    float vnVolume = 1.0f;
+    float ambientVolume = 1.0f;
+    float sfxVolume = 1.0f;
     float mouseSensitivity = 0.52f;
     float typingSpeed = 0.45f;
     float contentScrollOffset = 0.0f;

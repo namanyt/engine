@@ -220,9 +220,9 @@ float appendDisplayItems(const SettingsOverlayViewModel& viewModel,
 float appendAudioItems(const SettingsOverlayViewModel& viewModel,
                        std::vector<SettingsPanelItemViewModel>& items, float topOffset)
 {
-    items.push_back(makeSection(L"Mix Staging",
-                                L"These placeholders establish the long-term audio settings "
-                                L"surface before runtime binding lands.",
+    items.push_back(makeSection(L"Mix Routing",
+                                L"Master and Music now drive live runtime audio, while the "
+                                L"remaining category buses stay reserved for future systems.",
                                 topOffset));
     topOffset += kSectionHeight + kContentCardSpacing;
 
@@ -234,16 +234,48 @@ float appendAudioItems(const SettingsOverlayViewModel& viewModel,
     topOffset += kSliderHeight + kContentCardSpacing;
 
     items.push_back(makeSlider(
-        L"Music Volume", L"Dedicated bed level for score and ambience.",
+        L"Music Volume", L"Dedicated bus level for persistent score and future ambience beds.",
         percentLabel(viewModel.musicVolume),
         SettingsHoverTarget{SettingsHoverTargetType::MusicVolumeSlider, SettingsCategory::Audio},
         viewModel.hoverTarget, viewModel.musicVolume, topOffset,
         viewModel.draggingSlider == SettingsHoverTargetType::MusicVolumeSlider));
     topOffset += kSliderHeight + kContentCardSpacing;
 
-    items.push_back(makePlaceholder(L"Next",
-                                    L"SFX, voice, output device routing, and bus diagnostics can "
-                                    L"slot into this page without changing the shell.",
+    items.push_back(makeSlider(
+        L"UI Volume", L"Controls menu, prompt, and future interface feedback sounds.",
+        percentLabel(viewModel.uiVolume),
+        SettingsHoverTarget{SettingsHoverTargetType::UiVolumeSlider, SettingsCategory::Audio},
+        viewModel.hoverTarget, viewModel.uiVolume, topOffset,
+        viewModel.draggingSlider == SettingsHoverTargetType::UiVolumeSlider));
+    topOffset += kSliderHeight + kContentCardSpacing;
+
+    items.push_back(makeSlider(
+        L"VN Volume", L"Dedicated dialogue-system bus for typewriter, stingers, and voice.",
+        percentLabel(viewModel.vnVolume),
+        SettingsHoverTarget{SettingsHoverTargetType::VnVolumeSlider, SettingsCategory::Audio},
+        viewModel.hoverTarget, viewModel.vnVolume, topOffset,
+        viewModel.draggingSlider == SettingsHoverTargetType::VnVolumeSlider));
+    topOffset += kSliderHeight + kContentCardSpacing;
+
+    items.push_back(makeSlider(
+        L"Ambient Volume", L"Controls environmental beds and persistent world atmosphere.",
+        percentLabel(viewModel.ambientVolume),
+        SettingsHoverTarget{SettingsHoverTargetType::AmbientVolumeSlider, SettingsCategory::Audio},
+        viewModel.hoverTarget, viewModel.ambientVolume, topOffset,
+        viewModel.draggingSlider == SettingsHoverTargetType::AmbientVolumeSlider));
+    topOffset += kSliderHeight + kContentCardSpacing;
+
+    items.push_back(makeSlider(
+        L"SFX Volume", L"Controls gameplay, interaction, and one-shot feedback sounds.",
+        percentLabel(viewModel.sfxVolume),
+        SettingsHoverTarget{SettingsHoverTargetType::SfxVolumeSlider, SettingsCategory::Audio},
+        viewModel.hoverTarget, viewModel.sfxVolume, topOffset,
+        viewModel.draggingSlider == SettingsHoverTargetType::SfxVolumeSlider));
+    topOffset += kSliderHeight + kContentCardSpacing;
+
+    items.push_back(makePlaceholder(L"Routing Surface",
+                                    L"Output device selection and bus diagnostics can expand "
+                                    L"here without changing the category routing model.",
                                     L"Future-ready", topOffset));
     topOffset += kPlaceholderHeight;
     return topOffset;

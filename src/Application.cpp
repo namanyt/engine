@@ -16,6 +16,47 @@ namespace engine
 {
 namespace
 {
+constexpr int kWindowedMinWidth = 1280;
+constexpr int kWindowedMinHeight = 720;
+constexpr int kWindowedMaxWidth = 1920;
+constexpr int kWindowedMaxHeight = 1080;
+
+float& audioSettingsVolume(Application::AudioSettings& settings, const AudioCategory category)
+{
+    switch (category)
+    {
+    case AudioCategory::Music:
+        return settings.musicVolume;
+    case AudioCategory::UI:
+        return settings.uiVolume;
+    case AudioCategory::VN:
+        return settings.vnVolume;
+    case AudioCategory::Ambient:
+        return settings.ambientVolume;
+    case AudioCategory::SFX:
+    default:
+        return settings.sfxVolume;
+    }
+}
+
+float audioSettingsVolume(const Application::AudioSettings& settings, const AudioCategory category)
+{
+    switch (category)
+    {
+    case AudioCategory::Music:
+        return settings.musicVolume;
+    case AudioCategory::UI:
+        return settings.uiVolume;
+    case AudioCategory::VN:
+        return settings.vnVolume;
+    case AudioCategory::Ambient:
+        return settings.ambientVolume;
+    case AudioCategory::SFX:
+    default:
+        return settings.sfxVolume;
+    }
+}
+
 const char* windowModeToString(const Application::WindowMode mode)
 {
     switch (mode)
@@ -133,6 +174,22 @@ LoadedEngineSettings loadEngineSettings(const std::filesystem::path& settingsPat
         {
             settings.audio.musicVolume = clampUnitFloat(std::stof(value));
         }
+        else if (key == "ui_volume")
+        {
+            settings.audio.uiVolume = clampUnitFloat(std::stof(value));
+        }
+        else if (key == "vn_volume")
+        {
+            settings.audio.vnVolume = clampUnitFloat(std::stof(value));
+        }
+        else if (key == "ambient_volume")
+        {
+            settings.audio.ambientVolume = clampUnitFloat(std::stof(value));
+        }
+        else if (key == "sfx_volume")
+        {
+            settings.audio.sfxVolume = clampUnitFloat(std::stof(value));
+        }
         else if (key == "vn_typing_cps")
         {
             settings.vn.typingCharactersPerSecond =
@@ -177,7 +234,11 @@ Application::Application()
         m_audioSystem = std::make_unique<AudioSystem>();
         m_audioSystem->initialize();
         m_audioSystem->setMasterVolume(m_audioSettings.masterVolume);
-        m_audioSystem->setMusicVolume(m_audioSettings.musicVolume);
+        for (const AudioCategory category : kAllAudioCategories)
+        {
+            m_audioSystem->setCategoryVolume(category,
+                                             audioSettingsVolume(m_audioSettings, category));
+        }
 
         {
             std::ostringstream stream;
@@ -248,7 +309,9 @@ void Application::initializeWindow()
     glfwSetFramebufferSizeCallback(m_window, &Application::framebufferSizeCallback);
     glfwSetWindowSizeCallback(m_window, &Application::windowSizeCallback);
     glfwSetCursorPosCallback(m_window, &Application::cursorPositionCallback);
+    glfwSetScrollCallback(m_window, &Application::scrollCallback);
     glfwGetWindowPos(m_window, &m_windowedPosX, &m_windowedPosY);
+    applyWindowResizeConstraints();
 
     Log::info("Application", "Window created and OpenGL context made current.");
     Log::info("Application", "VSync disabled. Frame rate is uncapped.");
@@ -344,6 +407,7 @@ void Application::primeFrameState()
 {
     m_previousFrameTime = timeSeconds();
     m_pendingMouseDelta = Vec2{};
+    m_pendingMouseScrollDelta = 0.0f;
 }
 
 RawInputState Application::consumeRawInputState()
@@ -351,6 +415,7 @@ RawInputState Application::consumeRawInputState()
     RawInputState inputState{};
     inputState.cursorCaptured = m_cursorCaptured;
     inputState.mouseDelta = m_pendingMouseDelta;
+    inputState.mouseScrollDelta = m_pendingMouseScrollDelta;
     inputState.windowSize =
         Vec2{static_cast<float>(m_windowWidth), static_cast<float>(m_windowHeight)};
     if (m_window != nullptr)
@@ -362,6 +427,7 @@ RawInputState Application::consumeRawInputState()
     }
     updateKeyboardState(inputState);
     m_pendingMouseDelta = Vec2{};
+    m_pendingMouseScrollDelta = 0.0f;
     return inputState;
 }
 
@@ -460,6 +526,7 @@ void Application::setWindowResolution(int width, int height)
     }
     else if (m_windowMode == WindowMode::Windowed)
     {
+        applyWindowResizeConstraints();
         glfwSetWindowSize(m_window, sanitized.width, sanitized.height);
         m_windowWidth = sanitized.width;
         m_windowHeight = sanitized.height;
@@ -508,6 +575,7 @@ void Application::setWindowMode(WindowMode mode)
                              m_displaySettings.width, m_displaySettings.height, GLFW_DONT_CARE);
         m_windowWidth = m_displaySettings.width;
         m_windowHeight = m_displaySettings.height;
+        applyWindowResizeConstraints();
         Log::info("Application", "Returned to windowed mode.");
     }
     else if (mode == WindowMode::BorderlessFullscreen)
@@ -520,6 +588,7 @@ void Application::setWindowMode(WindowMode mode)
                              videoMode->height, GLFW_DONT_CARE);
         m_windowWidth = videoMode->width;
         m_windowHeight = videoMode->height;
+        applyWindowResizeConstraints();
         Log::info("Application", "Entered borderless fullscreen mode.");
     }
     else
@@ -529,6 +598,7 @@ void Application::setWindowMode(WindowMode mode)
                              m_displaySettings.height, GLFW_DONT_CARE);
         m_windowWidth = m_displaySettings.width;
         m_windowHeight = m_displaySettings.height;
+        applyWindowResizeConstraints();
 
         std::ostringstream stream;
         stream << "Entered exclusive fullscreen at " << m_displaySettings.width << 'x'
@@ -568,14 +638,19 @@ void Application::setMasterVolume(float volume)
     persistSettings();
 }
 
-void Application::setMusicVolume(float volume)
+void Application::setAudioCategoryVolume(const AudioCategory category, float volume)
 {
-    m_audioSettings.musicVolume = clampUnitFloat(volume);
+    audioSettingsVolume(m_audioSettings, category) = clampUnitFloat(volume);
     if (m_audioSystem != nullptr)
     {
-        m_audioSystem->setMusicVolume(m_audioSettings.musicVolume);
+        m_audioSystem->setCategoryVolume(category, audioSettingsVolume(m_audioSettings, category));
     }
     persistSettings();
+}
+
+void Application::setMusicVolume(float volume)
+{
+    setAudioCategoryVolume(AudioCategory::Music, volume);
 }
 
 void Application::setVnTypingCharactersPerSecond(float charactersPerSecond)
@@ -594,6 +669,26 @@ void Application::setMouseSensitivity(float sensitivity)
 {
     m_inputSettings.mouseSensitivity = clampMouseSensitivity(sensitivity);
     persistSettings();
+}
+
+void Application::applyWindowResizeConstraints()
+{
+    if (m_window == nullptr)
+    {
+        return;
+    }
+
+    if (m_windowMode == WindowMode::Windowed)
+    {
+        glfwSetWindowAspectRatio(m_window, 16, 9);
+        glfwSetWindowSizeLimits(m_window, kWindowedMinWidth, kWindowedMinHeight, kWindowedMaxWidth,
+                                kWindowedMaxHeight);
+        return;
+    }
+
+    glfwSetWindowAspectRatio(m_window, GLFW_DONT_CARE, GLFW_DONT_CARE);
+    glfwSetWindowSizeLimits(m_window, GLFW_DONT_CARE, GLFW_DONT_CARE, GLFW_DONT_CARE,
+                            GLFW_DONT_CARE);
 }
 
 void Application::applyWindowTitle(const std::string& title) const
@@ -676,6 +771,11 @@ const Application::AudioSettings& Application::audioSettings() const noexcept
     return m_audioSettings;
 }
 
+float Application::audioCategoryVolume(const AudioCategory category) const noexcept
+{
+    return audioSettingsVolume(m_audioSettings, category);
+}
+
 const Application::VnSettings& Application::vnSettings() const noexcept
 {
     return m_vnSettings;
@@ -720,6 +820,10 @@ void Application::persistSettings() const
     stream << "vsync=" << (m_displaySettings.vSyncEnabled ? 1 : 0) << '\n';
     stream << "master_volume=" << m_audioSettings.masterVolume << '\n';
     stream << "music_volume=" << m_audioSettings.musicVolume << '\n';
+    stream << "ui_volume=" << m_audioSettings.uiVolume << '\n';
+    stream << "vn_volume=" << m_audioSettings.vnVolume << '\n';
+    stream << "ambient_volume=" << m_audioSettings.ambientVolume << '\n';
+    stream << "sfx_volume=" << m_audioSettings.sfxVolume << '\n';
     stream << "vn_typing_cps=" << m_vnSettings.typingCharactersPerSecond << '\n';
     stream << "vn_auto_advance=" << (m_vnSettings.autoAdvanceEnabled ? 1 : 0) << '\n';
     stream << "mouse_sensitivity=" << m_inputSettings.mouseSensitivity << '\n';
@@ -881,6 +985,19 @@ void Application::cursorPositionCallback(GLFWwindow* window, double xPosition, d
 
     application->m_lastCursorPosition = currentCursorPosition;
     application->m_hasCursorSample = true;
+}
+
+void Application::scrollCallback(GLFWwindow* window, double xOffset, double yOffset)
+{
+    static_cast<void>(xOffset);
+
+    auto* application = static_cast<Application*>(glfwGetWindowUserPointer(window));
+    if (application == nullptr)
+    {
+        return;
+    }
+
+    application->m_pendingMouseScrollDelta += static_cast<float>(yOffset);
 }
 
 std::filesystem::path Application::resolveShaderDirectory()

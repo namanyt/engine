@@ -1,5 +1,8 @@
 #pragma once
 
+#include "core/AudioCategory.h"
+
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -49,12 +52,6 @@ class AudioHandle final
 class AudioSystem final
 {
   public:
-    enum class MixGroup
-    {
-        Sfx,
-        Music,
-    };
-
     AudioSystem();
     ~AudioSystem();
 
@@ -68,16 +65,18 @@ class AudioSystem final
     void update(float deltaSeconds) noexcept;
 
     AudioHandle play(const std::shared_ptr<AudioAsset>& audioAsset, bool looping = false,
-                     float volume = 1.0f, MixGroup mixGroup = MixGroup::Sfx);
+                     float volume = 1.0f, AudioCategory category = AudioCategory::SFX);
     AudioHandle playPersistent(std::string persistentId,
                                const std::shared_ptr<AudioAsset>& audioAsset, bool looping = false,
-                               float volume = 1.0f, MixGroup mixGroup = MixGroup::Music);
+                               float volume = 1.0f, AudioCategory category = AudioCategory::Music);
     bool stop(AudioHandle handle) noexcept;
     bool stopPersistent(std::string_view persistentId) noexcept;
     bool setVolume(AudioHandle handle, float volume) noexcept;
     void setMasterVolume(float volume) noexcept;
+    void setCategoryVolume(AudioCategory category, float volume) noexcept;
     void setMusicVolume(float volume) noexcept;
     float masterVolume() const noexcept;
+    float categoryVolume(AudioCategory category) const noexcept;
     float musicVolume() const noexcept;
     AudioHandle persistentHandle(std::string_view persistentId) const noexcept;
     bool fadeTo(AudioHandle handle, float targetVolume, float durationSeconds,
@@ -94,11 +93,11 @@ class AudioSystem final
     void forgetPersistentHandle(AudioHandle handle) noexcept;
     void destroyPlayback(PlaybackSlot& playback) noexcept;
     void applyPlaybackVolume(PlaybackSlot& playback) noexcept;
-    float groupVolume(MixGroup mixGroup) const noexcept;
+    void applyGlobalVolumes() noexcept;
 
     bool m_initialized = false;
     float m_masterVolume = 1.0f;
-    float m_musicVolume = 1.0f;
+    std::array<float, kAudioCategoryCount> m_categoryVolumes{1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
     std::uint64_t m_nextHandleValue = 1;
     std::vector<std::unique_ptr<PlaybackSlot>> m_playbacks;
     std::unordered_map<std::string, AudioHandle> m_persistentHandles;

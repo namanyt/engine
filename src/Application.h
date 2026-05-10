@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/AudioCategory.h"
+
 #include "math/Types.h"
 
 #include <filesystem>
@@ -48,6 +50,7 @@ struct RawInputState final
     RawButtonState mouseLeft{};
     bool cursorCaptured = false;
     Vec2 mouseDelta{};
+    float mouseScrollDelta = 0.0f;
     Vec2 mousePosition{};
     Vec2 windowSize{};
 };
@@ -74,6 +77,10 @@ class Application final
     {
         float masterVolume = 1.0f;
         float musicVolume = 1.0f;
+        float uiVolume = 1.0f;
+        float vnVolume = 1.0f;
+        float ambientVolume = 1.0f;
+        float sfxVolume = 1.0f;
     };
 
     struct VnSettings final
@@ -113,6 +120,7 @@ class Application final
     void setExclusiveFullscreen(bool enabled);
     void setVSyncEnabled(bool enabled);
     void setMasterVolume(float volume);
+    void setAudioCategoryVolume(AudioCategory category, float volume);
     void setMusicVolume(float volume);
     void setVnTypingCharactersPerSecond(float charactersPerSecond);
     void setVnAutoAdvanceEnabled(bool enabled);
@@ -132,6 +140,7 @@ class Application final
     WindowMode windowMode() const noexcept;
     const DisplaySettings& displaySettings() const noexcept;
     const AudioSettings& audioSettings() const noexcept;
+    float audioCategoryVolume(AudioCategory category) const noexcept;
     const VnSettings& vnSettings() const noexcept;
     const InputSettings& inputSettings() const noexcept;
     GLFWwindow* nativeWindow() const noexcept;
@@ -139,6 +148,7 @@ class Application final
   private:
     void initializeWindow();
     void shutdown() noexcept;
+    void applyWindowResizeConstraints();
     void updateKeyboardState(RawInputState& inputState) const;
     void persistSettings() const;
     void toggleBorderlessFullscreen();
@@ -146,6 +156,7 @@ class Application final
     static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
     static void windowSizeCallback(GLFWwindow* window, int width, int height);
     static void cursorPositionCallback(GLFWwindow* window, double xPosition, double yPosition);
+    static void scrollCallback(GLFWwindow* window, double xOffset, double yOffset);
     static std::filesystem::path resolveAssetRootDirectory();
     static std::filesystem::path resolveShaderDirectory();
     static std::filesystem::path resolveSettingsFilePath();
@@ -172,6 +183,7 @@ class Application final
     float m_lastFpsSampleTime = 0.0f;
     float m_previousFrameTime = 0.0f;
     Vec2 m_pendingMouseDelta{};
+    float m_pendingMouseScrollDelta = 0.0f;
     Vec2 m_lastCursorPosition{};
     std::string m_statusWindowTitle;
     int m_framesSinceLastSample = 0;

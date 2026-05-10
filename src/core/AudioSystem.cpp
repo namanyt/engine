@@ -20,6 +20,24 @@ float clampVolume(const float volume) noexcept
 {
     return std::clamp(volume, 0.0f, 1.0f);
 }
+
+std::size_t categoryIndex(const AudioCategory category) noexcept
+{
+    switch (category)
+    {
+    case AudioCategory::Music:
+        return 0;
+    case AudioCategory::UI:
+        return 1;
+    case AudioCategory::VN:
+        return 2;
+    case AudioCategory::Ambient:
+        return 3;
+    case AudioCategory::SFX:
+    default:
+        return 4;
+    }
+}
 } // namespace
 
 struct AudioSystem::PlaybackSlot final
@@ -40,7 +58,7 @@ struct AudioSystem::PlaybackSlot final
     ma_sound sound{};
     float baseVolume = 1.0f;
     float currentVolume = 1.0f;
-    AudioSystem::MixGroup mixGroup = AudioSystem::MixGroup::Sfx;
+    AudioCategory category = AudioCategory::SFX;
     bool looping = false;
     bool decoderInitialized = false;
     bool soundInitialized = false;
@@ -152,7 +170,7 @@ void AudioSystem::update(const float deltaSeconds) noexcept
 }
 
 AudioHandle AudioSystem::play(const std::shared_ptr<AudioAsset>& audioAsset, const bool looping,
-                              const float volume, const MixGroup mixGroup)
+                              const float volume, const AudioCategory category)
 {
     if (!m_initialized)
     {
@@ -168,7 +186,7 @@ AudioHandle AudioSystem::play(const std::shared_ptr<AudioAsset>& audioAsset, con
     playback->handle = AudioHandle(m_nextHandleValue++);
     playback->asset = audioAsset;
     playback->looping = looping;
-    playback->mixGroup = mixGroup;
+    playback->category = category;
 
     const std::vector<std::uint8_t>& encodedBytes = audioAsset->encodedBytes();
     const ma_result decoderResult = ma_decoder_init_memory(encodedBytes.data(), encodedBytes.size(),
@@ -223,7 +241,7 @@ AudioHandle AudioSystem::play(const std::shared_ptr<AudioAsset>& audioAsset, con
 AudioHandle AudioSystem::playPersistent(std::string persistentId,
                                         const std::shared_ptr<AudioAsset>& audioAsset,
                                         const bool looping, const float volume,
-                                        const MixGroup mixGroup)
+                                        const AudioCategory category)
 {
     if (persistentId.empty())
     {
@@ -235,15 +253,17 @@ AudioHandle AudioSystem::playPersistent(std::string persistentId,
     {
         if (PlaybackSlot* playback = findPlayback(existing->second); playback != nullptr)
         {
-            playback->mixGroup = mixGroup;
-            setVolume(playback->handle, volume);
+            playback->category = category;
+            playback->baseVolume = clampVolume(volume);
+            playback->fade.active = false;
+            applyPlaybackVolume(*playback);
             return playback->handle;
         }
 
         m_persistentHandles.erase(existing);
     }
 
-    const AudioHandle handle = play(audioAsset, looping, volume, mixGroup);
+    const AudioHandle handle = play(audioAsset, looping, volume, category);
     m_persistentHandles.emplace(std::move(persistentId), handle);
     return handle;
 }
@@ -287,19 +307,18 @@ bool AudioSystem::setVolume(const AudioHandle handle, const float volume) noexce
 void AudioSystem::setMasterVolume(const float volume) noexcept
 {
     m_masterVolume = clampVolume(volume);
-    for (const std::unique_ptr<PlaybackSlot>& playback : m_playbacks)
-    {
-        applyPlaybackVolume(*playback);
-    }
+    applyGlobalVolumes();
+}
+
+void AudioSystem::setCategoryVolume(const AudioCategory category, const float volume) noexcept
+{
+    m_categoryVolumes[categoryIndex(category)] = clampVolume(volume);
+    applyGlobalVolumes();
 }
 
 void AudioSystem::setMusicVolume(const float volume) noexcept
 {
-    m_musicVolume = clampVolume(volume);
-    for (const std::unique_ptr<PlaybackSlot>& playback : m_playbacks)
-    {
-        applyPlaybackVolume(*playback);
-    }
+    setCategoryVolume(AudioCategory::Music, volume);
 }
 
 float AudioSystem::masterVolume() const noexcept
@@ -307,9 +326,14 @@ float AudioSystem::masterVolume() const noexcept
     return m_masterVolume;
 }
 
+float AudioSystem::categoryVolume(const AudioCategory category) const noexcept
+{
+    return m_categoryVolumes[categoryIndex(category)];
+}
+
 float AudioSystem::musicVolume() const noexcept
 {
-    return m_musicVolume;
+    return categoryVolume(AudioCategory::Music);
 }
 
 AudioHandle AudioSystem::persistentHandle(const std::string_view persistentId) const noexcept
@@ -428,19 +452,15 @@ void AudioSystem::applyPlaybackVolume(PlaybackSlot& playback) noexcept
     }
 
     playback.currentVolume =
-        clampVolume(playback.baseVolume * m_masterVolume * groupVolume(playback.mixGroup));
+        clampVolume(playback.baseVolume * categoryVolume(playback.category) * m_masterVolume);
     ma_sound_set_volume(&playback.sound, playback.currentVolume);
 }
 
-float AudioSystem::groupVolume(const MixGroup mixGroup) const noexcept
+void AudioSystem::applyGlobalVolumes() noexcept
 {
-    switch (mixGroup)
+    for (const std::unique_ptr<PlaybackSlot>& playback : m_playbacks)
     {
-    case MixGroup::Music:
-        return m_musicVolume;
-    case MixGroup::Sfx:
-    default:
-        return 1.0f;
+        applyPlaybackVolume(*playback);
     }
 }
 } // namespace engine

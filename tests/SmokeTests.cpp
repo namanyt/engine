@@ -1,3 +1,5 @@
+#include "Application.h"
+#include "core/AudioCategory.h"
 #include "assets/AssetManager.h"
 #include "assets/ShaderAsset.h"
 #include "core/ShaderLibrary.h"
@@ -126,6 +128,7 @@ int engineSourceLayoutExists()
         root / "src" / "assets" / "TextureAsset.cpp",
         root / "src" / "assets" / "AudioAsset.h",
         root / "src" / "assets" / "AudioAsset.cpp",
+        root / "src" / "core" / "AudioCategory.h",
         root / "src" / "core" / "AudioSystem.h",
         root / "src" / "core" / "AudioSystem.cpp",
         root / "src" / "assets" / "ModelAsset.h",
@@ -495,6 +498,27 @@ int vnscriptParserSmoke()
     return 0;
 }
 
+int audio_settings_contract()
+{
+    const engine::Application::AudioSettings settings{};
+
+    if (engine::kAllAudioCategories.size() != engine::kAudioCategoryCount)
+    {
+        std::cerr << "Audio category list does not match the declared category count.\n";
+        return 1;
+    }
+
+    if (settings.masterVolume != 1.0f || settings.musicVolume != 1.0f ||
+        settings.uiVolume != 1.0f || settings.vnVolume != 1.0f || settings.ambientVolume != 1.0f ||
+        settings.sfxVolume != 1.0f)
+    {
+        std::cerr << "Audio settings defaults should leave all buses fully enabled.\n";
+        return 1;
+    }
+
+    return 0;
+}
+
 struct NamedTest
 {
     std::string_view name;
@@ -510,7 +534,8 @@ int main(int argc, char** argv)
         {"dependency_layout_exists", &dependencyLayoutExists},
         {"engine_source_layout_exists", &engineSourceLayoutExists},
         {"asset_manager_round_trip", &assetManagerRoundTrip},
-        {"vnscript_parser_smoke", &vnscriptParserSmoke}};
+        {"vnscript_parser_smoke", &vnscriptParserSmoke},
+        {"audio_settings_contract", &audio_settings_contract}};
 
     if (argc != 2)
     {

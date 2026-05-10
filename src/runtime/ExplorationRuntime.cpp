@@ -36,13 +36,17 @@ engine::RuntimeOverlayOptions
 settingsContentOverlayOptions(const engine::SettingsOverlayViewModel& viewModel)
 {
     const engine::SettingsPageModel page = engine::buildSettingsPageModel(viewModel);
+    const float scaleX = 1.0f / engine::overlayui::kDesignWidth;
+    const float scaleY = 1.0f / engine::overlayui::kDesignHeight;
     engine::RuntimeOverlayOptions options{};
     options.layout = engine::RuntimeOverlayLayout::CustomPixels;
     options.opacity = 1.0f;
-    options.minXPixels = page.chrome.contentBounds.left;
-    options.minYPixels = page.chrome.contentBounds.top;
-    options.widthPixels = page.chrome.contentBounds.right - page.chrome.contentBounds.left;
-    options.heightPixels = page.chrome.contentBounds.bottom - page.chrome.contentBounds.top;
+    options.minXPixels = page.chrome.contentBounds.left * scaleX;
+    options.minYPixels = page.chrome.contentBounds.top * scaleY;
+    options.widthPixels =
+        (page.chrome.contentBounds.right - page.chrome.contentBounds.left) * scaleX;
+    options.heightPixels =
+        (page.chrome.contentBounds.bottom - page.chrome.contentBounds.top) * scaleY;
     return options;
 }
 
@@ -628,6 +632,7 @@ void ExplorationRuntime::handleOverlayInput(const UpdateContext& updateContext,
         settingsInput.cancel = updateContext.inputState.keyEscape.pressed;
         settingsInput.click = updateContext.inputState.mouseLeft.pressed;
         settingsInput.mouseDown = updateContext.inputState.mouseLeft.down;
+        settingsInput.mouseScrollDelta = updateContext.inputState.mouseScrollDelta;
         settingsInput.mousePosition = updateContext.inputState.mousePosition;
         settingsInput.windowSize = updateContext.inputState.windowSize;
 
@@ -855,7 +860,20 @@ void ExplorationRuntime::applyRuntimeOverlay(Renderer& renderer) const
                     m_settingsOverlayContentTexture.textureId(),
                     m_settingsOverlayContentTexture.width(),
                     m_settingsOverlayContentTexture.height(),
-                    settingsContentOverlayOptions(m_settingsOverlay.viewModel()));
+                    [&renderer, this]()
+                    {
+                        RuntimeOverlayOptions options =
+                            settingsContentOverlayOptions(m_settingsOverlay.viewModel());
+                        const float framebufferWidth =
+                            static_cast<float>(std::max(renderer.framebufferWidth(), 1));
+                        const float framebufferHeight =
+                            static_cast<float>(std::max(renderer.framebufferHeight(), 1));
+                        options.minXPixels *= framebufferWidth;
+                        options.minYPixels *= framebufferHeight;
+                        options.widthPixels *= framebufferWidth;
+                        options.heightPixels *= framebufferHeight;
+                        return options;
+                    }());
             }
             else
             {
