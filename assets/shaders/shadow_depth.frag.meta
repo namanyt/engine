@@ -1,6 +1,3 @@
-uuid=4030109e-c768-d8ce-c570-4ca87517e1e1
-asset_type=shader
-source_path=shadow_depth.frag
-import_timestamp=2026-05-08T09:52:45Z
-tags=
-preload=false
+version https://git-lfs.github.com/spec/v1
+oid sha256:137a9b97efd43c78947dee69bdc41704b15d90af24bf30604fc7b7bf7600c2a1
+size 154

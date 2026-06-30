@@ -1,6 +1,3 @@
-uuid=b45cd6c3-9d03-9563-d00e-0687174c45b1
-asset_type=shader
-source_path=ray_eval.frag
-import_timestamp=2026-05-08T09:55:30Z
-tags=
-preload=false
+version https://git-lfs.github.com/spec/v1
+oid sha256:f39b6df37f79264db4b2cf9fb4808bff8935374fe6b484bcd22b9951344503cd
+size 150

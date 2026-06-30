@@ -1,6 +1,3 @@
-uuid=113724c9-0057-a5fa-56c9-b779292dadf2
-asset_type=shader
-source_path=post_blur.frag
-import_timestamp=2026-05-08T09:51:59Z
-tags=
-preload=false
+version https://git-lfs.github.com/spec/v1
+oid sha256:57661888817a1b0ae080c7e77018e2d2ad905385a1bf66e6a4ddfc6594000790
+size 151

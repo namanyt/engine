@@ -1,6 +1,3 @@
-uuid=5395de20-d0e8-556a-0ecb-2305906126e3
-asset_type=shader
-source_path=post_tonemap.frag
-import_timestamp=2026-05-08T09:52:46Z
-tags=
-preload=false
+version https://git-lfs.github.com/spec/v1
+oid sha256:0c28c28e063e3ecbf1f54d4e0871bffea44cf70b08083b10e3f544017cc23d55
+size 154

@@ -1,6 +1,3 @@
-uuid=5f513841-a31e-66fd-1d6f-6de69effe6fd
-asset_type=shader
-source_path=fragment.glsl
-import_timestamp=2026-05-08T09:50:54Z
-tags=
-preload=false
+version https://git-lfs.github.com/spec/v1
+oid sha256:4076a392c42142d555cf1dc216c6fdd2258869677fb92899b149b15f3f2c24a2
+size 150

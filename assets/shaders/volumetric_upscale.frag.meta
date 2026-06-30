@@ -1,6 +1,3 @@
-uuid=5ae29ca7-5820-8ed5-ccf3-07c69afb1697
-asset_type=shader
-source_path=volumetric_upscale.frag
-import_timestamp=2026-05-08T09:52:46Z
-tags=
-preload=false
+version https://git-lfs.github.com/spec/v1
+oid sha256:926c4a951ddb7c0d5d2559133e226d6aac04b5cb35efbfe3057e9422d7456a2f
+size 160
