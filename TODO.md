@@ -4,7 +4,6 @@
 - [x] Refactor RuntimeFactory from switch-case to registration pattern
 - [x] Create public API headers (engine.hpp, runtime.hpp, renderer.hpp, ecs.hpp, assets.hpp)
 - [x] Split project into engine library and atmospheric_demo example
-- [x] Add GitHub Actions CI workflow
 - [x] Update README for engine library documentation
 - [x] Remove redundant engine_source_layout_exists test
 - [x] Create comprehensive library documentation
@@ -39,9 +38,6 @@
 - ✅ Release build working (Ninja + MinGW)
 - ❌ Debug build requires ImGui dependency
 - ✅ All 6 smoke tests passing
-
-### CI
-- ✅ GitHub Actions workflow configured and tested
 
 ### Project Structure
 ```
