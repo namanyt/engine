@@ -8,6 +8,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(CTest)
 
+option(BUILD_EXAMPLES "Build example applications" ON)
+option(BUILD_ATMOSPHERIC_DEMO "Build atmospheric demo example" ON)
+
 function(engine_apply_target_defaults target_name)
     if(MSVC)
         target_compile_options(${target_name} PRIVATE /W4 /permissive-)
@@ -112,35 +115,13 @@ endif()
 
 find_package(OpenGL REQUIRED)
 
+# ============================================================================
+# Engine Library
+# ============================================================================
+
 set(ENGINE_SOURCES
-    src/main.cpp
     src/Application.cpp
     src/core/AudioSystem.cpp
-    src/metassets/LoadingScene.metasset.cpp
-    src/metassets/Metasset.cpp
-    src/metassets/MenuScene.metasset.cpp
-    src/metassets/SceneMetasset.cpp
-    src/metassets/DaylightSandboxScene.metasset.cpp
-    src/metassets/TestWorldScene.metasset.cpp
-    src/runtime/LoadingRuntime.cpp
-    src/runtime/MenuRuntime.cpp
-    src/runtime/RuntimeMode.cpp
-    src/runtime/RuntimeIds.cpp
-    src/runtime/RuntimeFactory.cpp
-    src/runtime/ExplorationRuntime.cpp
-    src/runtime/InteractionPromptRenderable.cpp
-    src/runtime/SettingsPage.cpp
-    src/runtime/SettingsOverlay.cpp
-    src/runtime/StartupFlowOverlay.cpp
-    src/runtime/VnScript.cpp
-    src/runtime/VNRuntime.cpp
-    src/runtime/SceneRuntime.cpp
-    src/runtime/SceneAssetScope.cpp
-    src/runtime/EngineRuntime.cpp
-    src/scenes/LoadingScene.cpp
-    src/scenes/MenuScene.cpp
-    src/scenes/DaylightSandboxScene.cpp
-    src/scenes/TestWorldScene.cpp
     src/assets/Asset.cpp
     src/assets/AudioAsset.cpp
     src/assets/AssetManager.cpp
@@ -192,39 +173,15 @@ set(ENGINE_SOURCES
     src/world/DaylightSandbox.cpp
     src/world/TestWorld.cpp
     src/world/WorldNavigation.cpp
+    src/runtime/RuntimeMode.cpp
+    src/runtime/RuntimeIds.cpp
+    src/runtime/RuntimeFactory.cpp
 )
 
 set(ENGINE_HEADERS
     src/Application.h
     src/core/AudioSystem.h
     src/core/AudioCategory.h
-    src/metassets/LoadingScene.metasset.h
-    src/metassets/Metasset.h
-    src/metassets/MenuScene.metasset.h
-    src/metassets/SceneMetasset.h
-    src/metassets/DaylightSandboxScene.metasset.h
-    src/metassets/TestWorldScene.metasset.h
-    src/runtime/ExplorationInput.h
-    src/runtime/RuntimeIds.h
-    src/runtime/RuntimeFactory.h
-    src/runtime/RuntimeMode.h
-    src/runtime/ExplorationRuntime.h
-    src/runtime/InteractionPromptRenderable.h
-    src/runtime/LoadingRuntime.h
-    src/runtime/MenuRuntime.h
-    src/runtime/SettingsPage.h
-    src/runtime/SettingsOverlay.h
-    src/runtime/StartupFlowOverlay.h
-    src/runtime/VnScript.h
-    src/runtime/VNRuntime.h
-    src/runtime/SceneRuntime.h
-    src/runtime/SceneAssetScope.h
-    src/runtime/EngineRuntime.h
-    src/scenes/LoadingScene.h
-    src/scenes/MenuScene.h
-    src/scenes/AtmosphericSceneRuntime.h
-    src/scenes/DaylightSandboxScene.h
-    src/scenes/TestWorldScene.h
     src/assets/Asset.h
     src/assets/AudioAsset.h
     src/assets/AssetHandle.h
@@ -283,7 +240,72 @@ set(ENGINE_HEADERS
     src/world/DaylightSandbox.h
     src/world/TestWorld.h
     src/world/WorldNavigation.h
+    src/runtime/RuntimeMode.h
+    src/runtime/RuntimeIds.h
+    src/runtime/RuntimeFactory.h
 )
+
+set(ENGINE_DEBUG_UI_SOURCES)
+set(ENGINE_DEBUG_UI_HEADERS)
+
+if(TARGET imgui)
+    list(APPEND ENGINE_DEBUG_UI_SOURCES
+        src/debug/DebugUi.cpp
+    )
+    list(APPEND ENGINE_DEBUG_UI_HEADERS
+        src/debug/DebugUi.h
+    )
+endif()
+
+add_library(engine STATIC
+    ${ENGINE_SOURCES}
+    ${ENGINE_DEBUG_UI_SOURCES}
+    ${ENGINE_HEADERS}
+    ${ENGINE_DEBUG_UI_HEADERS}
+)
+
+target_include_directories(engine
+    PUBLIC
+        "${CMAKE_SOURCE_DIR}/include"
+        "${CMAKE_SOURCE_DIR}/src"
+        "${GLAD_INCLUDE_DIR}"
+        "${CMAKE_SOURCE_DIR}/external/miniaudio"
+)
+
+target_compile_definitions(engine
+    PRIVATE
+        GLFW_INCLUDE_NONE
+)
+
+if(TARGET imgui)
+    target_compile_definitions(engine PUBLIC ENGINE_ENABLE_DEBUG_UI=1)
+endif()
+
+target_link_libraries(engine
+    PUBLIC
+        glad
+        glfw
+        OpenGL::GL
+)
+
+if(WIN32)
+    target_link_libraries(engine PRIVATE ole32 windowscodecs Msimg32)
+endif()
+
+if(TARGET imgui)
+    target_link_libraries(engine PRIVATE imgui)
+endif()
+
+engine_apply_target_defaults(engine)
+
+set_target_properties(engine PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    FOLDER "engine"
+)
+
+# ============================================================================
+# Shader and Asset Files
+# ============================================================================
 
 set(ENGINE_SHADERS
     assets/shaders/vertex.glsl
@@ -313,85 +335,105 @@ set(ENGINE_ASSET_PLACEHOLDERS
     assets/test/.gitkeep
 )
 
-set(ENGINE_DEBUG_UI_SOURCES)
-set(ENGINE_DEBUG_UI_HEADERS)
-
-if(TARGET imgui)
-    list(APPEND ENGINE_DEBUG_UI_SOURCES
-        src/debug/DebugUi.cpp
-    )
-    list(APPEND ENGINE_DEBUG_UI_HEADERS
-        src/debug/DebugUi.h
-    )
-endif()
-
 set_source_files_properties(${ENGINE_SHADERS} ${ENGINE_ASSET_PLACEHOLDERS} PROPERTIES HEADER_FILE_ONLY TRUE)
 
-add_executable(EngineStarter
-    ${ENGINE_SOURCES}
-    ${ENGINE_DEBUG_UI_SOURCES}
-    ${ENGINE_HEADERS}
-    ${ENGINE_DEBUG_UI_HEADERS}
-    ${ENGINE_SHADERS}
-    ${ENGINE_ASSET_PLACEHOLDERS}
-)
+# ============================================================================
+# Example Applications
+# ============================================================================
 
-target_include_directories(EngineStarter
-    PRIVATE
-        "${CMAKE_SOURCE_DIR}/src"
-        "${GLAD_INCLUDE_DIR}"
-    "${CMAKE_SOURCE_DIR}/external/miniaudio"
-)
+if(BUILD_EXAMPLES AND BUILD_ATMOSPHERIC_DEMO)
+    add_executable(atmospheric_demo
+        examples/atmospheric_demo/src/main.cpp
+        examples/atmospheric_demo/src/EngineRuntime.cpp
+        examples/atmospheric_demo/src/EngineRuntime.h
+        examples/atmospheric_demo/src/MenuRuntime.cpp
+        examples/atmospheric_demo/src/MenuRuntime.h
+        examples/atmospheric_demo/src/ExplorationRuntime.cpp
+        examples/atmospheric_demo/src/ExplorationRuntime.h
+        examples/atmospheric_demo/src/VNRuntime.cpp
+        examples/atmospheric_demo/src/VNRuntime.h
+        examples/atmospheric_demo/src/LoadingRuntime.cpp
+        examples/atmospheric_demo/src/LoadingRuntime.h
+        examples/atmospheric_demo/src/InteractionPromptRenderable.cpp
+        examples/atmospheric_demo/src/InteractionPromptRenderable.h
+        examples/atmospheric_demo/src/SettingsPage.cpp
+        examples/atmospheric_demo/src/SettingsPage.h
+        examples/atmospheric_demo/src/SettingsOverlay.cpp
+        examples/atmospheric_demo/src/SettingsOverlay.h
+        examples/atmospheric_demo/src/StartupFlowOverlay.cpp
+        examples/atmospheric_demo/src/StartupFlowOverlay.h
+        examples/atmospheric_demo/src/VnScript.cpp
+        examples/atmospheric_demo/src/VnScript.h
+        examples/atmospheric_demo/src/SceneRuntime.cpp
+        examples/atmospheric_demo/src/SceneRuntime.h
+        examples/atmospheric_demo/src/SceneAssetScope.cpp
+        examples/atmospheric_demo/src/SceneAssetScope.h
+        examples/atmospheric_demo/src/ExplorationInput.h
+        examples/atmospheric_demo/src/LoadingScene.metasset.cpp
+        examples/atmospheric_demo/src/LoadingScene.metasset.h
+        examples/atmospheric_demo/src/Metasset.cpp
+        examples/atmospheric_demo/src/Metasset.h
+        examples/atmospheric_demo/src/MenuScene.metasset.cpp
+        examples/atmospheric_demo/src/MenuScene.metasset.h
+        examples/atmospheric_demo/src/SceneMetasset.cpp
+        examples/atmospheric_demo/src/SceneMetasset.h
+        examples/atmospheric_demo/src/DaylightSandboxScene.metasset.cpp
+        examples/atmospheric_demo/src/DaylightSandboxScene.metasset.h
+        examples/atmospheric_demo/src/TestWorldScene.metasset.cpp
+        examples/atmospheric_demo/src/TestWorldScene.metasset.h
+        examples/atmospheric_demo/src/LoadingScene.cpp
+        examples/atmospheric_demo/src/LoadingScene.h
+        examples/atmospheric_demo/src/MenuScene.cpp
+        examples/atmospheric_demo/src/MenuScene.h
+        examples/atmospheric_demo/src/AtmosphericSceneRuntime.h
+        examples/atmospheric_demo/src/DaylightSandboxScene.cpp
+        examples/atmospheric_demo/src/DaylightSandboxScene.h
+        examples/atmospheric_demo/src/TestWorldScene.cpp
+        examples/atmospheric_demo/src/TestWorldScene.h
+    )
 
-target_compile_definitions(EngineStarter
-    PRIVATE
-        GLFW_INCLUDE_NONE
-        ENGINE_SOURCE_DIR="${ENGINE_SOURCE_DIR_NORMALIZED}"
-)
+    target_include_directories(atmospheric_demo
+        PRIVATE
+            "${CMAKE_SOURCE_DIR}/examples/atmospheric_demo/src"
+    )
 
-target_link_libraries(EngineStarter
-    PRIVATE
-        glad
-        glfw
-        OpenGL::GL
-)
+    target_compile_definitions(atmospheric_demo
+        PRIVATE
+            GLFW_INCLUDE_NONE
+            ENGINE_SOURCE_DIR="${ENGINE_SOURCE_DIR_NORMALIZED}"
+    )
 
-if(WIN32)
-    target_link_libraries(EngineStarter PRIVATE ole32 windowscodecs Msimg32)
+    target_link_libraries(atmospheric_demo
+        PRIVATE
+            engine
+    )
+
+    engine_apply_target_defaults(atmospheric_demo)
+
+    set_target_properties(atmospheric_demo PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:atmospheric_demo>"
+    )
+
+    # Copy assets to example output directory
+    add_custom_target(atmospheric_demo_assets ALL
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:atmospheric_demo>/assets"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_SOURCE_DIR}/assets"
+                "$<TARGET_FILE_DIR:atmospheric_demo>/assets"
+        DEPENDS ${ENGINE_SHADERS} ${ENGINE_ASSET_PLACEHOLDERS}
+        COMMENT "Copying assets for atmospheric demo"
+    )
+
+    add_dependencies(atmospheric_demo atmospheric_demo_assets)
+    engine_stage_runtime_dependencies(atmospheric_demo)
+
+    source_group(TREE "${CMAKE_SOURCE_DIR}" FILES examples/atmospheric_demo/src/*.cpp examples/atmospheric_demo/src/*.h)
 endif()
 
-if(TARGET imgui)
-    target_link_libraries(EngineStarter PRIVATE imgui)
-    target_compile_definitions(EngineStarter PRIVATE ENGINE_ENABLE_DEBUG_UI=1)
-endif()
-
-engine_apply_target_defaults(EngineStarter)
-
-set_target_properties(glad PROPERTIES FOLDER "external")
-set_target_properties(glfw PROPERTIES FOLDER "external")
-set_target_properties(EngineStarter PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:EngineStarter>"
-)
-
-add_custom_target(EngineStarterAssets ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:EngineStarter>/assets"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_SOURCE_DIR}/assets"
-            "$<TARGET_FILE_DIR:EngineStarter>/assets"
-    DEPENDS ${ENGINE_SHADERS} ${ENGINE_ASSET_PLACEHOLDERS}
-    COMMENT "Copying engine assets"
-)
-
-add_dependencies(EngineStarter EngineStarterAssets)
-engine_stage_runtime_dependencies(EngineStarter)
-
-source_group(TREE "${CMAKE_SOURCE_DIR}" FILES
-    ${ENGINE_SOURCES}
-    ${ENGINE_HEADERS}
-    ${ENGINE_SHADERS}
-    ${ENGINE_ASSET_PLACEHOLDERS}
-)
+# ============================================================================
+# Tests
+# ============================================================================
 
 if(BUILD_TESTING)
     add_executable(EngineStarterTests
