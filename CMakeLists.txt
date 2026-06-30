@@ -85,12 +85,13 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT EXISTS "${IMGUI_SOURCE_DIR}/imgui.h
     message(FATAL_ERROR "Dear ImGui was not found in external/imgui. It is required for debug UI builds.")
 endif()
 
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+ set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+ set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+ set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "" FORCE)
 
-add_subdirectory("${GLFW_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/external/glfw")
+ add_subdirectory("${GLFW_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/external/glfw")
 
 add_library(glad STATIC "${GLAD_SOURCE_FILE}")
 target_include_directories(glad PUBLIC "${GLAD_INCLUDE_DIR}")

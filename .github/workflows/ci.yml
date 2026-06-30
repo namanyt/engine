@@ -23,7 +23,6 @@ jobs:
           libxrandr-dev \
           libxinerama-dev \
           libgl1-mesa-dev \
-          libwayland-dev \
           ninja-build \
           cmake
 
