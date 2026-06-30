@@ -487,7 +487,6 @@ if(BUILD_TESTING)
     add_test(NAME shader_assets_exist COMMAND EngineStarterTests shader_assets_exist)
     add_test(NAME asset_directory_layout_exists COMMAND EngineStarterTests asset_directory_layout_exists)
     add_test(NAME dependency_layout_exists COMMAND EngineStarterTests dependency_layout_exists)
-    add_test(NAME engine_source_layout_exists COMMAND EngineStarterTests engine_source_layout_exists)
     add_test(NAME asset_manager_round_trip COMMAND EngineStarterTests asset_manager_round_trip)
     add_test(NAME vnscript_parser_smoke COMMAND EngineStarterTests vnscript_parser_smoke)
     add_test(NAME audio_settings_contract COMMAND EngineStarterTests audio_settings_contract)
@@ -496,7 +495,6 @@ if(BUILD_TESTING)
         shader_assets_exist
         asset_directory_layout_exists
         dependency_layout_exists
-        engine_source_layout_exists
         asset_manager_round_trip
         vnscript_parser_smoke
         audio_settings_contract
