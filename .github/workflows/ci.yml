@@ -1,0 +1,39 @@
+name: C++ CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libx11-dev \
+          libxrandr-dev \
+          libxinerama-dev \
+          libgl1-mesa-dev \
+          ninja-build \
+          cmake
+
+    - name: Configure
+      run: cmake --preset release-ninja
+    
+    - name: Build engine library
+      run: cmake --build --preset build-release-ninja --target engine
+    
+    - name: Build atmospheric demo
+      run: cmake --build --preset build-release-ninja --target atmospheric_demo
+    
+    - name: Run tests
+      run: ctest --preset test-release-ninja --output-on-failure

@@ -1,103 +1,123 @@
-# Engine
+# Engine Library
 
-A relaxing atmospheric adventure about exploring beautiful worlds, meeting strange people, and discovering what connects them all.
+A C++ game engine library for atmospheric exploration projects.
 
-Step into a constantly shifting collection of environments filled with quiet forests, warm sunsets, distant structures, cozy spaces, and hidden places waiting to be explored. Take your time, wander freely, and enjoy a slow-paced experience focused on atmosphere, immersion, and discovery.
+## Overview
 
-Whether you're walking through fog-covered hills, watching moonlight pass over distant landscapes, or simply sitting quietly in places that feel oddly familiar, `Engine` is designed to be an experience you can get lost in.
-
----
+Engine is a custom C++ runtime and rendering framework designed for creating atmospheric, exploration-focused games. The engine provides a modular architecture with clear separation between core systems and application code.
 
 ## Features
 
-- Atmospheric first-person exploration
-- Stylized low-poly environments
-- Dynamic lighting and volumetric atmosphere
-- Seamless runtime scene transitions
-- Experimental narrative structure
-- Hybrid exploration and VN-inspired storytelling
-- Minimalist immersive interface
-- Procedural environmental variation
-- Runtime-driven world systems
-- Relaxed exploration-focused pacing
+- **OpenGL 3.3 Core Renderer** - Modern graphics pipeline with VAOs and shaders
+- **Runtime Architecture** - Scene and mode management via registration API
+- **Atmospheric Rendering** - Volumetric fog, HDR post-processing, bloom effects
+- **Entity-Component System** - ECS-driven world systems for game objects
+- **Asset Management** - Runtime asset loading with lazy shader compilation
+- **Scene Transitions** - Seamless runtime scene transitions with loading previews
+- **Debug Tools** - ImGui-based debug UI and profiling tools (debug builds)
+- **Procedural Generation** - Environment generation and primitive geometry
 
----
+## Architecture
 
-## About The Game
+```
+engine/
+├── include/engine/          # Public API headers
+│   ├── engine.hpp           # Main entry point
+│   ├── runtime.hpp          # Runtime factory and modes
+│   ├── renderer.hpp         # OpenGL rendering pipeline
+│   ├── ecs.hpp               # Entity-component-system
+│   └── assets.hpp            # Asset management
+├── src/                     # Engine library source
+│   ├── core/                 # Application, logging
+│   ├── renderer/             # Rendering pipeline
+│   ├── ecs/                  # ECS implementation
+│   ├── assets/               # Asset management
+│   ├── geometry/             # Geometry operations
+│   ├── graphics/             # GPU wrappers (Mesh, buffers)
+│   ├── math/                 # Vector/matrix types
+│   └── primitives/           # Shape generators
+├── examples/atmospheric_demo/  # Comprehensive demo application
+├── tests/                   # Unit tests
+└── external/                # Third-party dependencies
+```
 
-Every place in `Engine` has its own personality.
+## Build Requirements
 
-Some are lively and comforting.
-Others are quiet and distant.
-Some places feel strangely familiar.
+- C++17 compliant compiler (GCC 13+, MSVC 2022+)
+- CMake 3.23+
+- Ninja build system (recommended)
+- OpenGL development libraries
+- GLFW 3 (vendored in external/glfw)
+- GLAD (vendored in external/glad)
 
-As you continue exploring, you'll slowly uncover more about the world, the people connected to it, and the hidden links between places that should never have crossed paths.
-
-Take your time.
-There’s no rush.
-
----
-
-## Technical Overview
-
-`Engine` is built entirely on a custom C++ runtime and rendering framework developed specifically for the game itself.
-
-Current engine/runtime systems include:
-
-- Custom OpenGL 3.3 renderer
-- Runtime-mode architecture (`Menu`, `Loading`, `Exploration`)
-- Atmospheric volumetric fog pipeline
-- HDR post-processing and bloom
-- ECS-driven world systems
-- Procedural environment generation
-- Runtime asset loading and lazy shader compilation
-- Metasset-based scene architecture
-- Pause and overlay runtime systems
-- ImGui-based debug and profiling tools
-- Scene-local asset ownership and runtime transitions
-
-The project is intentionally code-authored and runtime-driven rather than editor-centric.
-
----
-
-## Build
+## Building
 
 ### Configure
 
 ```powershell
-cmake --preset debug-ninja
+# Using Ninja (recommended)
+cmake --preset release-ninja
+
+# Using Visual Studio 2022 x64
+cmake --preset vs2022-x64
 ```
 
-### Build
+### Build Targets
 
 ```powershell
-cmake --build --preset build-debug-ninja
+# Build engine library only
+cmake --build --preset build-release-ninja --target engine
+
+# Build atmospheric demo example
+cmake --build --preset build-release-ninja --target atmospheric_demo
+
+# Build all targets
+cmake --build --preset build-release-ninja
 ```
 
 ### Run Tests
 
 ```powershell
-ctest --preset test-debug-ninja --output-on-failure
+ctest --preset test-release-ninja --output-on-failure
 ```
 
----
+## Usage
 
-## Current Development Status
+### Basic Example
 
-`Engine` is currently in active development.
+```cpp
+#include <engine/engine.hpp>
 
-The current build contains:
+int main() {
+    // Register runtimes before creating engine
+    engine::RuntimeFactory::registerRuntime(engine::RuntimeId::Menu, []() {
+        return std::make_unique<MenuRuntime>();
+    });
+    
+    // Create and run engine runtime
+    EngineRuntime runtime;
+    return runtime.run();
+}
+```
 
-- atmospheric exploration gameplay
-- runtime scene transitions
-- procedural environments
-- menu and overlay systems
-- interaction foundations
-- dynamic atmosphere rendering
-- experimental narrative systems
+### Using the Engine Library
 
-Additional environments, interactions, characters, and systems are still in development.
+Link against the `engine` library in your CMakeLists.txt:
 
----
+```cmake
+target_link_libraries(your_app PRIVATE engine)
+```
 
-This game is not suitable for children or those who are easily disturbed.
+## Examples
+
+The `examples/atmospheric_demo/` directory contains a comprehensive demo application showcasing:
+
+- Menu system with settings overlay
+- Atmospheric exploration runtime
+- Visual novel prototype system
+- Scene transitions and loading screens
+- Player movement and camera controls
+
+## License
+
+See [LICENSE](LICENSE) for details.
