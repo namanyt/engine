@@ -19,27 +19,32 @@ std::unique_ptr<RuntimeMode> createVisualNovelRuntime(const RuntimeTransitionReq
 {
     const std::filesystem::path scriptAssetPath =
         request.scriptAssetPath.empty() ? std::filesystem::path{kPrototypeVnScriptPath}
-                                        : request.scriptAssetPath;
+                                         : request.scriptAssetPath;
     return std::make_unique<VNRuntime>(scriptAssetPath, request.returnTargetId);
 }
 } // namespace
 
+void RuntimeFactory::registerRuntime(RuntimeId runtimeId, RuntimeFactoryFn factory)
+{
+    registry()[runtimeId] = std::move(factory);
+}
+
 std::unique_ptr<RuntimeMode> RuntimeFactory::create(RuntimeId runtimeId)
 {
-    switch (runtimeId)
+    auto& map = registry();
+    auto iterator = map.find(runtimeId);
+    if (iterator != map.end())
     {
-    case RuntimeId::Menu:
-        return std::make_unique<MenuRuntime>();
-    case RuntimeId::FoggyTestWorld:
-        return std::make_unique<ExplorationRuntime>(RuntimeId::FoggyTestWorld);
-    case RuntimeId::DaylightSandbox:
-        return std::make_unique<ExplorationRuntime>(RuntimeId::DaylightSandbox);
-    case RuntimeId::VNPrototype:
-        return std::make_unique<VNRuntime>(std::filesystem::path{kPrototypeVnScriptPath},
-                                           kPrototypeReturnRuntimeId);
+        return iterator->second();
     }
 
-    throw std::runtime_error("Unsupported runtime id requested from RuntimeFactory.");
+    throw std::runtime_error("No factory registered for requested runtime id.");
+}
+
+std::unordered_map<RuntimeId, RuntimeFactoryFn>& RuntimeFactory::registry()
+{
+    static std::unordered_map<RuntimeId, RuntimeFactoryFn> map;
+    return map;
 }
 
 std::unique_ptr<RuntimeMode>
