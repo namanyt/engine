@@ -8,13 +8,15 @@
 
 namespace engine
 {
+/// @brief Performance metrics for a single render pass.
 struct PassPerformanceStats final
 {
-    std::string name;
-    float cpuMilliseconds = 0.0f;
-    float gpuMilliseconds = 0.0f;
+    std::string name;             ///< Human-readable pass identifier.
+    float cpuMilliseconds = 0.0f; ///< CPU time spent in this pass.
+    float gpuMilliseconds = 0.0f; ///< GPU time measured via occlusion queries.
 };
 
+/// @brief Aggregated performance statistics for a single frame.
 struct FramePerformanceStats final
 {
     float cpuFrameMilliseconds = 0.0f;
@@ -27,12 +29,19 @@ struct FramePerformanceStats final
     std::vector<PassPerformanceStats> passes{};
 };
 
+/**
+ * @brief CPU and GPU render performance profiler.
+ *
+ * Tracks per-frame timing, draw call counts, and per-pass CPU/GPU samples.
+ * GPU timing uses occlusion queries with a 3-frame delay for accuracy.
+ */
 class RenderProfiler final
 {
   public:
     class ScopedCpuSample;
     class ScopedGpuSample;
 
+    /// @brief Constructs the profiler and allocates GPU query objects.
     RenderProfiler();
     ~RenderProfiler();
 

@@ -721,7 +721,7 @@ void ExplorationRuntime::updateInteractionState(const ExplorationInputState& inp
         return;
     }
 
-    const ecs::Entity previousFocusedEntity = m_interactionState.focusedEntity;
+    (void)m_interactionState.focusedEntity; // tracked for future use
     if (m_overlayView != OverlayView::None || !inputState.cursorCaptured)
     {
         m_interactionState.focusedEntity = ecs::kInvalidEntity;

@@ -13,6 +13,7 @@
 
 namespace
 {
+
 std::filesystem::path repoRoot()
 {
 #ifdef ENGINE_SOURCE_DIR
@@ -102,8 +103,6 @@ int dependencyLayoutExists()
 
     return hasGlfw && hasGladHeader && hasGladSource && hasMiniaudioHeader ? 0 : 1;
 }
-
-
 
 void writeTextFile(const std::filesystem::path& path, std::string_view content)
 {

@@ -437,7 +437,11 @@ endif()
 # ============================================================================
 
 if(BUILD_TESTING)
-    add_executable(EngineStarterTests
+    # ========================================================================
+    # Smoke Tests - Infrastructure and asset smoke tests
+    # ========================================================================
+
+    add_executable(SmokeTests
         tests/SmokeTests.cpp
         src/runtime/VnScript.cpp
         src/assets/Asset.cpp
@@ -453,44 +457,45 @@ if(BUILD_TESTING)
         src/core/Shader.cpp
         src/core/ShaderLibrary.cpp
         src/math/Types.cpp
+        src/math/Transform.cpp
     )
 
-    set_target_properties(EngineStarterTests PROPERTIES
+    set_target_properties(SmokeTests PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
 
-    engine_stage_runtime_dependencies(EngineStarterTests)
+    engine_stage_runtime_dependencies(SmokeTests)
 
-    target_include_directories(EngineStarterTests
+    target_include_directories(SmokeTests
         PRIVATE
             "${CMAKE_SOURCE_DIR}/src"
             "${GLAD_INCLUDE_DIR}"
             "${CMAKE_SOURCE_DIR}/external/miniaudio"
     )
 
-    target_link_libraries(EngineStarterTests
+    target_link_libraries(SmokeTests
         PRIVATE
             glad
             OpenGL::GL
     )
 
     if(WIN32)
-        target_link_libraries(EngineStarterTests PRIVATE ole32 windowscodecs)
+        target_link_libraries(SmokeTests PRIVATE ole32 windowscodecs)
     endif()
 
-    target_compile_definitions(EngineStarterTests
+    target_compile_definitions(SmokeTests
         PRIVATE
             ENGINE_SOURCE_DIR="${ENGINE_SOURCE_DIR_NORMALIZED}"
     )
 
-    engine_apply_target_defaults(EngineStarterTests)
+    engine_apply_target_defaults(SmokeTests)
 
-    add_test(NAME shader_assets_exist COMMAND EngineStarterTests shader_assets_exist)
-    add_test(NAME asset_directory_layout_exists COMMAND EngineStarterTests asset_directory_layout_exists)
-    add_test(NAME dependency_layout_exists COMMAND EngineStarterTests dependency_layout_exists)
-    add_test(NAME asset_manager_round_trip COMMAND EngineStarterTests asset_manager_round_trip)
-    add_test(NAME vnscript_parser_smoke COMMAND EngineStarterTests vnscript_parser_smoke)
-    add_test(NAME audio_settings_contract COMMAND EngineStarterTests audio_settings_contract)
+    add_test(NAME shader_assets_exist COMMAND SmokeTests shader_assets_exist)
+    add_test(NAME asset_directory_layout_exists COMMAND SmokeTests asset_directory_layout_exists)
+    add_test(NAME dependency_layout_exists COMMAND SmokeTests dependency_layout_exists)
+    add_test(NAME asset_manager_round_trip COMMAND SmokeTests asset_manager_round_trip)
+    add_test(NAME vnscript_parser_smoke COMMAND SmokeTests vnscript_parser_smoke)
+    add_test(NAME audio_settings_contract COMMAND SmokeTests audio_settings_contract)
 
     set_tests_properties(
         shader_assets_exist
@@ -503,5 +508,102 @@ if(BUILD_TESTING)
             LABELS "smoke"
     )
 
-    source_group(TREE "${CMAKE_SOURCE_DIR}" FILES tests/SmokeTests.cpp)
+    # ========================================================================
+    # Math Tests - Vector, matrix, and transform unit tests
+    # ========================================================================
+
+    add_executable(MathTests
+        tests/MathTests.cpp
+        src/math/Types.cpp
+        src/math/Transform.cpp
+    )
+
+    set_target_properties(MathTests PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+
+    engine_stage_runtime_dependencies(MathTests)
+
+    target_include_directories(MathTests
+        PRIVATE
+            "${CMAKE_SOURCE_DIR}/src"
+    )
+
+    engine_apply_target_defaults(MathTests)
+
+    add_test(NAME math_vec2_addition COMMAND MathTests math_vec2_addition)
+    add_test(NAME math_vec2_subtraction COMMAND MathTests math_vec2_subtraction)
+    add_test(NAME math_vec2_scalar_multiply COMMAND MathTests math_vec2_scalar_multiply)
+    add_test(NAME math_vec2_scalar_divide COMMAND MathTests math_vec2_scalar_divide)
+    add_test(NAME math_vec2_dot COMMAND MathTests math_vec2_dot)
+    add_test(NAME math_vec2_length COMMAND MathTests math_vec2_length)
+    add_test(NAME math_vec2_normalize COMMAND MathTests math_vec2_normalize)
+    add_test(NAME math_vec3_addition COMMAND MathTests math_vec3_addition)
+    add_test(NAME math_vec3_subtraction COMMAND MathTests math_vec3_subtraction)
+    add_test(NAME math_vec3_negation COMMAND MathTests math_vec3_negation)
+    add_test(NAME math_vec3_scalar_multiply COMMAND MathTests math_vec3_scalar_multiply)
+    add_test(NAME math_vec3_scalar_divide COMMAND MathTests math_vec3_scalar_divide)
+    add_test(NAME math_vec3_dot COMMAND MathTests math_vec3_dot)
+    add_test(NAME math_vec3_cross COMMAND MathTests math_vec3_cross)
+    add_test(NAME math_vec3_length COMMAND MathTests math_vec3_length)
+    add_test(NAME math_vec3_normalize COMMAND MathTests math_vec3_normalize)
+    add_test(NAME math_vec4_addition COMMAND MathTests math_vec4_addition)
+    add_test(NAME math_vec4_scalar_multiply COMMAND MathTests math_vec4_scalar_multiply)
+    add_test(NAME math_color_white COMMAND MathTests math_color_white)
+    add_test(NAME math_color_black COMMAND MathTests math_color_black)
+    add_test(NAME math_mat4_identity COMMAND MathTests math_mat4_identity)
+    add_test(NAME math_mat4_multiplication COMMAND MathTests math_mat4_multiplication)
+    add_test(NAME math_mat4_translation COMMAND MathTests math_mat4_translation)
+    add_test(NAME math_mat4_scale COMMAND MathTests math_mat4_scale)
+    add_test(NAME math_mat4_rotation_x COMMAND MathTests math_mat4_rotation_x)
+    add_test(NAME math_mat4_rotation_y COMMAND MathTests math_mat4_rotation_y)
+    add_test(NAME math_mat4_rotation_z COMMAND MathTests math_mat4_rotation_z)
+    add_test(NAME math_mat4_inverse COMMAND MathTests math_mat4_inverse)
+    add_test(NAME math_mat4_perspective COMMAND MathTests math_mat4_perspective)
+    add_test(NAME math_mat4_orthographic COMMAND MathTests math_mat4_orthographic)
+    add_test(NAME math_mat4_look_at COMMAND MathTests math_mat4_look_at)
+    add_test(NAME math_transform_model_matrix COMMAND MathTests math_transform_model_matrix)
+    add_test(NAME math_transform_scale COMMAND MathTests math_transform_scale)
+    add_test(NAME math_transform_combined COMMAND MathTests math_transform_combined)
+
+    set_tests_properties(
+        math_vec2_addition
+        math_vec2_subtraction
+        math_vec2_scalar_multiply
+        math_vec2_scalar_divide
+        math_vec2_dot
+        math_vec2_length
+        math_vec2_normalize
+        math_vec3_addition
+        math_vec3_subtraction
+        math_vec3_negation
+        math_vec3_scalar_multiply
+        math_vec3_scalar_divide
+        math_vec3_dot
+        math_vec3_cross
+        math_vec3_length
+        math_vec3_normalize
+        math_vec4_addition
+        math_vec4_scalar_multiply
+        math_color_white
+        math_color_black
+        math_mat4_identity
+        math_mat4_multiplication
+        math_mat4_translation
+        math_mat4_scale
+        math_mat4_rotation_x
+        math_mat4_rotation_y
+        math_mat4_rotation_z
+        math_mat4_inverse
+        math_mat4_perspective
+        math_mat4_orthographic
+        math_mat4_look_at
+        math_transform_model_matrix
+        math_transform_scale
+        math_transform_combined
+        PROPERTIES
+            LABELS "math"
+    )
+
+    source_group(TREE "${CMAKE_SOURCE_DIR}" FILES tests/SmokeTests.cpp tests/MathTests.cpp)
 endif()
