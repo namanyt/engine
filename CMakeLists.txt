@@ -144,6 +144,7 @@ set(ENGINE_SOURCES
     src/core/ShadowMapPass.cpp
     src/geometry/Geometry.cpp
     src/geometry/Generators.cpp
+    src/geometry/ObjParser.cpp
     src/geometry/Operations.cpp
     src/graphics/VertexBuffer.cpp
     src/graphics/IndexBuffer.cpp
@@ -205,6 +206,7 @@ set(ENGINE_HEADERS
     src/core/ShadowMapPass.h
     src/geometry/Geometry.h
     src/geometry/Generators.h
+    src/geometry/ObjParser.h
     src/geometry/Operations.h
     src/graphics/VertexBuffer.h
     src/graphics/IndexBuffer.h
@@ -456,6 +458,8 @@ if(BUILD_TESTING)
         src/core/Log.cpp
         src/core/Shader.cpp
         src/core/ShaderLibrary.cpp
+        src/geometry/Geometry.cpp
+        src/geometry/ObjParser.cpp
         src/math/Types.cpp
         src/math/Transform.cpp
     )
@@ -605,5 +609,67 @@ if(BUILD_TESTING)
             LABELS "math"
     )
 
-    source_group(TREE "${CMAKE_SOURCE_DIR}" FILES tests/SmokeTests.cpp tests/MathTests.cpp)
+    # ========================================================================
+    # OBJ Parser Tests - Wavefront OBJ format parsing tests
+    # ========================================================================
+
+    add_executable(ObjParserTests
+        tests/ObjParserTests.cpp
+        src/math/Types.cpp
+        src/geometry/Geometry.cpp
+        src/geometry/ObjParser.cpp
+    )
+
+    set_target_properties(ObjParserTests PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+
+    engine_stage_runtime_dependencies(ObjParserTests)
+
+    target_include_directories(ObjParserTests
+        PRIVATE
+            "${CMAKE_SOURCE_DIR}/src"
+    )
+
+    engine_apply_target_defaults(ObjParserTests)
+
+    add_test(NAME obj_parse_simple_triangle COMMAND ObjParserTests obj_parse_simple_triangle)
+    add_test(NAME obj_parse_triangle_with_normals COMMAND ObjParserTests obj_parse_triangle_with_normals)
+    add_test(NAME obj_parse_triangle_with_uvs COMMAND ObjParserTests obj_parse_triangle_with_uvs)
+    add_test(NAME obj_parse_triangle_with_full_refs COMMAND ObjParserTests obj_parse_triangle_with_full_refs)
+    add_test(NAME obj_parse_quad COMMAND ObjParserTests obj_parse_quad)
+    add_test(NAME obj_parse_pentagon COMMAND ObjParserTests obj_parse_pentagon)
+    add_test(NAME obj_parse_empty_input COMMAND ObjParserTests obj_parse_empty_input)
+    add_test(NAME obj_parse_comments_only COMMAND ObjParserTests obj_parse_comments_only)
+    add_test(NAME obj_parse_negative_indices COMMAND ObjParserTests obj_parse_negative_indices)
+    add_test(NAME obj_parse_multiple_faces COMMAND ObjParserTests obj_parse_multiple_faces)
+    add_test(NAME obj_parse_ignores_comments_and_whitespace COMMAND ObjParserTests obj_parse_ignores_comments_and_whitespace)
+    add_test(NAME obj_parse_cube COMMAND ObjParserTests obj_parse_cube)
+    add_test(NAME obj_parse_default_normal COMMAND ObjParserTests obj_parse_default_normal)
+    add_test(NAME obj_parse_from_bytes COMMAND ObjParserTests obj_parse_from_bytes)
+    add_test(NAME obj_parse_null_input COMMAND ObjParserTests obj_parse_null_input)
+    add_test(NAME obj_parse_vertices_without_faces COMMAND ObjParserTests obj_parse_vertices_without_faces)
+
+    set_tests_properties(
+        obj_parse_simple_triangle
+        obj_parse_triangle_with_normals
+        obj_parse_triangle_with_uvs
+        obj_parse_triangle_with_full_refs
+        obj_parse_quad
+        obj_parse_pentagon
+        obj_parse_empty_input
+        obj_parse_comments_only
+        obj_parse_negative_indices
+        obj_parse_multiple_faces
+        obj_parse_ignores_comments_and_whitespace
+        obj_parse_cube
+        obj_parse_default_normal
+        obj_parse_from_bytes
+        obj_parse_null_input
+        obj_parse_vertices_without_faces
+        PROPERTIES
+            LABELS "obj"
+    )
+
+    source_group(TREE "${CMAKE_SOURCE_DIR}" FILES tests/SmokeTests.cpp tests/MathTests.cpp tests/ObjParserTests.cpp)
 endif()

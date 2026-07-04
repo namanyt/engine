@@ -1,5 +1,7 @@
 #include "assets/ModelAsset.h"
 
+#include "geometry/ObjParser.h"
+
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -54,5 +56,13 @@ const std::string& ModelAsset::formatName() const noexcept
 const std::vector<std::uint8_t>& ModelAsset::sourceBytes() const noexcept
 {
     return m_sourceBytes;
+}
+
+std::optional<Geometry> ModelAsset::parseObj() const
+{
+    if (m_formatName != "obj")
+        return std::nullopt;
+
+    return ObjParser::parse(m_sourceBytes.data(), m_sourceBytes.size());
 }
 } // namespace engine

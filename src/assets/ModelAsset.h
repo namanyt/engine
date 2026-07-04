@@ -1,10 +1,12 @@
 #pragma once
 
 #include "assets/Asset.h"
+#include "geometry/Geometry.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -13,12 +15,14 @@ namespace engine
 /**
  * @brief Loaded 3D model asset with raw source bytes.
  *
- * Stores the raw file contents and format name (e.g. "obj", "gltf") for
- * later parsing by a model loader. Currently loads as binary data only;
- * vertex/face/normal parsing is not yet implemented.
+ * Stores the raw file contents and format name (e.g. "obj", "gltf"). For
+ * Wavefront OBJ files, call @ref parseObj() to convert the raw bytes into
+ * a renderable @ref Geometry. Other formats (e.g. glTF) retain raw bytes
+ * only until a dedicated parser is added.
  *
  * @see Asset
  * @see AssetManager
+ * @see ObjParser
  */
 class ModelAsset final : public Asset
 {
@@ -48,6 +52,15 @@ class ModelAsset final : public Asset
     /// @brief Returns the raw model source bytes.
     /// @return Reference to the source byte buffer.
     const std::vector<std::uint8_t>& sourceBytes() const noexcept;
+
+    /// @brief Parses OBJ-format source data into a Geometry object.
+    ///
+    /// Supports vertex positions (v), normals (vn), texture coordinates (vt),
+    /// and faces (f). Faces with more than 3 vertices are fan-triangulated.
+    ///
+    /// @return Parsed Geometry, or std::nullopt if the format is not OBJ or
+    ///         parsing produced no valid geometry.
+    std::optional<Geometry> parseObj() const;
 
   private:
     std::vector<std::uint8_t> m_sourceBytes; ///< Raw model file data.

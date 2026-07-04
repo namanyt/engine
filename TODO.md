@@ -33,7 +33,7 @@
 
 ### Priority: Low
 
-- [ ] Implement 3D model parsing (Wavefront OBJ format)
+- [x] Implement 3D model parsing (Wavefront OBJ format)
 - [x] Add Doxygen-style comments to public headers
 - [ ] Consider adding more example applications
 
@@ -43,7 +43,7 @@
 
 - ✅ Release build working (Ninja + MinGW)
 - ❌ Debug build requires ImGui dependency
-- ✅ All 40 tests passing (6 smoke + 34 math)
+- ✅ All 56 tests passing (6 smoke + 34 math + 16 obj)
 
 ### Project Structure
 
