@@ -81,12 +81,12 @@ std::cout << "Discovered " << discoveredCount << " assets" << std::endl;
 
 The engine supports various asset types:
 
-| Type     | Extensions              | Description                          |
-| -------- | ----------------------- | ------------------------------------ |
-| Shaders  | .glsl, .vert, .frag     | GLSL shader programs                 |
-| Textures | .png, .jpg, .jpeg, .bmp | Image files                          |
-| Audio    | .wav, .ogg, .mp3        | Sound effects and music              |
-| Models   | .obj, .gltf             | 3D model files (binary loading only) |
+| Type     | Extensions              | Description                                   |
+| -------- | ----------------------- | --------------------------------------------- |
+| Shaders  | .glsl, .vert, .frag     | GLSL shader programs                          |
+| Textures | .png, .jpg, .jpeg, .bmp | Image files                                   |
+| Audio    | .wav, .ogg, .mp3        | Sound effects and music                       |
+| Models   | .obj, .gltf             | 3D model files (OBJ parsed, glTF binary only) |
 
 ### Asset Metadata Generation
 

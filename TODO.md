@@ -11,12 +11,12 @@
 
 ## Known Limitations
 
-### 3D Model Parsing Not Implemented
+### glTF Model Parsing Not Implemented
 
-- **Current state**: .obj and .gltf files are loaded as raw binary data only
-- **Missing**: No vertex/face/normal parsing, no mesh generation from model files
-- **Impact**: Models cannot be rendered directly; must use procedural geometry instead
-- **Planned**: Implement Wavefront OBJ parser as first step
+- **Current state**: .gltf files are loaded as raw binary data only
+- **Missing**: No glTF scene graph, material, or animation parsing
+- **Impact**: glTF models cannot be rendered directly; must use OBJ format instead
+- **Planned**: Implement glTF parser after OBJ is stable
 
 ### Debug Build Requires ImGui
 
@@ -33,7 +33,7 @@
 
 ### Priority: Low
 
-- [x] Implement 3D model parsing (Wavefront OBJ format)
+- [ ] Implement glTF model parsing
 - [x] Add Doxygen-style comments to public headers
 - [ ] Consider adding more example applications
 
@@ -44,6 +44,7 @@
 - ✅ Release build working (Ninja + MinGW)
 - ❌ Debug build requires ImGui dependency
 - ✅ All 56 tests passing (6 smoke + 34 math + 16 obj)
+- ✅ Wavefront OBJ parsing with fan triangulation, normals, UVs, negative indices
 
 ### Project Structure
 

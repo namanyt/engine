@@ -12,13 +12,13 @@ All asset types inherit from the base `Asset` class:
 class Asset {
 public:
     virtual ~Asset() = default;
-    
+
     // Common properties for all assets
     std::string uuid() const;
     std::filesystem::path filePath() const;
     std::size_t sizeInBytes() const;
     AssetType type() const;
-    
+
     // Loading state management
     bool isLoaded() const;
     virtual void unload();
@@ -48,12 +48,12 @@ public:
         Vertex,
         Fragment
     };
-    
+
     // Shader-specific properties
     Stage stage() const;
     const std::string& source() const;
     bool isCompiled() const;
-    
+
     // Compilation information
     std::string getCompileLog() const;
     bool hasCompilationErrors() const;
@@ -69,10 +69,10 @@ auto vertexShader = assetManager->load<engine::ShaderAsset>("shaders/surface.ver
 if (vertexShader) {
     // Verify shader stage
     assert(vertexShader->stage() == engine::ShaderAsset::Stage::Vertex);
-    
+
     // Get source code
     const std::string& source = vertexShader->source();
-    
+
     // Create shader program
     auto fragmentShader = assetManager->load<engine::ShaderAsset>("shaders/surface.frag");
     auto program = std::make_unique<engine::Shader>(
@@ -111,7 +111,7 @@ public:
     int width() const;
     int height() const;
     std::string formatName() const;  // "png", "jpg", etc.
-    
+
     // Texture settings
     bool isSRGB() const;
     bool isMipmapped() const;
@@ -136,11 +136,11 @@ auto texture = assetManager->load<engine::TextureAsset>("textures/background.png
 if (texture) {
     // Get texture ID for rendering
     unsigned int textureId = texture->textureId();
-    
+
     // Check texture dimensions
-    std::cout << "Texture size: " << texture->width() << "x" 
+    std::cout << "Texture size: " << texture->width() << "x"
               << texture->height() << std::endl;
-    
+
     // Use in rendering
     renderer.draw(mesh, material, transform, frameUniforms, textureId);
 }
@@ -149,11 +149,11 @@ if (texture) {
 ### Texture Format Support
 
 | Format | Supported | sRGB Default | Mipmapping |
-|--------|-----------|--------------|------------|
-| PNG | Yes | Yes | Yes |
-| JPEG | Yes | Yes | Yes |
-| BMP | Yes | No | Yes |
-| TGA | Yes | Yes | Yes |
+| ------ | --------- | ------------ | ---------- |
+| PNG    | Yes       | Yes          | Yes        |
+| JPEG   | Yes       | Yes          | Yes        |
+| BMP    | Yes       | No           | Yes        |
+| TGA    | Yes       | Yes          | Yes        |
 
 ## Audio Assets
 
@@ -170,7 +170,7 @@ public:
     float duration() const;           // Duration in seconds
     int sampleRate() const;
     int channels() const;
-    
+
     // Playback state
     bool isPlaying() const;
     float currentTime() const;
@@ -186,10 +186,10 @@ auto music = assetManager->load<engine::AudioAsset>("audio/menu_music.ogg");
 if (music) {
     // Get audio ID for playback
     unsigned int audioId = music->audioId();
-    
+
     // Check duration
     std::cout << "Music duration: " << music->duration() << " seconds" << std::endl;
-    
+
     // Play audio
     audioSystem.play(audioId);
 }
@@ -197,18 +197,18 @@ if (music) {
 
 ### Audio Format Support
 
-| Format | Supported | Compression | Quality |
-|--------|-----------|-------------|---------|
-| WAV | Yes | Uncompressed | Lossless |
-| OGG | Yes | Compressed | Good |
-| MP3 | Yes | Compressed | Fair |
-| FLAC | Yes | Compressed | Lossless |
+| Format | Supported | Compression  | Quality  |
+| ------ | --------- | ------------ | -------- |
+| WAV    | Yes       | Uncompressed | Lossless |
+| OGG    | Yes       | Compressed   | Good     |
+| MP3    | Yes       | Compressed   | Fair     |
+| FLAC   | Yes       | Compressed   | Lossless |
 
 ## Model Assets
 
 ### Overview
 
-Model assets manage 3D model files by loading them as raw binary data. Full format parsing is not yet implemented.
+Model assets manage 3D model files. Wavefront OBJ files are fully parsed into renderable `Geometry` objects (vertices, normals, UVs, triangulated faces). Other formats (e.g. glTF) are loaded as raw binary data until a dedicated parser is added.
 
 ```cpp
 class ModelAsset : public Asset {
@@ -216,40 +216,74 @@ public:
     // Model properties
     std::string formatName() const;  // Extension without dot (e.g., "obj")
     std::size_t sizeInBytes() const;  // File size in bytes
-    
+
     // Raw model data
     const std::vector<std::uint8_t>& sourceBytes() const;
+
+    // OBJ parsing
+    std::optional<Geometry> parseObj() const;  // Parse OBJ into Geometry
 };
 ```
 
 ### Usage Example
 
 ```cpp
-// Load model asset (returns raw binary data)
+// Load model asset
 auto character = assetManager->load<engine::ModelAsset>("models/character.obj");
 
 if (character) {
-    // Access raw model data
-    auto bytes = character->sourceBytes();
-    std::string format = character->formatName();
-    
-    std::cout << "Model size: " << character->sizeInBytes() << " bytes" << std::endl;
+    // Parse OBJ data into renderable geometry
+    auto geometry = character->parseObj();
+
+    if (geometry) {
+        std::cout << "Vertices: " << geometry->vertices.size() << std::endl;
+        std::cout << "Indices: " << geometry->indices.size() << std::endl;
+
+        // Create mesh from parsed geometry
+        auto mesh = std::make_unique<Mesh>(geometry.value());
+
+        // Draw with renderer
+        renderer.draw(*mesh, shader, transform);
+    }
 }
 ```
 
+### OBJ Parser Features
+
+The Wavefront OBJ parser supports:
+
+| Feature                | Supported | Details                               |
+| ---------------------- | --------- | ------------------------------------- |
+| Vertex positions (`v`) | Yes       | X, Y, Z coordinates                   |
+| Vertex normals (`vn`)  | Yes       | Default (0, 1, 0) if missing          |
+| Texture coords (`vt`)  | Yes       | U, V coordinates                      |
+| Faces (`f`)            | Yes       | All slash formats supported           |
+| Fan triangulation      | Yes       | N-gons triangulated from first vertex |
+| Negative indices       | Yes       | Wrap-around (e.g. -1 = last vertex)   |
+| Comments (`#`)         | Yes       | Ignored during parsing                |
+| Empty lines            | Yes       | Skipped                               |
+
+**Face reference formats:**
+
+- `f v1 v2 v3` — positions only
+- `f v1/t1 v2/t2 v3/t3` — positions and UVs
+- `f v1/n1 v2/n2 v3/n3` — positions and normals
+- `f v1/t1/n1 v2/t2/n2 v3/t3/n3` — full references
+
 ### Model Format Support
 
-| Format | Supported | Features |
-|--------|-----------|----------|
-| OBJ | Binary only | Raw file loading (no parsing) |
-| glTF | Binary only | Raw file loading (no parsing) |
-| FBX | Not supported | Planned for future |
+| Format | Supported     | Features                                     |
+| ------ | ------------- | -------------------------------------------- |
+| OBJ    | Yes           | Full parsing (vertices, normals, UVs, faces) |
+| glTF   | Binary only   | Raw file loading (no parsing)                |
+| FBX    | Not supported | Planned for future                           |
 
 **Current Limitations:**
-- Files are loaded as raw binary data
-- No vertex/face/normal parsing
-- No animation support
-- No material extraction
+
+- No animation support (skins, morph targets, keyframes)
+- No material extraction (MTL files not parsed)
+- glTF loading is binary-only; no scene graph parsing
+- No multi-mesh separation (all geometry merged into one `Geometry`)
 
 ## Custom Asset Types
 
@@ -262,7 +296,7 @@ public:
     // Custom properties
     std::vector<float> data;
     int customValue = 0;
-    
+
     // Custom methods
     bool parse(std::ifstream& file) {
         // Implement parsing logic
@@ -272,20 +306,38 @@ public:
 
 // Register custom asset type
 engine::AssetType kCustomAssetType = static_cast<engine::AssetType>(
-    engine::AssetType::Custom + 1
+    static_cast<uint32_t>(engine::AssetType::Custom) + 1
 );
 
 // Create custom loader
 std::shared_ptr<engine::Asset> customLoader(
     const engine::AssetRegistry::Record& record) {
-    
+
     auto customAsset = std::make_shared<CustomAsset>();
-    
+
     std::ifstream file(record.meta.filePath, std::ios::binary);
     if (!file.is_open()) {
         return nullptr;
     }
-    
+
+    customAsset->parse(file);
+    return customAsset;
+}
+
+// Register loader with asset manager
+assetManager->registerLoader(kCustomAssetType, customLoader);
+
+// Create custom loader
+std::shared_ptr<engine::Asset> customLoader(
+    const engine::AssetRegistry::Record& record) {
+
+    auto customAsset = std::make_shared<CustomAsset>();
+
+    std::ifstream file(record.meta.filePath, std::ios::binary);
+    if (!file.is_open()) {
+        return nullptr;
+    }
+
     customAsset->parse(file);
     return customAsset;
 }
